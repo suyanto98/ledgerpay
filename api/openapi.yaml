@@ -1,0 +1,412 @@
+openapi: 3.1.0
+info:
+  title: LedgerPay API
+  version: 0.1.0
+  summary: Mini payment platform with a double-entry ledger.
+  description: |
+    Spec-first contract (ADR-003). Sprint 0 skeleton covering Sprint 1–3 paths
+    (auth, wallet, transfers). Conventions: docs/design/11-api-conventions.md.
+
+    - Money is always a **string** of integer minor units (IDR exponent 2): "5000000" = Rp50.000,00 (ADR-L04).
+    - Errors use RFC 9457 `application/problem+json` with a stable `code` (docs/design/12-api-error-catalogue.md).
+    - Money-moving endpoints require the `Idempotency-Key` header (ADR-L02).
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: /api/v1
+    description: Relative to the host serving the SPA (Caddy routes /api/* to the API)
+
+tags:
+  - name: auth
+    description: Registration, login, and session management (ADR-009).
+  - name: wallet
+    description: Wallet balance and transaction history (LF-02).
+  - name: transfers
+    description: Peer-to-peer transfers (LF-04, LF-05).
+
+security:
+  - userJWT: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      operationId: register
+      summary: Register a user and create their IDR wallet
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: User and wallet created in one transaction.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Log in with email and password
+      description: |
+        Returns a short-lived access token in the body and sets the refresh token
+        as an HttpOnly cookie. Locked accounts get the same response as wrong
+        credentials (no account enumeration).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Logged in.
+          headers:
+            Set-Cookie:
+              description: Refresh token cookie (HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth).
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessToken' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshSession
+      summary: Rotate the refresh token and issue a new access token
+      security:
+        - refreshCookie: []
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '200':
+          description: Session refreshed; a new refresh cookie is set.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessToken' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Revoke the current refresh token
+      security:
+        - refreshCookie: []
+      parameters:
+        - $ref: '#/components/parameters/XRequestedWith'
+      responses:
+        '204':
+          description: Logged out.
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      summary: Get the authenticated user
+      responses:
+        '200':
+          description: Current user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /wallet:
+    get:
+      tags: [wallet]
+      operationId: getWallet
+      summary: Get the caller's wallet balance
+      responses:
+        '200':
+          description: Wallet with current balance.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Wallet' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /wallet/transactions:
+    get:
+      tags: [wallet]
+      operationId: listWalletTransactions
+      summary: List the caller's wallet transactions (newest first)
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of transactions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/WalletTransaction' }
+                  page: { $ref: '#/components/schemas/Page' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /wallet/transactions/{id}:
+    get:
+      tags: [wallet]
+      operationId: getWalletTransaction
+      summary: Get one wallet transaction
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Transaction detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletTransaction' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /transfers:
+    post:
+      tags: [transfers]
+      operationId: createTransfer
+      summary: Transfer money to another user
+      description: |
+        One DB transaction: idempotency key insert → lock both accounts in id order
+        (FOR NO KEY UPDATE) → balance check → balanced journal (ADR-L02, ADR-L03).
+        Domain rejections (e.g. INSUFFICIENT_BALANCE) are stored and replayed for the same key.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTransferRequest' }
+      responses:
+        '201':
+          description: Transfer completed (or replayed — see Idempotent-Replayed header).
+          headers:
+            Idempotent-Replayed:
+              description: Present with value `true` when this is a replayed response.
+              schema: { type: string, enum: ['true'] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Transfer' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /transfers/{id}:
+    get:
+      tags: [transfers]
+      operationId: getTransfer
+      summary: Get a transfer (sender or receiver only)
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Transfer detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Transfer' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    userJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token (15 minutes), kept in memory by the SPA.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: lp_refresh
+      description: Opaque refresh token, rotated on every use with reuse detection.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Client-generated key; same key + same payload = same result.
+      schema: { type: string, minLength: 8, maxLength: 255, pattern: '^[A-Za-z0-9_\-:.]{8,255}$' }
+    XRequestedWith:
+      name: X-Requested-With
+      in: header
+      required: true
+      description: CSRF guard for cookie-authenticated endpoints. Must be `fetch`.
+      schema: { type: string, enum: [fetch] }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor from `page.next_cursor`.
+      schema: { type: string }
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  schemas:
+    Money:
+      type: string
+      description: Integer amount in minor units, as a string (no floats). IDR exponent 2.
+      pattern: '^[0-9]{1,18}$'
+      examples: ['5000000']
+    Currency:
+      type: string
+      enum: [IDR]
+    Page:
+      type: object
+      required: [has_more]
+      properties:
+        next_cursor: { type: [string, 'null'] }
+        has_more: { type: boolean }
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details with a stable machine-readable code.
+      required: [type, title, status, code, request_id]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        code: { type: string, examples: [INSUFFICIENT_BALANCE] }
+        detail: { type: string }
+        instance: { type: string }
+        request_id: { type: string }
+        errors:
+          type: array
+          description: Field-level errors, only for VALIDATION_ERROR.
+          items:
+            type: object
+            required: [field, code]
+            properties:
+              field: { type: string }
+              code: { type: string }
+              message: { type: string }
+    RegisterRequest:
+      type: object
+      required: [email, password, display_name]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 10, maxLength: 128, writeOnly: true }
+        display_name: { type: string, minLength: 1, maxLength: 80 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, writeOnly: true }
+    AccessToken:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in: { type: integer, description: Seconds until expiry. }
+    User:
+      type: object
+      required: [id, email, display_name, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        display_name: { type: string }
+        created_at: { type: string, format: date-time }
+    Wallet:
+      type: object
+      required: [account_id, currency, balance]
+      properties:
+        account_id: { type: string, format: uuid }
+        currency: { $ref: '#/components/schemas/Currency' }
+        balance: { $ref: '#/components/schemas/Money' }
+    WalletTransaction:
+      type: object
+      required: [id, type, direction, amount, currency, status, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [TOPUP, TRANSFER, PAYMENT, REFUND, PAYOUT] }
+        direction: { type: string, enum: [IN, OUT] }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        status: { type: string }
+        journal_id: { type: [string, 'null'], format: uuid }
+        created_at: { type: string, format: date-time }
+    CreateTransferRequest:
+      type: object
+      required: [recipient_email, amount, currency]
+      properties:
+        recipient_email: { type: string, format: email }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        note: { type: string, maxLength: 140 }
+    Transfer:
+      type: object
+      required: [id, amount, currency, status, journal_id, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        status: { type: string, enum: [COMPLETED] }
+        counterparty:
+          type: object
+          properties:
+            display_name: { type: string }
+        note: { type: string }
+        journal_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+
+  responses:
+    ValidationError:
+      description: VALIDATION_ERROR, MALFORMED_JSON, or IDEMPOTENCY_KEY_REQUIRED.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthenticated:
+      description: UNAUTHENTICATED, TOKEN_EXPIRED, INVALID_CREDENTIALS, or REFRESH_TOKEN_REUSED.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: NOT_FOUND — the resource does not exist or must not be known to the caller.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: REQUEST_IN_PROGRESS, RESOURCE_BUSY, or EMAIL_ALREADY_REGISTERED.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    UnprocessableEntity:
+      description: INSUFFICIENT_BALANCE, SELF_TRANSFER, INVALID_RECIPIENT, ACCOUNT_FROZEN, CURRENCY_NOT_SUPPORTED, or IDEMPOTENCY_KEY_REUSED.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    RateLimited:
+      description: RATE_LIMITED — see Retry-After.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
