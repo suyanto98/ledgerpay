@@ -20,6 +20,7 @@
 - [ ] Migrasi awal: schema, role `ledgerpay_owner`/`ledgerpay_app`, `users` (+ `role`), `refresh_tokens`, `audit_log`, `set_updated_at`, `forbid_update_delete`
 - [ ] Auth: register, login (argon2id), `GET /me`; JWT HS256 + `kid`
 - [ ] Catalogue test: setiap FK punya index (Step 12 C4)
+- [ ] Samakan nama constraint email: katalog error menyebut `uq_users_email`, skema `uq_users_email_lower` (pakai nama skema; test `TestDBErrorMapping_AllCatalogueConstraints` menangkap selisih seperti ini)
 - [ ] Compose dev (postgres + api), target Makefile `up`, `test`, `test-integration`, `migrate`
 - [ ] `pr.yml`: golangci-lint (depguard), unit + integration test (`-race`)
 
