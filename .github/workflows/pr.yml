@@ -56,7 +56,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Integration tests (Postgres via testcontainers, race detector)
-        run: go test -race -count=1 ./internal/...
+        run: go test -race -count=1 -tags testhooks ./internal/...
 
   migration:
     runs-on: ubuntu-latest

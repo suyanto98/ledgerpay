@@ -10,16 +10,25 @@ WHERE user_id = @user_id AND currency = @currency;
 -- name: GetSystemAccountID :one
 SELECT id FROM accounts WHERE system_code = @system_code AND currency = @currency;
 
--- name: LockAccounts :many
--- ADR-L03: kunci semua akun yang terlibat dengan urutan deterministik (ORDER BY id) supaya
--- dua transaksi yang menyentuh akun yang sama tidak saling menunggu (deadlock).
+-- name: LockWalletAccounts :many
+-- ADR-L03: kunci akun WALLET yang terlibat dengan urutan deterministik (ORDER BY id) supaya
+-- dua transaksi yang menyentuh akun yang sama tidak saling menunggu dalam siklus (deadlock).
 -- FOR NO KEY UPDATE: menserialkan sesama penulis saldo, tetapi tidak memblok cek FK (KEY SHARE)
--- dari INSERT journal_entries (Spike 2b).
+-- dari INSERT journal_entries/transfers (Spike 2b).
+-- Akun sistem SENGAJA tidak ikut (ADR-L07): kalau ikut dikunci, semua top-up akan antre di
+-- satu baris PROVIDER_CLEARING (hot row). Akun sistem dibaca tanpa lock lewat GetSystemAccounts.
 SELECT id, user_id, system_code, is_system, type, currency, balance, status
 FROM accounts
-WHERE id = ANY(@ids::uuid[])
+WHERE id = ANY(@ids::uuid[]) AND NOT is_system
 ORDER BY id
 FOR NO KEY UPDATE;
+
+-- name: GetSystemAccounts :many
+-- Tanpa lock: akun sistem tidak punya saldo materialized, dan type/currency/status-nya tidak
+-- bisa diubah role aplikasi kecuali status (grant kolom), jadi tidak ada yang perlu diserialkan.
+SELECT id, user_id, system_code, is_system, type, currency, balance, status
+FROM accounts
+WHERE id = ANY(@ids::uuid[]) AND is_system;
 
 -- name: AddToBalance :exec
 UPDATE accounts SET balance = balance + @delta::bigint WHERE id = @id;

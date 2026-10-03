@@ -121,6 +121,54 @@ func (q *Queries) GetSystemAccountID(ctx context.Context, arg GetSystemAccountID
 	return id, err
 }
 
+const getSystemAccounts = `-- name: GetSystemAccounts :many
+SELECT id, user_id, system_code, is_system, type, currency, balance, status
+FROM accounts
+WHERE id = ANY($1::uuid[]) AND is_system
+`
+
+type GetSystemAccountsRow struct {
+	ID         uuid.UUID
+	UserID     *uuid.UUID
+	SystemCode *string
+	IsSystem   bool
+	Type       string
+	Currency   string
+	Balance    *int64
+	Status     string
+}
+
+// Tanpa lock: akun sistem tidak punya saldo materialized, dan type/currency/status-nya tidak
+// bisa diubah role aplikasi kecuali status (grant kolom), jadi tidak ada yang perlu diserialkan.
+func (q *Queries) GetSystemAccounts(ctx context.Context, ids []uuid.UUID) ([]GetSystemAccountsRow, error) {
+	rows, err := q.db.Query(ctx, getSystemAccounts, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetSystemAccountsRow
+	for rows.Next() {
+		var i GetSystemAccountsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.SystemCode,
+			&i.IsSystem,
+			&i.Type,
+			&i.Currency,
+			&i.Balance,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getWalletByUser = `-- name: GetWalletByUser :one
 SELECT id, currency, balance, status FROM accounts
 WHERE user_id = $1 AND currency = $2
@@ -342,15 +390,15 @@ func (q *Queries) ListJournalEntriesWithAccounts(ctx context.Context, journalID 
 	return items, nil
 }
 
-const lockAccounts = `-- name: LockAccounts :many
+const lockWalletAccounts = `-- name: LockWalletAccounts :many
 SELECT id, user_id, system_code, is_system, type, currency, balance, status
 FROM accounts
-WHERE id = ANY($1::uuid[])
+WHERE id = ANY($1::uuid[]) AND NOT is_system
 ORDER BY id
 FOR NO KEY UPDATE
 `
 
-type LockAccountsRow struct {
+type LockWalletAccountsRow struct {
 	ID         uuid.UUID
 	UserID     *uuid.UUID
 	SystemCode *string
@@ -361,19 +409,21 @@ type LockAccountsRow struct {
 	Status     string
 }
 
-// ADR-L03: kunci semua akun yang terlibat dengan urutan deterministik (ORDER BY id) supaya
-// dua transaksi yang menyentuh akun yang sama tidak saling menunggu (deadlock).
+// ADR-L03: kunci akun WALLET yang terlibat dengan urutan deterministik (ORDER BY id) supaya
+// dua transaksi yang menyentuh akun yang sama tidak saling menunggu dalam siklus (deadlock).
 // FOR NO KEY UPDATE: menserialkan sesama penulis saldo, tetapi tidak memblok cek FK (KEY SHARE)
-// dari INSERT journal_entries (Spike 2b).
-func (q *Queries) LockAccounts(ctx context.Context, ids []uuid.UUID) ([]LockAccountsRow, error) {
-	rows, err := q.db.Query(ctx, lockAccounts, ids)
+// dari INSERT journal_entries/transfers (Spike 2b).
+// Akun sistem SENGAJA tidak ikut (ADR-L07): kalau ikut dikunci, semua top-up akan antre di
+// satu baris PROVIDER_CLEARING (hot row). Akun sistem dibaca tanpa lock lewat GetSystemAccounts.
+func (q *Queries) LockWalletAccounts(ctx context.Context, ids []uuid.UUID) ([]LockWalletAccountsRow, error) {
+	rows, err := q.db.Query(ctx, lockWalletAccounts, ids)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []LockAccountsRow
+	var items []LockWalletAccountsRow
 	for rows.Next() {
-		var i LockAccountsRow
+		var i LockWalletAccountsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,

@@ -302,6 +302,11 @@ Catatan:
 
 Transfer yang gagal tidak membuat baris. Respons error-nya disimpan di `idempotency_keys` untuk replay (ADR-L02).
 
+> **Catatan implementasi Sprint 3 (migrasi `00003`):** index FK ditambahkan untuk keempat FK user/akun
+> (`ix_transfers_sender_user_id (sender_user_id, created_at)`, `ix_transfers_receiver_user_id (receiver_user_id, created_at)`,
+> `ix_transfers_sender_account_id`, `ix_transfers_receiver_account_id`), karena catalogue test C4 mewajibkan setiap FK
+> punya index. Tabel juga diberi trigger append-only (`forbid_update_delete`), konsisten dengan grant `SELECT, INSERT`.
+
 **Index:** tidak ada tambahan. Riwayat dibaca dari `journal_entries` per akun; detail transfer dibaca by PK.
 **Trigger:** append-only. **Grant:** `SELECT, INSERT`.
 

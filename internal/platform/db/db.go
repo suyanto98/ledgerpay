@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -56,6 +57,15 @@ func NewPool(ctx context.Context, dsn string, o Options) (*pgxpool.Pool, error) 
 	return pool, nil
 }
 
+// DBTX adalah apa pun yang bisa menjalankan query: *pgxpool.Pool atau pgx.Tx. Bentuknya sama
+// dengan DBTX hasil sqlc, sehingga nilai bertipe ini bisa diteruskan ke store.New() modul mana pun.
+// Dipakai di interface antar-modul, supaya modul tidak perlu meng-import package store modul lain.
+type DBTX interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 // Beginner adalah *pgxpool.Pool (atau apa pun yang bisa membuka transaksi).
 type Beginner interface {
 	BeginTx(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error)
@@ -76,6 +86,9 @@ func WithTxOptions(ctx context.Context, b Beginner, opts pgx.TxOptions, fn func(
 	var err error
 	for attempt := 1; attempt <= maxTxAttempts; attempt++ {
 		err = runTx(ctx, b, opts, fn)
+		if isDeadlock(err) {
+			deadlocks.Add(1)
+		}
 		if err == nil || !retryable(err) || attempt == maxTxAttempts {
 			return err
 		}
@@ -120,4 +133,16 @@ func retryable(err error) bool {
 		return pgErr.Code == "40001" || pgErr.Code == "40P01"
 	}
 	return false
+}
+
+// deadlocks menghitung 40P01 yang pernah terjadi. Dengan urutan lock yang benar (ADR-L03) nilainya
+// harus selalu 0; test concurrency memeriksanya. Sprint 6: diekspos sebagai metrik db_deadlock_total.
+var deadlocks atomic.Int64
+
+// Deadlocks mengembalikan jumlah deadlock yang terdeteksi sejak proses mulai.
+func Deadlocks() int64 { return deadlocks.Load() }
+
+func isDeadlock(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "40P01"
 }

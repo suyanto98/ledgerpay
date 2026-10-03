@@ -3,6 +3,8 @@
 //	ledgerpay api           # server API publik (:8080) + ops (:9090)
 //	ledgerpay migrate up    # jalankan migrasi (role ledgerpay_owner)
 //	ledgerpay healthcheck   # dipakai HEALTHCHECK container (image distroless tidak punya curl)
+//	ledgerpay ledger-verify # invariant checker ledger (exit 1 kalau ada pelanggaran)
+//	ledgerpay demo-credit <email> <amount>   # isi saldo untuk demo (APP_ENV dev/test saja)
 //
 // `worker` dan `seed` ditambahkan saat pertama kali dibutuhkan (Sprint 2/6).
 package main
@@ -15,12 +17,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ledgerpay/db/migrations"
 	"ledgerpay/internal/app"
 	"ledgerpay/internal/modules/identity"
+	"ledgerpay/internal/modules/ledger"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
 	"ledgerpay/internal/platform/config"
@@ -31,7 +37,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: ledgerpay <api|migrate up|healthcheck>")
+		fmt.Fprintln(os.Stderr, "usage: ledgerpay <api|migrate up|healthcheck|ledger-verify|demo-credit>")
 		os.Exit(2)
 	}
 	var err error
@@ -42,6 +48,10 @@ func main() {
 		err = runMigrate(os.Args[2:])
 	case "healthcheck":
 		err = runHealthcheck()
+	case "ledger-verify":
+		err = runLedgerVerify()
+	case "demo-credit":
+		err = runDemoCredit(os.Args[2:])
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -151,5 +161,63 @@ func runHealthcheck() error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("not ready: HTTP %d", resp.StatusCode)
 	}
+	return nil
+}
+
+// openPool membuka pool kecil untuk subcommand satu kali jalan (bukan server).
+func openPool(ctx context.Context) (*config.Config, *pgxpool.Pool, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, nil, err
+	}
+	if cfg.DatabaseURL == "" {
+		return nil, nil, errors.New("DATABASE_URL wajib")
+	}
+	pool, err := db.NewPool(ctx, cfg.DatabaseURL, db.Options{MaxConns: 2, StatementTimeout: time.Minute, LockTimeout: cfg.DBLockTimeout})
+	return &cfg, pool, err
+}
+
+func runLedgerVerify() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	_, pool, err := openPool(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	rep, err := ledger.Verify(ctx, pool)
+	if err != nil {
+		return err
+	}
+	if !rep.OK() {
+		return fmt.Errorf("ledger invariant violated: %s", rep)
+	}
+	fmt.Println("ledger OK: no balance drift, no unbalanced journals")
+	return nil
+}
+
+func runDemoCredit(args []string) error {
+	if len(args) != 2 {
+		return errors.New("usage: ledgerpay demo-credit <email> <amount-minor-units>")
+	}
+	amount, err := ledger.ParseAmount(args[1])
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cfg, pool, err := openPool(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	// Pagar: uang "dari udara" hanya boleh di environment dev/test.
+	if cfg.AppEnv != "dev" && cfg.AppEnv != "test" {
+		return fmt.Errorf("demo-credit refused: APP_ENV=%q (only dev/test)", cfg.AppEnv)
+	}
+	if err := app.DemoCredit(ctx, pool, idgen.V7{}, args[0], amount); err != nil {
+		return err
+	}
+	fmt.Printf("credited %s minor units to %s\n", strconv.FormatInt(amount, 10), args[0])
 	return nil
 }

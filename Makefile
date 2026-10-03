@@ -6,7 +6,7 @@ export PATH := $(GOBIN):$(PATH)
 COMPOSE := docker compose -f deploy/compose.yml
 REDOCLY := npx --yes @redocly/cli@1
 
-.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-all lint lint-go lint-api lint-actions gen gen-check smoke
+.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions gen gen-check smoke demo-a demo-b
 
 help: ## Tampilkan daftar target
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -39,6 +39,12 @@ migrate: ## Jalankan migrasi lagi (one-shot container, role owner)
 smoke: ## Register → login → GET /me lewat curl ke stack lokal
 	./scripts/smoke.sh
 
+demo-a: ## Demo A: idempotency (stack harus jalan: make up)
+	./scripts/demo/a_idempotency.sh
+
+demo-b: ## Demo B: 100 transfer paralel dari saldo Rp100.000
+	./scripts/demo/b_concurrency.sh
+
 # ------------------------------------------------------------------ build & test
 build: ## Build binary ke bin/ledgerpay
 	CGO_ENABLED=0 go build -trimpath -o bin/ledgerpay ./cmd/ledgerpay
@@ -46,8 +52,11 @@ build: ## Build binary ke bin/ledgerpay
 test: ## Unit test (tanpa Docker), dengan race detector
 	go test -race -short ./...
 
-test-integration: ## Integration test (butuh Docker: Postgres via testcontainers)
-	go test -race -count=1 ./...
+test-integration: ## Integration test (butuh Docker), termasuk test interleaving (build tag testhooks)
+	go test -race -count=1 -tags testhooks ./...
+
+test-concurrency: ## Ulangi test concurrency 20× untuk mendeteksi flaky (sebelum merge, roadmap S3)
+	go test -race -count=20 -tags testhooks -run 'Concurrent|Deadlock|Idempotency|LockTimeout|Naive' ./internal/app/ ./internal/modules/transfer/
 
 # ------------------------------------------------------------------ lint & codegen
 lint: lint-go lint-api lint-actions ## Semua lint

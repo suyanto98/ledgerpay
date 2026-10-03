@@ -41,8 +41,16 @@
 - [ ] `held_amount` di `GET /wallet` (dana payout yang di-hold) saat payout ada (Sprint 6)
 - [ ] Job terjadwal `ledger.verify` yang memanggil `ledger.Verify` dan mengisi metrik invariant (Sprint 6/7)
 
-## Sprint 3 — Critical Business Logic · 🏁 M2
-- [ ] Migrasi `idempotency_keys` + modul idempotency pola (a)
-- [ ] `POST /transfers`, `GET /transfers/{id}` dengan lock `ORDER BY id FOR NO KEY UPDATE`
-- [ ] `lock_timeout` 2 dtk → `RESOURCE_BUSY` / `REQUEST_IN_PROGRESS`
-- [ ] Harness concurrency (barrier, build tag `testhooks`); Demo A & B sebagai test otomatis
+## Sprint 3 — Critical Business Logic · 🏁 M2 ✅
+- [x] Migrasi `idempotency_keys` + modul idempotency pola (a) (`internal/platform/idempotency`, SAVEPOINT untuk menyimpan 422)
+- [x] `POST /transfers`, `GET /transfers/{id}` dengan lock `ORDER BY id FOR NO KEY UPDATE`
+- [x] `lock_timeout` 2 dtk → `RESOURCE_BUSY` / `REQUEST_IN_PROGRESS`
+- [x] Harness concurrency (barrier, build tag `testhooks`); Demo A & B sebagai test otomatis + `make demo-a` / `make demo-b`
+- [x] Perbaikan bug Sprint 2: `LockAccounts` ikut mengunci akun sistem (melanggar ADR-L07); kini hanya wallet yang dikunci + regression test
+
+## Catatan dari Sprint 3 (dibawa ke sprint berikutnya)
+- [ ] `TestBuild_NoTesthooksInRelease`: periksa binary rilis tidak memuat `testhook.Set` (Sprint 8, bersama pipeline rilis). Saat ini dijamin konstruksi: `Set` hanya ada di file `//go:build testhooks`
+- [ ] Demo B memakai `xargs -P 100` + curl (k6 belum terpasang); skrip k6 dibuat bersama baseline load test (Sprint 9)
+- [ ] `journals.idempotency_key_id` (desain 09 §5) belum ada; referensi key disimpan di `transfers.idempotency_key_id`. Tambahkan saat payment/refund butuh (Sprint 5) atau hapus dari desain
+- [ ] Respons replay disimpan sebagai `jsonb`: isinya sama secara semantik, tetapi urutan key/whitespace bisa berbeda dari respons pertama. Didokumentasikan di OpenAPI; ubah ke `bytea` kalau ada client yang membandingkan byte
+- [ ] Rate limit `money-write` untuk `POST /transfers` (Sprint 4)

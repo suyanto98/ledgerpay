@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: LedgerPay API
-  version: 0.2.0
+  version: 0.3.0
   summary: Mini payment platform with a double-entry ledger.
   description: |
     Spec-first contract (ADR-003). Sprint 0 skeleton covering Sprint 1–3 paths
@@ -209,9 +209,17 @@ paths:
       operationId: createTransfer
       summary: Transfer money to another user
       description: |
-        One DB transaction: idempotency key insert → lock both accounts in id order
-        (FOR NO KEY UPDATE) → balance check → balanced journal (ADR-L02, ADR-L03).
-        Domain rejections (e.g. INSUFFICIENT_BALANCE) are stored and replayed for the same key.
+        One DB transaction: idempotency key insert → lock both wallets in id order
+        (FOR NO KEY UPDATE) → balance check → balanced journal → transfer row (ADR-L02, ADR-L03).
+
+        Idempotency: same key + same payload (canonical JSON: key order and whitespace ignored)
+        replays the stored response with `Idempotent-Replayed: true`. Stored: 201 and every 422
+        domain rejection. Not stored: 400, 409, 5xx — retrying with the same key is safe.
+        A concurrent request with the same key waits for the first; if it waits longer than
+        2 s it gets 409 REQUEST_IN_PROGRESS. Keys expire after 7 days.
+
+        Unknown email, inactive user and frozen recipient wallet all return the same
+        422 INVALID_RECIPIENT (anti-enumeration).
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -411,25 +419,33 @@ components:
         amount: { $ref: '#/components/schemas/Money' }
         currency: { $ref: '#/components/schemas/Currency' }
         note: { type: string, maxLength: 140 }
+      description: "`amount` between 100 (Rp1) and 1000000000 (Rp10.000.000) minor units."
+    Party:
+      type: object
+      required: [display_name]
+      properties:
+        display_name: { type: string }
     Transfer:
       type: object
-      required: [id, amount, currency, status, journal_id, created_at]
+      description: |
+        Seen from the caller's side: the sender gets `receiver` and direction OUT; the receiver
+        gets `sender` and direction IN. The other party's user id is never exposed.
+      required: [id, amount, currency, status, direction, note, journal_id, created_at]
       properties:
         id: { type: string, format: uuid }
         amount: { $ref: '#/components/schemas/Money' }
         currency: { $ref: '#/components/schemas/Currency' }
         status: { type: string, enum: [COMPLETED] }
-        counterparty:
-          type: object
-          properties:
-            display_name: { type: string }
-        note: { type: string }
+        direction: { type: string, enum: [IN, OUT] }
+        receiver: { $ref: '#/components/schemas/Party' }
+        sender: { $ref: '#/components/schemas/Party' }
+        note: { type: [string, 'null'] }
         journal_id: { type: string, format: uuid }
         created_at: { type: string, format: date-time }
 
   responses:
     ValidationError:
-      description: VALIDATION_ERROR, MALFORMED_JSON, INVALID_CURSOR, or IDEMPOTENCY_KEY_REQUIRED.
+      description: VALIDATION_ERROR, MALFORMED_JSON, INVALID_CURSOR, IDEMPOTENCY_KEY_REQUIRED, or IDEMPOTENCY_KEY_INVALID.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }

@@ -26,3 +26,6 @@ VALUES (@id, @user_id, @family_id, @token_hash, @issued_at, @expires_at, @family
 -- name: InsertAudit :exec
 INSERT INTO audit_log (id, actor_type, actor_id, action, target_type, target_id, request_id, ip, user_agent)
 VALUES (@id, @actor_type, @actor_id, @action, @target_type, @target_id, @request_id, @ip, @user_agent);
+
+-- name: GetDisplayName :one
+SELECT display_name FROM users WHERE id = @id;

@@ -335,3 +335,34 @@ func TestProperty_LedgerConservesMoney(t *testing.T) {
 		}
 	})
 }
+
+// ADR-L07 (regression Sprint 3): akun sistem TIDAK boleh dikunci. Dua top-up ke wallet berbeda
+// sama-sama menyentuh PROVIDER_CLEARING; top-up kedua harus selesai walaupun transaksi top-up
+// pertama masih terbuka. Sebelum perbaikan, LockAccounts ikut mengunci PROVIDER_CLEARING dengan
+// FOR NO KEY UPDATE, sehingga semua top-up di seluruh sistem antre di satu baris itu.
+func TestLedger_SystemAccountNotLocked(t *testing.T) {
+	f, _ := newFixture(t)
+	ctx := context.Background()
+	_, walletA := f.newWallet(t)
+	_, walletB := f.newWallet(t)
+
+	first, err := f.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = first.Rollback(ctx) }()
+	if err := f.svc.PostJournal(ctx, first, topup(f, walletA, 1000)); err != nil {
+		t.Fatal(err)
+	}
+	// Transaksi pertama belum commit. Transaksi kedua dengan lock_timeout pendek:
+	// kalau ia harus menunggu lock apa pun milik transaksi pertama, ia gagal dengan 55P03.
+	err = db.WithTx(ctx, f.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '200ms'`); err != nil {
+			return err
+		}
+		return f.svc.PostJournal(ctx, tx, topup(f, walletB, 2000))
+	})
+	if err != nil {
+		t.Fatalf("second top-up blocked by the first (system account locked?): %v", err)
+	}
+}

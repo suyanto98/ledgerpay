@@ -14,11 +14,13 @@ import (
 	"ledgerpay/db/migrations"
 	"ledgerpay/internal/modules/identity"
 	"ledgerpay/internal/modules/ledger"
+	"ledgerpay/internal/modules/transfer"
 	"ledgerpay/internal/modules/wallet"
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
 	"ledgerpay/internal/platform/httpx"
+	"ledgerpay/internal/platform/idempotency"
 	"ledgerpay/internal/platform/idgen"
 )
 
@@ -39,6 +41,9 @@ func APIRouter(d Deps) http.Handler {
 	idSvc := identity.NewService(d.Pool, ledgerSvc, d.Tokens, d.Clock, d.IDs, d.Identity)
 	idH := identity.NewHandler(idSvc, d.CookieSecure)
 	walletH := wallet.NewHandler(d.Pool, ledgerSvc, d.Clock)
+	idem := idempotency.NewService(d.Pool, d.IDs, d.Clock)
+	transferSvc := transfer.NewService(ledgerSvc, usersAdapter{identity.NewDirectory()}, d.IDs)
+	transferH := transfer.NewHandler(d.Pool, transferSvc, idem)
 
 	r := chi.NewRouter()
 	r.Use(httpx.RequestID(d.Logger), httpx.Recover, httpx.AccessLog, httpx.BodyLimit(httpx.MaxBodyBytes))
@@ -49,6 +54,7 @@ func APIRouter(d Deps) http.Handler {
 		authed := v1.With(auth.RequireUser(d.Tokens))
 		idH.Routes(v1, authed)
 		walletH.Routes(authed)
+		transferH.Routes(authed)
 	})
 	return r
 }

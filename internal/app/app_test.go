@@ -34,10 +34,10 @@ type env struct {
 	pool *pgxpool.Pool
 }
 
-func newEnv(t *testing.T) env {
+func newEnv(t *testing.T, opts ...dbtest.Option) env {
 	t.Helper()
 	dbtest.SkipIfShort(t)
-	tdb := dbtest.New(t)
+	tdb := dbtest.New(t, opts...)
 	clk, ids := clock.NewFake(time.Date(2026, 10, 3, 9, 0, 0, 0, time.UTC)), idgen.V7{}
 	tokens, err := auth.NewTokens(map[string][]byte{"k1": []byte("0123456789abcdef0123456789abcdef")}, "k1", "ledgerpay", 15*time.Minute, clk, ids)
 	if err != nil {
@@ -63,6 +63,12 @@ func (r result) Cookies() []*http.Cookie { return r.cookies }
 
 func (e env) do(t *testing.T, method, path, token string, body any) (result, map[string]any) {
 	t.Helper()
+	return e.doH(t, method, path, token, nil, body)
+}
+
+// doH sama dengan do, dengan header tambahan (contoh Idempotency-Key).
+func (e env) doH(t *testing.T, method, path, token string, headers map[string]string, body any) (result, map[string]any) {
+	t.Helper()
 	var rdr io.Reader
 	if body != nil {
 		b, _ := json.Marshal(body)
@@ -75,6 +81,9 @@ func (e env) do(t *testing.T, method, path, token string, body any) (result, map
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -85,10 +94,12 @@ func (e env) do(t *testing.T, method, path, token string, body any) (result, map
 	return result{StatusCode: resp.StatusCode, Header: resp.Header, cookies: resp.Cookies()}, out
 }
 
-func register(t *testing.T, e env, email string) {
+func register(t *testing.T, e env, email string) { registerAs(t, e, email, "Rina") }
+
+func registerAs(t *testing.T, e env, email, name string) {
 	t.Helper()
 	resp, body := e.do(t, http.MethodPost, "/api/v1/auth/register", "", map[string]string{
-		"email": email, "password": "correct horse battery", "display_name": "Rina"})
+		"email": email, "password": "correct horse battery", "display_name": name})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("register: %d %v", resp.StatusCode, body)
 	}
@@ -272,7 +283,12 @@ func TestOps_HealthAndReadiness(t *testing.T) {
 // login mendaftarkan user lalu login, mengembalikan access token dan id user.
 func login(t *testing.T, e env, email string) (token string, userID uuid.UUID) {
 	t.Helper()
-	register(t, e, email)
+	return loginAs(t, e, email, "Rina")
+}
+
+func loginAs(t *testing.T, e env, email, name string) (token string, userID uuid.UUID) {
+	t.Helper()
+	registerAs(t, e, email, name)
 	_, body := e.do(t, http.MethodPost, "/api/v1/auth/login", "", map[string]string{"email": email, "password": "correct horse battery"})
 	token, _ = body["access_token"].(string)
 	_, me := e.do(t, http.MethodGet, "/api/v1/me", token, nil)

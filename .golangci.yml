@@ -2,6 +2,9 @@ version: "2"
 
 run:
   timeout: 5m
+  # Lint juga file test interleaving (//go:build testhooks). Varian no-op testhook.go cukup
+  # sederhana; yang penting kode test hook ikut diperiksa.
+  build-tags: [testhooks]
 
 linters:
   default: standard            # errcheck, govet, ineffassign, staticcheck, unused

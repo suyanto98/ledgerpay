@@ -76,12 +76,25 @@ var (
 	ErrInvalidCursor      = def(http.StatusBadRequest, "INVALID_CURSOR", "Invalid or expired cursor")
 )
 
+// Idempotency (katalog §1, ADR-L02).
+var (
+	ErrIdempotencyKeyRequired = def(http.StatusBadRequest, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key header is required")
+	ErrIdempotencyKeyInvalid  = def(http.StatusBadRequest, "IDEMPOTENCY_KEY_INVALID", "Idempotency-Key header is invalid")
+	ErrIdempotencyKeyReused   = def(http.StatusUnprocessableEntity, "IDEMPOTENCY_KEY_REUSED", "Idempotency-Key was used with a different request")
+	ErrRequestInProgress      = def(http.StatusConflict, "REQUEST_IN_PROGRESS", "A request with this Idempotency-Key is still in progress")
+)
+
 // Uang (katalog §2). Didefinisikan di platform (bukan modul ledger) karena juga dipakai pemetaan
 // constraint DB di platform/db, dan platform tidak boleh meng-import modul (ADR-001).
 var (
 	ErrInsufficientBalance = def(http.StatusUnprocessableEntity, "INSUFFICIENT_BALANCE", "Insufficient balance")
 	ErrAccountFrozen       = def(http.StatusUnprocessableEntity, "ACCOUNT_FROZEN", "Account is frozen")
 	ErrAlreadyReversed     = def(http.StatusConflict, "ALREADY_REVERSED", "Journal already reversed")
+	ErrSelfTransfer        = def(http.StatusUnprocessableEntity, "SELF_TRANSFER", "Cannot transfer to yourself")
+	// Pesan generik: email tak terdaftar, user nonaktif, dan wallet frozen tidak bisa dibedakan
+	// (anti-enumerasi, katalog §2).
+	ErrInvalidRecipient     = def(http.StatusUnprocessableEntity, "INVALID_RECIPIENT", "Recipient cannot receive this transfer")
+	ErrCurrencyNotSupported = def(http.StatusUnprocessableEntity, "CURRENCY_NOT_SUPPORTED", "Currency not supported")
 )
 
 // Validation membuat VALIDATION_ERROR dengan daftar field yang salah.

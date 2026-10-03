@@ -1,0 +1,165 @@
+//go:build testhooks
+
+// Test interleaving deterministik untuk idempotency (docs/design/19-tx-concurrency.md §3c).
+// Butuh build tag: go test -tags testhooks ./internal/app/
+package app_test
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"sync"
+	"testing"
+	"time"
+
+	"ledgerpay/internal/platform/db/dbtest"
+	"ledgerpay/internal/platform/testhook"
+)
+
+// pauseFirst memasang hook yang MENAHAN eksekusi pertama setelah key ter-INSERT (belum commit),
+// memberi sinyal lewat inserted, dan melepasnya saat release ditutup. Eksekusi berikutnya lewat.
+func pauseFirst(t *testing.T, failWith error) (inserted, release chan struct{}) {
+	t.Helper()
+	inserted, release = make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	reset := testhook.Set("idempotency.after_insert", func(ctx context.Context) error {
+		first := false
+		once.Do(func() { first = true })
+		if !first {
+			return nil
+		}
+		close(inserted)
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return failWith
+	})
+	t.Cleanup(reset)
+	return inserted, release
+}
+
+// waitForLockWaiter menunggu sampai ada sesi lain di DB test yang sedang MENUNGGU lock
+// (di sini: INSERT key kedua yang tertahan di unique index).
+func waitForLockWaiter(t *testing.T, e env) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		var n int
+		err := e.pool.QueryRow(context.Background(), `
+			SELECT count(*) FROM pg_stat_activity
+			WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`).Scan(&n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n > 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("second request never blocked on the idempotency key")
+}
+
+type outcome struct {
+	status   int
+	replayed bool
+	body     map[string]any
+}
+
+func (e env) transferAsync(t *testing.T, token, key string, body map[string]any) <-chan outcome {
+	ch := make(chan outcome, 1)
+	go func() {
+		r, b := e.transfer(t, token, key, body)
+		ch <- outcome{status: r.StatusCode, replayed: r.Header.Get("Idempotent-Replayed") == "true", body: b}
+	}()
+	return ch
+}
+
+// Race (c), LI-05: R1 memegang key (belum commit), R2 dengan key sama MENUNGGU di unique index,
+// R1 commit → R2 me-replay respons R1. Tepat satu efek.
+func TestIdempotency_ConcurrentSameKey_OneEffect(t *testing.T) {
+	e := newEnv(t)
+	rina, rinaID := login(t, e, "rina@example.com")
+	login(t, e, "andi@example.com")
+	seedTopup(t, e, rinaID, 100_000)
+	inserted, release := pauseFirst(t, nil)
+	key, body := newKey(), transferBody("andi@example.com", "40000")
+
+	r1 := e.transferAsync(t, rina, key, body)
+	<-inserted // R1 sudah INSERT key, transaksinya masih terbuka
+	r2 := e.transferAsync(t, rina, key, body)
+	waitForLockWaiter(t, e) // R2 tertahan di unique index
+	close(release)
+
+	o1, o2 := <-r1, <-r2
+	if o1.status != http.StatusCreated || o1.replayed {
+		t.Fatalf("R1: want fresh 201, got %d replayed=%v %v", o1.status, o1.replayed, o1.body)
+	}
+	if o2.status != http.StatusCreated || !o2.replayed || o2.body["id"] != o1.body["id"] {
+		t.Fatalf("R2: want replay of R1, got %d replayed=%v %v", o2.status, o2.replayed, o2.body)
+	}
+	if n := countTransfers(t, e); n != 1 {
+		t.Fatalf("transfers = %d, want exactly 1", n)
+	}
+	if got := balanceOf(t, e, rina); got != "60000" {
+		t.Fatalf("balance = %s, want 60000", got)
+	}
+	assertLedgerHealthy(t, e)
+}
+
+// R1 gagal (rollback) setelah INSERT key → INSERT R2 yang menunggu justru BERHASIL, dan R2
+// diproses sebagai eksekusi pertama. Tidak ada key "macet" yang perlu dibersihkan.
+func TestIdempotency_FirstTxRolledBack_SecondProceeds(t *testing.T) {
+	e := newEnv(t)
+	rina, rinaID := login(t, e, "rina@example.com")
+	login(t, e, "andi@example.com")
+	seedTopup(t, e, rinaID, 100_000)
+	inserted, release := pauseFirst(t, errors.New("injected: connection lost mid-transaction"))
+	key, body := newKey(), transferBody("andi@example.com", "40000")
+
+	r1 := e.transferAsync(t, rina, key, body)
+	<-inserted
+	r2 := e.transferAsync(t, rina, key, body)
+	waitForLockWaiter(t, e)
+	close(release)
+
+	o1, o2 := <-r1, <-r2
+	if o1.status != http.StatusInternalServerError {
+		t.Fatalf("R1: want 500 (injected failure), got %d %v", o1.status, o1.body)
+	}
+	if o2.status != http.StatusCreated || o2.replayed {
+		t.Fatalf("R2: want fresh 201 (first real execution), got %d replayed=%v %v", o2.status, o2.replayed, o2.body)
+	}
+	if n := countTransfers(t, e); n != 1 {
+		t.Fatalf("transfers = %d, want exactly 1", n)
+	}
+	assertLedgerHealthy(t, e)
+}
+
+// R1 masih berjalan lebih lama dari lock_timeout → R2 dengan key sama mendapat 409
+// REQUEST_IN_PROGRESS (aman di-retry). Setelah R1 selesai, retry R2 me-replay hasil R1.
+func TestIdempotency_SameKeyStillRunning_RequestInProgress(t *testing.T) {
+	e := newEnv(t, dbtest.LockTimeout(300*time.Millisecond))
+	rina, rinaID := login(t, e, "rina@example.com")
+	login(t, e, "andi@example.com")
+	seedTopup(t, e, rinaID, 100_000)
+	inserted, release := pauseFirst(t, nil)
+	key, body := newKey(), transferBody("andi@example.com", "40000")
+
+	r1 := e.transferAsync(t, rina, key, body)
+	<-inserted
+	r2, b2 := e.transfer(t, rina, key, body) // menunggu 300 ms di unique index, lalu menyerah
+	close(release)
+	if r2.StatusCode != http.StatusConflict || b2["code"] != "REQUEST_IN_PROGRESS" {
+		t.Fatalf("R2: want 409 REQUEST_IN_PROGRESS, got %d %v", r2.StatusCode, b2)
+	}
+	if o1 := <-r1; o1.status != http.StatusCreated {
+		t.Fatalf("R1: want 201, got %d %v", o1.status, o1.body)
+	}
+	r3, _ := e.transfer(t, rina, key, body)
+	if r3.StatusCode != http.StatusCreated || r3.Header.Get("Idempotent-Replayed") != "true" {
+		t.Fatalf("retry after R1 finished must replay, got %d", r3.StatusCode)
+	}
+	assertLedgerHealthy(t, e)
+}

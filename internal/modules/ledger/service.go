@@ -16,6 +16,7 @@ import (
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/idgen"
+	"ledgerpay/internal/platform/testhook"
 )
 
 type Service struct {
@@ -63,19 +64,30 @@ func (s *Service) PostJournal(ctx context.Context, tx pgx.Tx, j Journal) error {
 		}
 	}
 
-	// 1) Kunci semua akun yang terlibat, urut id (anti-deadlock). Akun sistem ikut "dikunci"
-	//    oleh query yang sama, tetapi tidak pernah di-UPDATE (ADR-L07), jadi tidak jadi hot row.
+	// 1) Kunci akun WALLET yang terlibat, urut id (anti-deadlock). Akun sistem dibaca tanpa
+	//    lock (ADR-L07): saldonya tidak disimpan, jadi tidak ada yang perlu diserialkan, dan
+	//    menguncinya akan membuat semua top-up antre di satu baris PROVIDER_CLEARING.
 	ids := uniqueAccountIDs(j.Entries)
-	rows, err := q.LockAccounts(ctx, ids)
+	wallets, err := q.LockWalletAccounts(ctx, ids)
 	if err != nil {
 		return db.MapError(err)
 	}
-	if len(rows) != len(ids) {
+	if err := testhook.Pause(ctx, "ledger.after_lock"); err != nil {
+		return err
+	}
+	systems, err := q.GetSystemAccounts(ctx, ids)
+	if err != nil {
+		return db.MapError(err)
+	}
+	if len(wallets)+len(systems) != len(ids) {
 		return apperr.ErrNotFound.WithDetail("account not found")
 	}
-	accounts := make(map[uuid.UUID]store.LockAccountsRow, len(rows))
-	for _, r := range rows {
+	accounts := make(map[uuid.UUID]account, len(ids))
+	for _, r := range wallets {
 		accounts[r.ID] = r
+	}
+	for _, r := range systems {
+		accounts[r.ID] = account(r)
 	}
 
 	// 2) Cek setiap entry terhadap akun dan template; hitung perubahan saldo wallet.
@@ -149,7 +161,10 @@ func (s *Service) SystemAccountID(ctx context.Context, q store.DBTX, code string
 	return id, db.MapError(err)
 }
 
-func kindOf(a store.LockAccountsRow) AccountKind {
+// account adalah baris akun yang dibaca PostJournal (wallet terkunci atau akun sistem).
+type account = store.LockWalletAccountsRow
+
+func kindOf(a account) AccountKind {
 	if a.IsSystem && a.SystemCode != nil {
 		return kindForSystemCode(*a.SystemCode)
 	}

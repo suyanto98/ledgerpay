@@ -41,6 +41,22 @@ type AuditLog struct {
 	CreatedAt     time.Time
 }
 
+type IdempotencyKey struct {
+	ID             uuid.UUID
+	ClientType     string
+	ClientID       uuid.UUID
+	Endpoint       string
+	Key            string
+	RequestHash    []byte
+	ResponseStatus *int16
+	ResponseBody   []byte
+	ResourceType   *string
+	ResourceID     *uuid.UUID
+	CreatedAt      time.Time
+	ExpiresAt      time.Time
+	UpdatedAt      time.Time
+}
+
 type Journal struct {
 	ID               uuid.UUID
 	Purpose          string
@@ -81,6 +97,21 @@ type RefreshToken struct {
 	RevokeReason    *string
 	UserAgent       *string
 	Ip              *netip.Addr
+}
+
+type Transfer struct {
+	ID                uuid.UUID
+	SenderUserID      uuid.UUID
+	ReceiverUserID    uuid.UUID
+	SenderAccountID   uuid.UUID
+	ReceiverAccountID uuid.UUID
+	Amount            int64
+	Currency          string
+	Note              *string
+	Status            string
+	JournalID         uuid.UUID
+	IdempotencyKeyID  *uuid.UUID
+	CreatedAt         time.Time
 }
 
 type User struct {

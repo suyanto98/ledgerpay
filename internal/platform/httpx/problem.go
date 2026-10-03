@@ -26,11 +26,24 @@ const problemTypeBase = "https://ledgerpay.dev/errors/"
 // WriteError mengubah error apa pun menjadi respons problem+json.
 // Error tak dikenal → 500 INTERNAL_ERROR dengan penyebab hanya di log (tidak bocor ke client).
 func WriteError(w http.ResponseWriter, r *http.Request, err error) {
-	e := apperr.As(err)
-	if e.Status >= 500 {
-		observability.Logger(r.Context()).Error("request.failed", "code", e.Code, "err", err.Error())
+	p := NewProblem(r, err)
+	if p.Status >= 500 {
+		observability.Logger(r.Context()).Error("request.failed", "code", p.Code, "err", err.Error())
 	}
-	p := Problem{
+	w.Header().Set("Content-Type", ProblemContentType)
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(p.Status)
+	_ = json.NewEncoder(w).Encode(p)
+}
+
+// ProblemContentType adalah media type respons error (RFC 9457).
+const ProblemContentType = "application/problem+json"
+
+// NewProblem membangun body problem untuk error, tanpa menulisnya. Dipakai juga oleh idempotency
+// untuk menyimpan penolakan domain (422) agar bisa di-replay persis.
+func NewProblem(r *http.Request, err error) Problem {
+	e := apperr.As(err)
+	return Problem{
 		Type:      problemTypeBase + strings.ToLower(strings.ReplaceAll(e.Code, "_", "-")),
 		Title:     e.Title,
 		Status:    e.Status,
@@ -40,10 +53,6 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 		RequestID: RequestIDFrom(r.Context()),
 		Errors:    e.Fields,
 	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(e.Status)
-	_ = json.NewEncoder(w).Encode(p)
 }
 
 // WriteJSON menulis respons JSON sukses. Semua respons API memakai no-store (data finansial; ADR-008).

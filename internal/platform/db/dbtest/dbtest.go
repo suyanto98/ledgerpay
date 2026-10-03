@@ -127,8 +127,24 @@ type TestDB struct {
 	App  *pgxpool.Pool // role ledgerpay_app — yang dipakai kode aplikasi
 }
 
+// Option mengubah pengaturan pool aplikasi test.
+type Option func(*pgxpool.Config)
+
+// LockTimeout mengganti lock_timeout pool aplikasi (default sama dengan produksi: 2 detik).
+// Test yang sengaja menunggu lock memakai nilai kecil supaya cepat.
+func LockTimeout(d time.Duration) Option {
+	return func(c *pgxpool.Config) {
+		c.ConnConfig.RuntimeParams["lock_timeout"] = fmt.Sprint(d.Milliseconds())
+	}
+}
+
+// MaxConns mengganti ukuran pool aplikasi.
+func MaxConns(n int32) Option { return func(c *pgxpool.Config) { c.MaxConns = n } }
+
 // New membuat DB baru dari template untuk satu test, dihapus otomatis setelah test selesai.
-func New(t testing.TB) TestDB {
+// Pool memakai lock_timeout 2 detik seperti API produksi (ADR-011), supaya perilaku menunggu
+// lock di test sama dengan di produksi.
+func New(t testing.TB, opts ...Option) TestDB {
 	t.Helper()
 	if !started {
 		t.Fatal("dbtest: Start belum dipanggil di TestMain")
@@ -138,7 +154,15 @@ func New(t testing.TB) TestDB {
 	if _, err := admin.Exec(ctx, fmt.Sprintf("CREATE DATABASE %s TEMPLATE %s", name, templateDB)); err != nil {
 		t.Fatalf("dbtest: clone: %v", err)
 	}
-	pool, err := pgxpool.New(ctx, DSN(name, appRole, rolePass))
+	cfg, err := pgxpool.ParseConfig(DSN(name, appRole, rolePass))
+	if err != nil {
+		t.Fatalf("dbtest: parse dsn: %v", err)
+	}
+	cfg.ConnConfig.RuntimeParams["lock_timeout"] = "2000"
+	for _, o := range opts {
+		o(cfg)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		t.Fatalf("dbtest: connect: %v", err)
 	}
