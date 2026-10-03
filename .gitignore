@@ -35,3 +35,6 @@ test-results/
 # Local data
 /tmp/
 *.log
+
+# rapid: file replay kegagalan property test (lokal saja)
+**/testdata/rapid/

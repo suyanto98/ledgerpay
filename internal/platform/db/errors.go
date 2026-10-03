@@ -16,7 +16,11 @@ import (
 // TIDAK dipetakan: ia jatuh ke INTERNAL_ERROR dan harus berbunyi di log/alert.
 // Test TestDBErrorMapping_AllCatalogueConstraints memastikan setiap nama di sini benar-benar ada di DB.
 var constraintErrors = map[string]*apperr.Error{
-	"uq_users_email_lower": apperr.ErrEmailRegistered,
+	"uq_users_email_lower":             apperr.ErrEmailRegistered,
+	"ck_accounts_balance_non_negative": apperr.ErrInsufficientBalance, // jaring terakhir LI-02
+	"uq_journals_reversal_of":          apperr.ErrAlreadyReversed,     // LI-04
+	// Sengaja TIDAK dipetakan (bug → 500 + alert): ck_journals_balanced, uq_journals_source,
+	// trigger append-only. Pelanggaran ini berarti kode aplikasi salah, bukan input user salah.
 }
 
 // ConstraintNames mengembalikan nama constraint yang dipetakan (dipakai test katalog).

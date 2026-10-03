@@ -73,6 +73,15 @@ var (
 	ErrUnsupportedMedia   = def(http.StatusUnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "Unsupported media type")
 	ErrInternal           = def(http.StatusInternalServerError, "INTERNAL_ERROR", "Internal error")
 	ErrUnavailable        = def(http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Service temporarily unavailable")
+	ErrInvalidCursor      = def(http.StatusBadRequest, "INVALID_CURSOR", "Invalid or expired cursor")
+)
+
+// Uang (katalog §2). Didefinisikan di platform (bukan modul ledger) karena juga dipakai pemetaan
+// constraint DB di platform/db, dan platform tidak boleh meng-import modul (ADR-001).
+var (
+	ErrInsufficientBalance = def(http.StatusUnprocessableEntity, "INSUFFICIENT_BALANCE", "Insufficient balance")
+	ErrAccountFrozen       = def(http.StatusUnprocessableEntity, "ACCOUNT_FROZEN", "Account is frozen")
+	ErrAlreadyReversed     = def(http.StatusConflict, "ALREADY_REVERSED", "Journal already reversed")
 )
 
 // Validation membuat VALIDATION_ERROR dengan daftar field yang salah.

@@ -13,6 +13,8 @@ import (
 
 	"ledgerpay/db/migrations"
 	"ledgerpay/internal/modules/identity"
+	"ledgerpay/internal/modules/ledger"
+	"ledgerpay/internal/modules/wallet"
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
@@ -33,8 +35,10 @@ type Deps struct {
 
 // APIRouter adalah router API publik, di-mount di /api/v1.
 func APIRouter(d Deps) http.Handler {
-	idSvc := identity.NewService(d.Pool, d.Tokens, d.Clock, d.IDs, d.Identity)
+	ledgerSvc := ledger.NewService(d.IDs)
+	idSvc := identity.NewService(d.Pool, ledgerSvc, d.Tokens, d.Clock, d.IDs, d.Identity)
 	idH := identity.NewHandler(idSvc, d.CookieSecure)
+	walletH := wallet.NewHandler(d.Pool, ledgerSvc, d.Clock)
 
 	r := chi.NewRouter()
 	r.Use(httpx.RequestID(d.Logger), httpx.Recover, httpx.AccessLog, httpx.BodyLimit(httpx.MaxBodyBytes))
@@ -44,6 +48,7 @@ func APIRouter(d Deps) http.Handler {
 	r.Route("/api/v1", func(v1 chi.Router) {
 		authed := v1.With(auth.RequireUser(d.Tokens))
 		idH.Routes(v1, authed)
+		walletH.Routes(authed)
 	})
 	return r
 }

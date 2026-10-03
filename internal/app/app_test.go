@@ -12,10 +12,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"ledgerpay/internal/app"
 	"ledgerpay/internal/modules/identity"
+	"ledgerpay/internal/modules/ledger"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
+	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/db/dbtest"
 	"ledgerpay/internal/platform/idgen"
 )
@@ -23,8 +29,9 @@ import (
 func TestMain(m *testing.M) { dbtest.Main(m) }
 
 type env struct {
-	srv *httptest.Server
-	ops *httptest.Server
+	srv  *httptest.Server
+	ops  *httptest.Server
+	pool *pgxpool.Pool
 }
 
 func newEnv(t *testing.T) env {
@@ -40,7 +47,7 @@ func newEnv(t *testing.T) env {
 		Logger: slog.New(slog.NewJSONHandler(io.Discard, nil)), Pool: tdb.App, Tokens: tokens, Clock: clk, IDs: ids,
 		Identity: identity.Config{Argon2: auth.TestArgon2, RefreshTTL: 7 * 24 * time.Hour, RefreshFamilyTTL: 30 * 24 * time.Hour},
 	})
-	e := env{srv: httptest.NewServer(h), ops: httptest.NewServer(app.OpsRouter(tdb.App))}
+	e := env{srv: httptest.NewServer(h), ops: httptest.NewServer(app.OpsRouter(tdb.App)), pool: tdb.App}
 	t.Cleanup(e.srv.Close)
 	t.Cleanup(e.ops.Close)
 	return e
@@ -256,6 +263,126 @@ func TestOps_HealthAndReadiness(t *testing.T) {
 		_ = resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("%s: want 200, got %d", path, resp.StatusCode)
+		}
+	}
+}
+
+// ---------------------------------------------------------------- wallet (Sprint 2)
+
+// login mendaftarkan user lalu login, mengembalikan access token dan id user.
+func login(t *testing.T, e env, email string) (token string, userID uuid.UUID) {
+	t.Helper()
+	register(t, e, email)
+	_, body := e.do(t, http.MethodPost, "/api/v1/auth/login", "", map[string]string{"email": email, "password": "correct horse battery"})
+	token, _ = body["access_token"].(string)
+	_, me := e.do(t, http.MethodGet, "/api/v1/me", token, nil)
+	return token, uuid.MustParse(me["id"].(string))
+}
+
+// seedTopup memposting top-up langsung lewat ledger.Service (endpoint top-up baru ada di Sprint 5).
+func seedTopup(t *testing.T, e env, userID uuid.UUID, amount int64) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	svc := ledger.NewService(idgen.V7{})
+	w, err := svc.WalletOf(ctx, e.pool, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prov, err := svc.SystemAccountID(ctx, e.pool, "PROVIDER_CLEARING")
+	if err != nil {
+		t.Fatal(err)
+	}
+	j := ledger.Journal{ID: uuid.Must(uuid.NewV7()), Purpose: ledger.PurposeTopupCredit, SourceType: "topup", SourceID: uuid.Must(uuid.NewV7()),
+		Currency: "IDR", CorrelationID: "seed", Actor: ledger.Actor{Type: "SYSTEM"},
+		Entries: []ledger.Entry{{AccountID: prov, Direction: ledger.Debit, Amount: amount}, {AccountID: w.AccountID, Direction: ledger.Credit, Amount: amount}}}
+	if err := db.WithTx(ctx, e.pool, func(tx pgx.Tx) error { return svc.PostJournal(ctx, tx, j) }); err != nil {
+		t.Fatal(err)
+	}
+	return j.ID
+}
+
+// LF-01 AC1: register membuat wallet IDR saldo 0 dalam transaksi yang sama.
+func TestWallet_CreatedOnRegisterWithZeroBalance(t *testing.T) {
+	e := newEnv(t)
+	token, _ := login(t, e, "w0@example.com")
+	resp, body := e.do(t, http.MethodGet, "/api/v1/wallet", token, nil)
+	if resp.StatusCode != http.StatusOK || body["balance"] != "0" || body["currency"] != "IDR" || body["status"] != "ACTIVE" {
+		t.Fatalf("unexpected wallet: %d %v", resp.StatusCode, body)
+	}
+}
+
+func TestWallet_HistoryPaginationAndFilters(t *testing.T) {
+	e := newEnv(t)
+	token, uid := login(t, e, "hist@example.com")
+	for _, amt := range []int64{1_000_00, 2_000_00, 3_000_00} {
+		seedTopup(t, e, uid, amt)
+	}
+	_, body := e.do(t, http.MethodGet, "/api/v1/wallet", token, nil)
+	if body["balance"] != "600000" {
+		t.Fatalf("balance = %v, want 600000", body["balance"])
+	}
+
+	_, p1 := e.do(t, http.MethodGet, "/api/v1/wallet/transactions?limit=2", token, nil)
+	data1, _ := p1["data"].([]any)
+	page1, _ := p1["page"].(map[string]any)
+	if len(data1) != 2 || page1["has_more"] != true {
+		t.Fatalf("page 1: want 2 items + has_more, got %v", p1)
+	}
+	first := data1[0].(map[string]any)
+	if first["amount"] != "300000" || first["direction"] != "IN" || first["type"] != "TOPUP" {
+		t.Fatalf("newest first, credit to wallet = IN; got %v", first)
+	}
+	cursor := page1["next_cursor"].(string)
+	_, p2 := e.do(t, http.MethodGet, "/api/v1/wallet/transactions?limit=2&cursor="+cursor, token, nil)
+	data2, _ := p2["data"].([]any)
+	if len(data2) != 1 || p2["page"].(map[string]any)["has_more"] != false || data2[0].(map[string]any)["amount"] != "100000" {
+		t.Fatalf("page 2: want the oldest item only, got %v", p2)
+	}
+
+	_, out := e.do(t, http.MethodGet, "/api/v1/wallet/transactions?direction=OUT", token, nil)
+	if d, _ := out["data"].([]any); len(d) != 0 {
+		t.Fatalf("direction=OUT: want 0 items, got %v", out)
+	}
+	for name, q := range map[string]string{"unknown param": "?sort=amount", "bad limit": "?limit=500", "bad type": "?type=MINT"} {
+		resp, b := e.do(t, http.MethodGet, "/api/v1/wallet/transactions"+q, token, nil)
+		if resp.StatusCode != http.StatusBadRequest || b["code"] != "VALIDATION_ERROR" {
+			t.Errorf("%s: want 400 VALIDATION_ERROR, got %d %v", name, resp.StatusCode, b)
+		}
+	}
+	resp, b := e.do(t, http.MethodGet, "/api/v1/wallet/transactions?cursor=not-a-cursor", token, nil)
+	if resp.StatusCode != http.StatusBadRequest || b["code"] != "INVALID_CURSOR" {
+		t.Errorf("bad cursor: want 400 INVALID_CURSOR, got %d %v", resp.StatusCode, b)
+	}
+}
+
+// bola_wallet: user B tidak boleh tahu transaksi milik user A ada (404, bukan 403).
+func TestWallet_TransactionDetailBOLA(t *testing.T) {
+	e := newEnv(t)
+	tokenA, uidA := login(t, e, "a@example.com")
+	tokenB, _ := login(t, e, "b@example.com")
+	jid := seedTopup(t, e, uidA, 5_000_00)
+
+	resp, body := e.do(t, http.MethodGet, "/api/v1/wallet/transactions/"+jid.String(), tokenA, nil)
+	if resp.StatusCode != http.StatusOK || body["amount"] != "500000" || body["direction"] != "IN" {
+		t.Fatalf("owner must see own transaction: %d %v", resp.StatusCode, body)
+	}
+	entries := body["journal"].(map[string]any)["entries"].([]any)
+	labels := map[string]bool{}
+	for _, en := range entries {
+		labels[en.(map[string]any)["account_label"].(string)] = true
+	}
+	if !labels["Wallet Anda"] || !labels["Sistem"] {
+		t.Fatalf("entries must be labeled generically (no foreign account ids): %v", entries)
+	}
+
+	for name, path := range map[string]string{
+		"other user's journal": "/api/v1/wallet/transactions/" + jid.String(),
+		"random uuid":          "/api/v1/wallet/transactions/" + uuid.NewString(),
+		"not a uuid":           "/api/v1/wallet/transactions/123",
+	} {
+		resp, b := e.do(t, http.MethodGet, path, tokenB, nil)
+		if resp.StatusCode != http.StatusNotFound || b["code"] != "NOT_FOUND" {
+			t.Errorf("%s: want 404 NOT_FOUND, got %d %v", name, resp.StatusCode, b)
 		}
 	}
 }

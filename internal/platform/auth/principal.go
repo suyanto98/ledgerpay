@@ -53,6 +53,7 @@ func RequireUser(t *Tokens) func(http.Handler) http.Handler {
 				return
 			}
 			p := Principal{UserID: uuid.MustParse(claims.Subject), Roles: claims.Roles}
+			httpx.SetUserID(r.Context(), p.UserID.String()) // agar log akses memuat user_id
 			ctx := WithPrincipal(r.Context(), p)
 			ctx = observability.WithLogger(ctx, observability.Logger(ctx).With("user_id", p.UserID.String()))
 			next.ServeHTTP(w, r.WithContext(ctx))

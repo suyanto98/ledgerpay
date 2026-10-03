@@ -11,6 +11,20 @@ import (
 	"github.com/google/uuid"
 )
 
+type Account struct {
+	ID         uuid.UUID
+	UserID     *uuid.UUID
+	SystemCode *string
+	IsSystem   bool
+	Type       string
+	NormalSide string
+	Currency   string
+	Balance    *int64
+	Status     string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
 type AuditLog struct {
 	ID            uuid.UUID
 	ActorType     string
@@ -25,6 +39,31 @@ type AuditLog struct {
 	Diff          []byte
 	Reason        *string
 	CreatedAt     time.Time
+}
+
+type Journal struct {
+	ID               uuid.UUID
+	Purpose          string
+	SourceType       string
+	SourceID         uuid.UUID
+	Currency         string
+	ReversalOf       *uuid.UUID
+	CorrelationID    string
+	IdempotencyKeyID *uuid.UUID
+	ActorType        string
+	ActorID          *uuid.UUID
+	Description      *string
+	CreatedAt        time.Time
+}
+
+type JournalEntry struct {
+	ID        uuid.UUID
+	JournalID uuid.UUID
+	AccountID uuid.UUID
+	Direction string
+	Amount    int64
+	Currency  string
+	CreatedAt time.Time
 }
 
 type RefreshToken struct {

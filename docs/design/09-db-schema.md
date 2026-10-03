@@ -101,6 +101,12 @@ Trigger hanya lapis pertama. Lapis kedua adalah **grant**: tabel append-only tid
 
 ## 4. `accounts`
 
+> **Implementasi Sprint 2 (penyimpangan yang disengaja):**
+> - `accounts.merchant_id` + FK ke `merchants` belum ada; ditambahkan di Sprint 4 lewat migrasi expand (tabel `merchants` belum ada). `ck_accounts_owner` sementara: sistem ⇔ `system_code`, wallet ⇔ `user_id`.
+> - `journals.correlation_id` bertipe `text`, bukan `uuid`: request ID dari client boleh berbentuk bebas (selaras dengan `audit_log.correlation_id`).
+> - Index FK composite menyertakan `currency`: `ix_journal_entries_journal_id (journal_id, currency)` dan `ix_journal_entries_account_created (account_id, currency, created_at, id)`, karena FK-nya `(journal_id, currency)` dan `(account_id, currency)` (catalogue test C4).
+> - Tambahan `ix_accounts_user_id (user_id)` penuh: partial unique `uq_accounts_user_currency` tidak bisa dipakai cek FK.
+
 | Kolom | Tipe | N | Default | Fungsi |
 |---|---|---|---|---|
 | `id` | `uuid` | | | PK; juga kunci urutan lock (`ORDER BY id`, ADR-L03) |

@@ -32,8 +32,15 @@ type Config struct {
 	RefreshFamilyTTL time.Duration
 }
 
+// WalletCreator dipanggil di dalam transaksi register. Identity tidak meng-import modul ledger;
+// ia hanya mengenal interface ini, dan implementasinya disuntikkan oleh composition root (ADR-001).
+type WalletCreator interface {
+	CreateUserWallet(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error
+}
+
 type Service struct {
 	pool      *pgxpool.Pool
+	wallets   WalletCreator
 	tokens    *auth.Tokens
 	clock     clock.Clock
 	ids       idgen.Generator
@@ -41,8 +48,8 @@ type Service struct {
 	dummyHash string
 }
 
-func NewService(pool *pgxpool.Pool, tokens *auth.Tokens, c clock.Clock, ids idgen.Generator, cfg Config) *Service {
-	return &Service{pool: pool, tokens: tokens, clock: c, ids: ids, cfg: cfg, dummyHash: auth.DummyHash(cfg.Argon2)}
+func NewService(pool *pgxpool.Pool, wallets WalletCreator, tokens *auth.Tokens, c clock.Clock, ids idgen.Generator, cfg Config) *Service {
+	return &Service{pool: pool, wallets: wallets, tokens: tokens, clock: c, ids: ids, cfg: cfg, dummyHash: auth.DummyHash(cfg.Argon2)}
 }
 
 // User adalah representasi user yang aman dikirim ke client (tanpa password_hash).
@@ -91,7 +98,7 @@ func validEmail(s string) bool {
 	return err == nil && a.Address == s && strings.Contains(s, "@")
 }
 
-// Register membuat user baru. Email duplikat dideteksi oleh unique index (bukan SELECT dulu):
+// Register membuat user baru beserta wallet IDR-nya dalam satu transaksi. Email duplikat dideteksi oleh unique index (bukan SELECT dulu):
 // dua register paralel dengan email sama → tepat satu sukses, satu 409 (tanpa race).
 func (s *Service) Register(ctx context.Context, in RegisterInput, meta RequestMeta) (User, error) {
 	if err := in.validate(); err != nil {
@@ -111,6 +118,10 @@ func (s *Service) Register(ctx context.Context, in RegisterInput, meta RequestMe
 			return err
 		}
 		u = User{ID: row.ID, Email: row.Email, DisplayName: row.DisplayName, CreatedAt: row.CreatedAt}
+		// User dan wallet lahir bersama atau tidak sama sekali (LF-01 AC1).
+		if err := s.wallets.CreateUserWallet(ctx, tx, row.ID); err != nil {
+			return err
+		}
 		return s.audit(ctx, q, row.ID, "user.registered", meta)
 	})
 	if err != nil {

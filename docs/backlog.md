@@ -25,16 +25,21 @@
 - [x] `pr.yml`: golangci-lint (depguard), unit + integration test (`-race`)
 
 ## Catatan dari Sprint 1 (dibawa ke Sprint 2)
-- [ ] Log akses belum memuat `user_id` (logger akses memakai context sebelum autentikasi). Perbaiki dengan menaruh holder field yang bisa diisi middleware auth
+- [x] Log akses belum memuat `user_id` (diperbaiki di Sprint 2: holder request info diisi middleware auth) (logger akses memakai context sebelum autentikasi). Perbaiki dengan menaruh holder field yang bisa diisi middleware auth
 - [ ] Path module Go masih `ledgerpay`; ganti ke `github.com/<username>/ledgerpay` saat username GitHub ditentukan (`go mod edit -module` + ganti import)
 - [ ] CI belum pernah dijalankan di GitHub (repo masih lokal)
 
-## Sprint 2 — Core Domain
-- [ ] Migrasi `accounts`, `journals`, `journal_entries` (trigger keseimbangan versi `IF`, append-only, composite FK currency)
-- [ ] `ledger.PostJournal` + value object `Money` + validasi template purpose
-- [ ] Register membuat user + wallet dalam satu tx; seed akun sistem
-- [ ] `GET /wallet`, `GET /wallet/transactions` (cursor), `GET /wallet/transactions/{id}` + scoping owner (404)
-- [ ] Invariant checker + property test (journal selalu seimbang, Σ saldo kekal)
+## Sprint 2 — Core Domain ✅
+- [x] Migrasi `accounts`, `journals`, `journal_entries` (trigger keseimbangan versi `IF`, append-only, composite FK currency)
+- [x] `ledger.PostJournal` + value object `Money` + validasi template purpose
+- [x] Register membuat user + wallet dalam satu tx; seed akun sistem
+- [x] `GET /wallet`, `GET /wallet/transactions` (cursor), `GET /wallet/transactions/{id}` + scoping owner (404)
+- [x] Invariant checker + property test (journal selalu seimbang, Σ saldo kekal)
+
+## Catatan dari Sprint 2 (dibawa ke sprint berikutnya)
+- [ ] `accounts.merchant_id` + FK ke `merchants` + perluasan `ck_accounts_owner` (Sprint 4, migrasi expand)
+- [ ] `held_amount` di `GET /wallet` (dana payout yang di-hold) saat payout ada (Sprint 6)
+- [ ] Job terjadwal `ledger.verify` yang memanggil `ledger.Verify` dan mengisi metrik invariant (Sprint 6/7)
 
 ## Sprint 3 — Critical Business Logic · 🏁 M2
 - [ ] Migrasi `idempotency_keys` + modul idempotency pola (a)
