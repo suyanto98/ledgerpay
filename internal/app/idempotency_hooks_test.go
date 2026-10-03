@@ -16,32 +16,55 @@ import (
 	"ledgerpay/internal/platform/testhook"
 )
 
-// pauseFirst memasang hook yang MENAHAN eksekusi pertama setelah key ter-INSERT (belum commit),
-// memberi sinyal lewat inserted, dan melepasnya saat release ditutup. Eksekusi berikutnya lewat.
-func pauseFirst(t *testing.T, failWith error) (inserted, release chan struct{}) {
+// gate adalah sinyal "lanjutkan" untuk hook yang sedang menahan request. Gate SELALU dibuka di
+// t.Cleanup: kalau test gagal di tengah jalan, request yang tertahan tetap dilepas. Tanpa ini,
+// httptest.Server.Close() menunggu request itu selamanya dan seluruh suite macet.
+type gate struct {
+	ch   chan struct{}
+	once sync.Once
+}
+
+func newGate(t *testing.T) *gate {
+	g := &gate{ch: make(chan struct{})}
+	t.Cleanup(g.open) // didaftarkan SETELAH newEnv → berjalan SEBELUM server ditutup (LIFO)
+	return g
+}
+
+func (g *gate) open() { g.once.Do(func() { close(g.ch) }) }
+
+func (g *gate) wait(ctx context.Context) error {
+	select {
+	case <-g.ch:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// pauseFirst memasang hook bernama yang MENAHAN eksekusi pertama yang sampai di titik itu,
+// memberi sinyal lewat reached, dan melepasnya saat release dibuka. Eksekusi berikutnya lewat.
+// failWith != nil mensimulasikan kegagalan eksekusi pertama setelah dilepas.
+func pauseFirst(t *testing.T, hook string, failWith error) (reached chan struct{}, release *gate) {
 	t.Helper()
-	inserted, release = make(chan struct{}), make(chan struct{})
+	reached, release = make(chan struct{}), newGate(t)
 	var once sync.Once
-	reset := testhook.Set("idempotency.after_insert", func(ctx context.Context) error {
+	t.Cleanup(testhook.Set(hook, func(ctx context.Context) error {
 		first := false
 		once.Do(func() { first = true })
 		if !first {
 			return nil
 		}
-		close(inserted)
-		select {
-		case <-release:
-		case <-ctx.Done():
-			return ctx.Err()
+		close(reached)
+		if err := release.wait(ctx); err != nil {
+			return err
 		}
 		return failWith
-	})
-	t.Cleanup(reset)
-	return inserted, release
+	}))
+	return reached, release
 }
 
 // waitForLockWaiter menunggu sampai ada sesi lain di DB test yang sedang MENUNGGU lock
-// (di sini: INSERT key kedua yang tertahan di unique index).
+// (contoh: INSERT key kedua di unique index, atau confirm kedua di lock intent).
 func waitForLockWaiter(t *testing.T, e env) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -58,7 +81,7 @@ func waitForLockWaiter(t *testing.T, e env) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatal("second request never blocked on the idempotency key")
+	t.Fatal("no other session ever waited on a lock (expected the second request to block)")
 }
 
 type outcome struct {
@@ -83,14 +106,14 @@ func TestIdempotency_ConcurrentSameKey_OneEffect(t *testing.T) {
 	rina, rinaID := login(t, e, "rina@example.com")
 	login(t, e, "andi@example.com")
 	seedTopup(t, e, rinaID, 100_000)
-	inserted, release := pauseFirst(t, nil)
+	inserted, release := pauseFirst(t, "idempotency.after_insert", nil)
 	key, body := newKey(), transferBody("andi@example.com", "40000")
 
 	r1 := e.transferAsync(t, rina, key, body)
 	<-inserted // R1 sudah INSERT key, transaksinya masih terbuka
 	r2 := e.transferAsync(t, rina, key, body)
 	waitForLockWaiter(t, e) // R2 tertahan di unique index
-	close(release)
+	release.open()
 
 	o1, o2 := <-r1, <-r2
 	if o1.status != http.StatusCreated || o1.replayed {
@@ -115,14 +138,14 @@ func TestIdempotency_FirstTxRolledBack_SecondProceeds(t *testing.T) {
 	rina, rinaID := login(t, e, "rina@example.com")
 	login(t, e, "andi@example.com")
 	seedTopup(t, e, rinaID, 100_000)
-	inserted, release := pauseFirst(t, errors.New("injected: connection lost mid-transaction"))
+	inserted, release := pauseFirst(t, "idempotency.after_insert", errors.New("injected: connection lost mid-transaction"))
 	key, body := newKey(), transferBody("andi@example.com", "40000")
 
 	r1 := e.transferAsync(t, rina, key, body)
 	<-inserted
 	r2 := e.transferAsync(t, rina, key, body)
 	waitForLockWaiter(t, e)
-	close(release)
+	release.open()
 
 	o1, o2 := <-r1, <-r2
 	if o1.status != http.StatusInternalServerError {
@@ -144,13 +167,13 @@ func TestIdempotency_SameKeyStillRunning_RequestInProgress(t *testing.T) {
 	rina, rinaID := login(t, e, "rina@example.com")
 	login(t, e, "andi@example.com")
 	seedTopup(t, e, rinaID, 100_000)
-	inserted, release := pauseFirst(t, nil)
+	inserted, release := pauseFirst(t, "idempotency.after_insert", nil)
 	key, body := newKey(), transferBody("andi@example.com", "40000")
 
 	r1 := e.transferAsync(t, rina, key, body)
 	<-inserted
 	r2, b2 := e.transfer(t, rina, key, body) // menunggu 300 ms di unique index, lalu menyerah
-	close(release)
+	release.open()
 	if r2.StatusCode != http.StatusConflict || b2["code"] != "REQUEST_IN_PROGRESS" {
 		t.Fatalf("R2: want 409 REQUEST_IN_PROGRESS, got %d %v", r2.StatusCode, b2)
 	}

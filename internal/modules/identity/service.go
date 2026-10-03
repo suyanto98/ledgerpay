@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"net/mail"
 	"net/netip"
 	"strings"
@@ -24,13 +25,25 @@ import (
 	"ledgerpay/internal/platform/clock"
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/idgen"
+	"ledgerpay/internal/platform/observability"
 )
 
 type Config struct {
 	Argon2           auth.Argon2Params
 	RefreshTTL       time.Duration
 	RefreshFamilyTTL time.Duration
+	// HashConcurrency: hash argon2 paralel maksimum (C-45). 0 → 4.
+	HashConcurrency int
 }
+
+// Kebijakan sesi dan lockout (ADR-009, C-03, C-05).
+const (
+	refreshGrace     = 10 * time.Second // refresh paralel dari dua tab tidak dianggap pencurian
+	lockoutThreshold = 5                // gagal ke-5 mulai mengunci
+	lockoutBase      = time.Minute      // lalu berlipat: 1, 2, 4, 8 menit …
+	lockoutMax       = 15 * time.Minute // … maksimal 15 menit
+	hashMaxWait      = 2 * time.Second  // antre slot argon2 maksimal 2 dtk, lalu 503
+)
 
 // WalletCreator dipanggil di dalam transaksi register. Identity tidak meng-import modul ledger;
 // ia hanya mengenal interface ini, dan implementasinya disuntikkan oleh composition root (ADR-001).
@@ -45,11 +58,17 @@ type Service struct {
 	clock     clock.Clock
 	ids       idgen.Generator
 	cfg       Config
+	hasher    *auth.Hasher
 	dummyHash string
 }
 
 func NewService(pool *pgxpool.Pool, wallets WalletCreator, tokens *auth.Tokens, c clock.Clock, ids idgen.Generator, cfg Config) *Service {
-	return &Service{pool: pool, wallets: wallets, tokens: tokens, clock: c, ids: ids, cfg: cfg, dummyHash: auth.DummyHash(cfg.Argon2)}
+	n := cfg.HashConcurrency
+	if n <= 0 {
+		n = 4
+	}
+	return &Service{pool: pool, wallets: wallets, tokens: tokens, clock: c, ids: ids, cfg: cfg,
+		hasher: auth.NewHasher(cfg.Argon2, n, hashMaxWait), dummyHash: auth.DummyHash(cfg.Argon2)}
 }
 
 // User adalah representasi user yang aman dikirim ke client (tanpa password_hash).
@@ -104,7 +123,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput, meta RequestMe
 	if err := in.validate(); err != nil {
 		return User{}, err
 	}
-	hash, err := auth.HashPassword(in.Password, s.cfg.Argon2) // di luar transaksi: argon2 ± 100 ms
+	hash, err := s.hasher.Hash(ctx, in.Password) // di luar transaksi: argon2 ± 100 ms
 	if err != nil {
 		return User{}, err
 	}
@@ -146,27 +165,42 @@ type LoginResult struct {
 }
 
 // Login memverifikasi kredensial. Semua kegagalan (email tidak ada, password salah, akun tidak
-// aktif) mengembalikan error yang SAMA, dan email tak dikenal tetap menjalankan argon2 (dummy
-// hash) supaya waktu respons tidak membocorkan email mana yang terdaftar (T-SH-01, C-03).
+// aktif, akun terkunci) mengembalikan error yang SAMA PERSIS, dan argon2 SELALU dijalankan
+// (dummy hash untuk email tak dikenal, hash asli untuk akun terkunci) supaya baik isi respons
+// maupun waktunya tidak membocorkan email mana yang terdaftar atau sedang terkunci (T-SH-01, C-03).
 func (s *Service) Login(ctx context.Context, in LoginInput, meta RequestMeta) (LoginResult, error) {
 	q := store.New(s.pool)
 	user, err := q.GetUserByEmail(ctx, in.Email)
 	if err != nil {
 		if mapped := db.MapError(err); apperr.As(mapped).Code == apperr.ErrNotFound.Code {
-			_, _ = auth.VerifyPassword(in.Password, s.dummyHash)
+			if _, err := s.hasher.Verify(ctx, in.Password, s.dummyHash); err != nil {
+				return LoginResult{}, err
+			}
+			observability.Logger(ctx).Info("auth.login_failed", "reason", "unknown_email")
 			return LoginResult{}, apperr.ErrInvalidCredentials
 		}
 		return LoginResult{}, db.MapError(err)
 	}
-	ok, err := auth.VerifyPassword(in.Password, user.PasswordHash)
+	now := s.clock.Now()
+	locked := user.LockedUntil != nil && user.LockedUntil.After(now)
+	ok, err := s.hasher.Verify(ctx, in.Password, user.PasswordHash) // tetap dijalankan saat terkunci (timing)
 	if err != nil {
 		return LoginResult{}, err
 	}
-	if !ok || user.Status != "ACTIVE" {
+	if locked || !ok || user.Status != "ACTIVE" {
+		reason := "bad_password"
+		switch {
+		case locked:
+			reason = "locked" // percobaan selama terkunci tidak memperpanjang lock
+		case user.Status != "ACTIVE":
+			reason = "inactive"
+		}
+		if err := s.recordFailure(ctx, user.ID, reason, !locked && !ok, now, meta); err != nil {
+			return LoginResult{}, err
+		}
 		return LoginResult{}, apperr.ErrInvalidCredentials
 	}
 
-	now := s.clock.Now()
 	rawRefresh, refreshHash, err := newRefreshToken()
 	if err != nil {
 		return LoginResult{}, err
@@ -195,6 +229,146 @@ func (s *Service) Login(ctx context.Context, in LoginInput, meta RequestMeta) (L
 	return res, err
 }
 
+// recordFailure mencatat login gagal (audit) dan, untuk password salah, menaikkan counter lockout.
+func (s *Service) recordFailure(ctx context.Context, userID uuid.UUID, reason string, count bool, now time.Time, meta RequestMeta) error {
+	return db.MapError(db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		q := store.New(tx)
+		if count {
+			row, err := q.RecordLoginFailure(ctx, store.RecordLoginFailureParams{
+				Threshold: lockoutThreshold, Now: now, BaseSecs: lockoutBase.Seconds(), MaxSecs: lockoutMax.Seconds(), ID: userID,
+			})
+			if err != nil {
+				return err
+			}
+			if row.LockedUntil != nil && row.LockedUntil.After(now) {
+				reason = "locked_now"
+				observability.Logger(ctx).Warn("auth.account_locked", "user_id", userID.String(),
+					"failed_count", row.FailedLoginCount, "locked_until", row.LockedUntil)
+			}
+		}
+		return s.auditWithReason(ctx, q, userID, "auth.login_failed", reason, meta)
+	}))
+}
+
+// Refresh menukar refresh token dengan access token baru + refresh token baru (rotasi, C-05).
+//
+//   - token belum dipakai → tandai used, terbitkan penerus di family yang sama;
+//   - token sudah dipakai ≤ 10 dtk lalu → refresh paralel dari tab lain: beri access token saja,
+//     TANPA refresh token baru (browser sudah menerima penerus dari respons pertama di cookie jar
+//     yang sama; server tidak bisa mengirim ulang penerus karena yang disimpan hanya hash-nya);
+//   - token sudah dipakai > 10 dtk lalu → REUSE: kemungkinan dicuri. Seluruh family dicabut
+//     (pencuri DAN korban harus login ulang), dicatat di audit, 401 REFRESH_TOKEN_REUSED.
+func (s *Service) Refresh(ctx context.Context, raw string, meta RequestMeta) (LoginResult, error) {
+	if raw == "" {
+		return LoginResult{}, apperr.ErrUnauthenticated
+	}
+	sum := sha256.Sum256([]byte(raw))
+	var (
+		res    LoginResult
+		reused bool
+		userID uuid.UUID
+		role   string
+	)
+	now := s.clock.Now()
+	err := db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		res, reused = LoginResult{}, false
+		q := store.New(tx)
+		t, err := q.GetRefreshTokenForUpdate(ctx, sum[:])
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return apperr.ErrUnauthenticated
+			}
+			return err
+		}
+		userID, role = t.UserID, t.Role
+		if t.RevokedAt != nil || t.UserStatus != "ACTIVE" {
+			return apperr.ErrUnauthenticated
+		}
+		if t.UsedAt != nil {
+			if now.Sub(*t.UsedAt) <= refreshGrace {
+				return nil // grace: access token saja
+			}
+			reused = true
+			if _, err := q.RevokeFamily(ctx, store.RevokeFamilyParams{Now: &now, Reason: ptr("REUSE_DETECTED"), FamilyID: t.FamilyID}); err != nil {
+				return err
+			}
+			observability.Logger(ctx).Warn("auth.refresh_reuse_detected", "user_id", t.UserID.String(), "family_id", t.FamilyID.String())
+			return s.auditWithReason(ctx, q, t.UserID, "auth.refresh_reuse_detected", "family revoked", meta)
+		}
+		if !now.Before(t.ExpiresAt) || !now.Before(t.FamilyExpiresAt) {
+			return apperr.ErrUnauthenticated
+		}
+		rawNew, hashNew, err := newRefreshToken()
+		if err != nil {
+			return err
+		}
+		newID := s.ids.New()
+		expires := now.Add(s.cfg.RefreshTTL) // sliding 7 hari …
+		if expires.After(t.FamilyExpiresAt) {
+			expires = t.FamilyExpiresAt // … tetapi tidak melewati batas absolut family (30 hari sejak login)
+		}
+		if err := q.MarkRefreshTokenUsed(ctx, store.MarkRefreshTokenUsedParams{Now: &now, ReplacedBy: &newID, ID: t.ID}); err != nil {
+			return err
+		}
+		if err := q.CreateRotatedRefreshToken(ctx, store.CreateRotatedRefreshTokenParams{
+			ID: newID, UserID: t.UserID, FamilyID: t.FamilyID, TokenHash: hashNew, ParentID: &t.ID,
+			IssuedAt: now, ExpiresAt: expires, FamilyExpiresAt: t.FamilyExpiresAt,
+			UserAgent: nonEmpty(truncate(meta.UserAgent, 512)), Ip: meta.IP,
+		}); err != nil {
+			return err
+		}
+		res = LoginResult{RefreshToken: rawNew, RefreshExpiresAt: expires, RefreshMaxAge: expires.Sub(now)}
+		return nil
+	})
+	if err != nil {
+		return LoginResult{}, db.MapError(err)
+	}
+	if reused {
+		return LoginResult{}, apperr.ErrRefreshReused
+	}
+	var accessExp time.Time
+	res.AccessToken, accessExp, err = s.tokens.Issue(userID, []string{role})
+	res.AccessExpiresIn = accessExp.Sub(now)
+	return res, err
+}
+
+// Logout mencabut seluruh family dari refresh token (semua turunan sesi login ini). Selalu
+// "berhasil": token tak dikenal atau sudah dicabut tidak menghasilkan error (idempoten).
+func (s *Service) Logout(ctx context.Context, raw string, meta RequestMeta) error {
+	if raw == "" {
+		return nil
+	}
+	sum := sha256.Sum256([]byte(raw))
+	now := s.clock.Now()
+	return db.MapError(db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		q := store.New(tx)
+		fam, err := q.GetFamilyByTokenHash(ctx, sum[:])
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		n, err := q.RevokeFamily(ctx, store.RevokeFamilyParams{Now: &now, Reason: ptr("LOGOUT"), FamilyID: fam.FamilyID})
+		if err != nil || n == 0 {
+			return err
+		}
+		return s.auditWithReason(ctx, q, fam.UserID, "auth.logged_out", "", meta)
+	}))
+}
+
+// GrantOps memberi role OPS ke user (hanya lewat CLI admin `ledgerpay grant-ops`; tidak ada endpoint).
+func GrantOps(ctx context.Context, q db.DBTX, email string) error {
+	n, err := store.New(q).GrantOpsRole(ctx, email)
+	if err != nil {
+		return db.MapError(err)
+	}
+	if n == 0 {
+		return apperr.ErrNotFound
+	}
+	return nil
+}
+
 // Me mengembalikan profil user yang sedang login.
 func (s *Service) Me(ctx context.Context, userID uuid.UUID) (User, error) {
 	row, err := store.New(s.pool).GetUserByID(ctx, userID)
@@ -205,13 +379,19 @@ func (s *Service) Me(ctx context.Context, userID uuid.UUID) (User, error) {
 }
 
 func (s *Service) audit(ctx context.Context, q *store.Queries, userID uuid.UUID, action string, meta RequestMeta) error {
+	return s.auditWithReason(ctx, q, userID, action, "", meta)
+}
+
+func (s *Service) auditWithReason(ctx context.Context, q *store.Queries, userID uuid.UUID, action, reason string, meta RequestMeta) error {
 	target := "user"
 	return q.InsertAudit(ctx, store.InsertAuditParams{
 		ID: s.ids.New(), ActorType: "USER", ActorID: &userID, Action: action,
 		TargetType: &target, TargetID: &userID, RequestID: nonEmpty(meta.RequestID),
-		Ip: meta.IP, UserAgent: nonEmpty(truncate(meta.UserAgent, 512)),
+		Ip: meta.IP, UserAgent: nonEmpty(truncate(meta.UserAgent, 512)), Reason: nonEmpty(reason),
 	})
 }
+
+func ptr[T any](v T) *T { return &v }
 
 // newRefreshToken: 256 bit acak (opaque). Yang disimpan hanya SHA-256-nya. Hash cepat sudah cukup
 // karena token berentropi tinggi tidak bisa di-brute-force (beda dengan password; ADR-009).

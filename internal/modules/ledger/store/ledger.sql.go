@@ -63,6 +63,25 @@ func (q *Queries) BalanceDrift(ctx context.Context) ([]BalanceDriftRow, error) {
 	return items, nil
 }
 
+const createMerchantWallet = `-- name: CreateMerchantWallet :one
+INSERT INTO accounts (id, merchant_id, is_system, type, normal_side, currency, balance)
+VALUES ($1, $2, false, 'LIABILITY', 'C', $3, 0)
+RETURNING id
+`
+
+type CreateMerchantWalletParams struct {
+	ID         uuid.UUID
+	MerchantID *uuid.UUID
+	Currency   string
+}
+
+func (q *Queries) CreateMerchantWallet(ctx context.Context, arg CreateMerchantWalletParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createMerchantWallet, arg.ID, arg.MerchantID, arg.Currency)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createUserWallet = `-- name: CreateUserWallet :one
 INSERT INTO accounts (id, user_id, is_system, type, normal_side, currency, balance)
 VALUES ($1, $2, false, 'LIABILITY', 'C', $3, 0)
@@ -167,6 +186,35 @@ func (q *Queries) GetSystemAccounts(ctx context.Context, ids []uuid.UUID) ([]Get
 		return nil, err
 	}
 	return items, nil
+}
+
+const getWalletByMerchant = `-- name: GetWalletByMerchant :one
+SELECT id, currency, balance, status FROM accounts
+WHERE merchant_id = $1 AND currency = $2
+`
+
+type GetWalletByMerchantParams struct {
+	MerchantID *uuid.UUID
+	Currency   string
+}
+
+type GetWalletByMerchantRow struct {
+	ID       uuid.UUID
+	Currency string
+	Balance  *int64
+	Status   string
+}
+
+func (q *Queries) GetWalletByMerchant(ctx context.Context, arg GetWalletByMerchantParams) (GetWalletByMerchantRow, error) {
+	row := q.db.QueryRow(ctx, getWalletByMerchant, arg.MerchantID, arg.Currency)
+	var i GetWalletByMerchantRow
+	err := row.Scan(
+		&i.ID,
+		&i.Currency,
+		&i.Balance,
+		&i.Status,
+	)
+	return i, err
 }
 
 const getWalletByUser = `-- name: GetWalletByUser :one

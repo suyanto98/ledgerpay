@@ -42,6 +42,11 @@ services:
       JWT_SIGNING_KEYS: '{"dev1":"ZGV2LW9ubHktand0LXNpZ25pbmcta2V5LTMyYnl0ZXM="}'
       JWT_ACTIVE_KID: dev1
       COOKIE_SECURE: "false"       # dev lokal lewat http://localhost
+      ALLOWED_ORIGINS: http://localhost:5173
+      PUBLIC_BASE_URL: http://localhost:5173
+      # Demo B sengaja mengirim 100 transfer dari satu user dalam 1 detik untuk menguji LOCK.
+      # Default produksi 30/menit akan menjawab 70 di antaranya dengan 429, jadi dev dinaikkan.
+      RATE_LIMIT_MONEY_WRITE_PER_MIN: "600"
     ports:
       - "127.0.0.1:${LP_HTTP_PORT:-8080}:8080"   # API (ubah LP_HTTP_PORT jika 8080 terpakai)
       - "127.0.0.1:${LP_OPS_PORT:-9090}:9090"    # ops (health) — di demo/prod tidak dipublish

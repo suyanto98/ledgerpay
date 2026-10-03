@@ -115,8 +115,12 @@ type Request struct {
 
 // Outcome adalah hasil sukses fn yang akan disimpan dan dikirim.
 type Outcome struct {
-	Status       int
-	Body         any
+	Status int
+	Body   any
+	// Stored (opsional) adalah body yang disimpan untuk REPLAY bila berbeda dari Body. Contoh:
+	// pembuatan API key menampilkan secret sekali; replay mengembalikan versi tanpa secret,
+	// karena secret tidak boleh tersimpan plaintext di mana pun (termasuk idempotency_keys).
+	Stored       any
 	ResourceType string
 	ResourceID   *uuid.UUID
 }
@@ -191,9 +195,15 @@ func (s *Service) Execute(r *http.Request, req Request, fn Func) (Response, erro
 		if err != nil {
 			return err
 		}
+		stored := body
+		if out.Stored != nil {
+			if stored, err = json.Marshal(out.Stored); err != nil {
+				return err
+			}
+		}
 		status := int16(out.Status) //nolint:gosec // G115: status HTTP 100–599 muat di int16
 		if err := q.CompleteKey(ctx, store.CompleteKeyParams{
-			ID: keyID, ResponseStatus: &status, ResponseBody: body,
+			ID: keyID, ResponseStatus: &status, ResponseBody: stored,
 			ResourceType: nonEmpty(out.ResourceType), ResourceID: out.ResourceID,
 		}); err != nil {
 			return db.MapError(err)

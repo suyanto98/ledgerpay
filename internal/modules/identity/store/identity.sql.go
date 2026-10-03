@@ -45,6 +45,40 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 	return err
 }
 
+const createRotatedRefreshToken = `-- name: CreateRotatedRefreshToken :exec
+INSERT INTO refresh_tokens (id, user_id, family_id, token_hash, parent_id, issued_at, expires_at, family_expires_at, user_agent, ip)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+`
+
+type CreateRotatedRefreshTokenParams struct {
+	ID              uuid.UUID
+	UserID          uuid.UUID
+	FamilyID        uuid.UUID
+	TokenHash       []byte
+	ParentID        *uuid.UUID
+	IssuedAt        time.Time
+	ExpiresAt       time.Time
+	FamilyExpiresAt time.Time
+	UserAgent       *string
+	Ip              *netip.Addr
+}
+
+func (q *Queries) CreateRotatedRefreshToken(ctx context.Context, arg CreateRotatedRefreshTokenParams) error {
+	_, err := q.db.Exec(ctx, createRotatedRefreshToken,
+		arg.ID,
+		arg.UserID,
+		arg.FamilyID,
+		arg.TokenHash,
+		arg.ParentID,
+		arg.IssuedAt,
+		arg.ExpiresAt,
+		arg.FamilyExpiresAt,
+		arg.UserAgent,
+		arg.Ip,
+	)
+	return err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, email, password_hash, display_name)
 VALUES ($1, $2, $3, $4)
@@ -95,20 +129,78 @@ func (q *Queries) GetDisplayName(ctx context.Context, id uuid.UUID) (string, err
 	return display_name, err
 }
 
+const getFamilyByTokenHash = `-- name: GetFamilyByTokenHash :one
+SELECT family_id, user_id FROM refresh_tokens WHERE token_hash = $1
+`
+
+type GetFamilyByTokenHashRow struct {
+	FamilyID uuid.UUID
+	UserID   uuid.UUID
+}
+
+func (q *Queries) GetFamilyByTokenHash(ctx context.Context, tokenHash []byte) (GetFamilyByTokenHashRow, error) {
+	row := q.db.QueryRow(ctx, getFamilyByTokenHash, tokenHash)
+	var i GetFamilyByTokenHashRow
+	err := row.Scan(&i.FamilyID, &i.UserID)
+	return i, err
+}
+
+const getRefreshTokenForUpdate = `-- name: GetRefreshTokenForUpdate :one
+SELECT t.id, t.user_id, t.family_id, t.used_at, t.revoked_at, t.expires_at, t.family_expires_at,
+       u.role, u.status AS user_status
+FROM refresh_tokens t
+JOIN users u ON u.id = t.user_id
+WHERE t.token_hash = $1
+FOR UPDATE OF t
+`
+
+type GetRefreshTokenForUpdateRow struct {
+	ID              uuid.UUID
+	UserID          uuid.UUID
+	FamilyID        uuid.UUID
+	UsedAt          *time.Time
+	RevokedAt       *time.Time
+	ExpiresAt       time.Time
+	FamilyExpiresAt time.Time
+	Role            string
+	UserStatus      string
+}
+
+// FOR UPDATE: dua refresh paralel dengan token yang sama diserialkan di baris ini, sehingga yang
+// kedua pasti melihat used_at milik yang pertama (grace window, bukan reuse palsu).
+func (q *Queries) GetRefreshTokenForUpdate(ctx context.Context, tokenHash []byte) (GetRefreshTokenForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getRefreshTokenForUpdate, tokenHash)
+	var i GetRefreshTokenForUpdateRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.FamilyID,
+		&i.UsedAt,
+		&i.RevokedAt,
+		&i.ExpiresAt,
+		&i.FamilyExpiresAt,
+		&i.Role,
+		&i.UserStatus,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, display_name, role, status, created_at
+SELECT id, email, password_hash, display_name, role, status, failed_login_count, locked_until, created_at
 FROM users
 WHERE lower(email) = lower($1)
 `
 
 type GetUserByEmailRow struct {
-	ID           uuid.UUID
-	Email        string
-	PasswordHash string
-	DisplayName  string
-	Role         string
-	Status       string
-	CreatedAt    time.Time
+	ID               uuid.UUID
+	Email            string
+	PasswordHash     string
+	DisplayName      string
+	Role             string
+	Status           string
+	FailedLoginCount int32
+	LockedUntil      *time.Time
+	CreatedAt        time.Time
 }
 
 // Pencarian case-insensitive memakai index uq_users_email_lower.
@@ -122,6 +214,8 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.DisplayName,
 		&i.Role,
 		&i.Status,
+		&i.FailedLoginCount,
+		&i.LockedUntil,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -156,9 +250,21 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 	return i, err
 }
 
+const grantOpsRole = `-- name: GrantOpsRole :execrows
+UPDATE users SET role = 'OPS' WHERE lower(email) = lower($1)
+`
+
+func (q *Queries) GrantOpsRole(ctx context.Context, email string) (int64, error) {
+	result, err := q.db.Exec(ctx, grantOpsRole, email)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const insertAudit = `-- name: InsertAudit :exec
-INSERT INTO audit_log (id, actor_type, actor_id, action, target_type, target_id, request_id, ip, user_agent)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO audit_log (id, actor_type, actor_id, action, target_type, target_id, request_id, ip, user_agent, reason)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `
 
 type InsertAuditParams struct {
@@ -171,6 +277,7 @@ type InsertAuditParams struct {
 	RequestID  *string
 	Ip         *netip.Addr
 	UserAgent  *string
+	Reason     *string
 }
 
 func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) error {
@@ -184,13 +291,70 @@ func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) error 
 		arg.RequestID,
 		arg.Ip,
 		arg.UserAgent,
+		arg.Reason,
 	)
 	return err
 }
 
+const markRefreshTokenUsed = `-- name: MarkRefreshTokenUsed :exec
+UPDATE refresh_tokens SET used_at = $1, replaced_by = $2 WHERE id = $3
+`
+
+type MarkRefreshTokenUsedParams struct {
+	Now        *time.Time
+	ReplacedBy *uuid.UUID
+	ID         uuid.UUID
+}
+
+func (q *Queries) MarkRefreshTokenUsed(ctx context.Context, arg MarkRefreshTokenUsedParams) error {
+	_, err := q.db.Exec(ctx, markRefreshTokenUsed, arg.Now, arg.ReplacedBy, arg.ID)
+	return err
+}
+
+const recordLoginFailure = `-- name: RecordLoginFailure :one
+UPDATE users
+SET failed_login_count = failed_login_count + 1,
+    locked_until = CASE
+      WHEN failed_login_count + 1 >= $1::int
+      THEN $2::timestamptz + make_interval(secs => least($3::float8 * power(2, failed_login_count + 1 - $1::int), $4::float8))
+      ELSE locked_until
+    END
+WHERE id = $5
+RETURNING failed_login_count, locked_until
+`
+
+type RecordLoginFailureParams struct {
+	Threshold int32
+	Now       time.Time
+	BaseSecs  float64
+	MaxSecs   float64
+	ID        uuid.UUID
+}
+
+type RecordLoginFailureRow struct {
+	FailedLoginCount int32
+	LockedUntil      *time.Time
+}
+
+// Lockout bertahap (C-03): increment atomik di SQL (dua login gagal paralel tidak saling menimpa).
+// (sqlc.arg dipakai karena @param::type berulang membuat parser sqlc salah menulis ulang query.)
+// Mulai gagal ke-threshold: kunci base_secs * 2^(n - threshold), maksimal max_secs.
+func (q *Queries) RecordLoginFailure(ctx context.Context, arg RecordLoginFailureParams) (RecordLoginFailureRow, error) {
+	row := q.db.QueryRow(ctx, recordLoginFailure,
+		arg.Threshold,
+		arg.Now,
+		arg.BaseSecs,
+		arg.MaxSecs,
+		arg.ID,
+	)
+	var i RecordLoginFailureRow
+	err := row.Scan(&i.FailedLoginCount, &i.LockedUntil)
+	return i, err
+}
+
 const recordLoginSuccess = `-- name: RecordLoginSuccess :exec
 UPDATE users
-SET last_login_at = $1, failed_login_count = 0
+SET last_login_at = $1, failed_login_count = 0, locked_until = NULL
 WHERE id = $2
 `
 
@@ -202,4 +366,23 @@ type RecordLoginSuccessParams struct {
 func (q *Queries) RecordLoginSuccess(ctx context.Context, arg RecordLoginSuccessParams) error {
 	_, err := q.db.Exec(ctx, recordLoginSuccess, arg.Now, arg.ID)
 	return err
+}
+
+const revokeFamily = `-- name: RevokeFamily :execrows
+UPDATE refresh_tokens SET revoked_at = $1, revoke_reason = $2
+WHERE family_id = $3 AND revoked_at IS NULL
+`
+
+type RevokeFamilyParams struct {
+	Now      *time.Time
+	Reason   *string
+	FamilyID uuid.UUID
+}
+
+func (q *Queries) RevokeFamily(ctx context.Context, arg RevokeFamilyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeFamily, arg.Now, arg.Reason, arg.FamilyID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

@@ -43,6 +43,12 @@ Ancamannya meliputi pencurian token (XSS), CSRF, brute force password, token rep
 | Penyimpanan | **SHA-256(secret)**, bukan argon2. Secret acak berentropi tinggi tidak bisa di-brute-force, sehingga hash lambat tidak memberi keamanan tambahan dan hanya menambah latensi di setiap request. Argon2 diperlukan untuk password karena entropinya rendah |
 | Siklus hidup | Ditampilkan **sekali** saat dibuat; bisa dicabut; mendukung 2 key aktif untuk rotasi tanpa downtime; `last_used_at` dicatat |
 
+### Catatan implementasi (Sprint 4)
+- **Grace window refresh (10 dtk):** refresh kedua dengan token yang baru saja dirotasi mendapat access token baru **tanpa** refresh token baru. Server tidak bisa mengirim ulang penerusnya karena yang disimpan hanya hash; browser sudah menerima penerus dari respons pertama di cookie jar yang sama. Refresh paralel diserialkan dengan `SELECT … FOR UPDATE` pada baris token.
+- **Lockout:** 5 password salah → `locked_until` 1 menit, berlipat sampai 15 menit; percobaan selama terkunci tidak memperpanjang lock. Respons akun terkunci = `401 INVALID_CREDENTIALS` **tanpa `Retry-After`** (lihat backlog Sprint 4: header itu sendiri akan membocorkan email terdaftar). Argon2 tetap dijalankan untuk akun terkunci (timing).
+- **Semaphore argon2:** maksimal 4 hash paralel; antre > 2 dtk → `503 SERVICE_UNAVAILABLE` (C-45).
+- **API key:** `lp_test_<prefix 8 hex>_<secret 32 base64url>`; lookup lewat prefix, bandingkan SHA-256(secret) secara constant-time; `last_used_at` di-update maksimal 1×/menit.
+
 ## Reason
 
 - Access token di memori tidak bisa dicuri lewat `localStorage` oleh script XSS. Refresh token `HttpOnly` tidak bisa dibaca JS sama sekali.

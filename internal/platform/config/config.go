@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -39,8 +41,19 @@ type Config struct {
 	RefreshFamilyTTL time.Duration `env:"REFRESH_FAMILY_TTL" envDefault:"720h"` // 30 hari, absolut
 	CookieSecure     bool          `env:"COOKIE_SECURE" envDefault:"true"`
 
-	// Diisi dari JWTSigningKeysJSON setelah validasi.
-	JWTKeys map[string][]byte `env:"-"`
+	// Origin SPA yang boleh memanggil endpoint cookie (/auth/refresh, /auth/logout; CSRF C-08).
+	AllowedOrigins []string `env:"ALLOWED_ORIGINS" envSeparator:"," envDefault:"http://localhost:5173"`
+	// CIDR proxy tepercaya (Caddy). Hanya dari alamat ini X-Forwarded-For dipercaya (C-07, T-SH-15).
+	TrustedProxiesRaw []string `env:"TRUSTED_PROXIES" envSeparator:","`
+	// Basis URL publik SPA, untuk checkout_url payment intent.
+	PublicBaseURL string `env:"PUBLIC_BASE_URL" envDefault:"http://localhost:5173"`
+	// Batas tier money-write per user per menit (default konvensi API: 30). Demo B lokal menaikkannya,
+	// karena demo itu sengaja mengirim 100 transfer dari satu user dalam satu detik.
+	RateLimitMoneyWritePerMin int `env:"RATE_LIMIT_MONEY_WRITE_PER_MIN" envDefault:"30"`
+
+	// Diisi dari JWTSigningKeysJSON / TrustedProxiesRaw setelah validasi.
+	JWTKeys        map[string][]byte `env:"-"`
+	TrustedProxies []netip.Prefix    `env:"-"`
 }
 
 // Load membaca env. Validasi per subcommand ada di ValidateAPI (dan nanti ValidateWorker).
@@ -67,6 +80,17 @@ func (c *Config) ValidateAPI() error {
 	}
 	if c.AppEnv != "dev" && c.AppEnv != "test" && !c.CookieSecure {
 		errs = append(errs, errors.New("COOKIE_SECURE=false hanya boleh di dev/test"))
+	}
+	for _, raw := range c.TrustedProxiesRaw {
+		p, err := netip.ParsePrefix(strings.TrimSpace(raw))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("TRUSTED_PROXIES: %q bukan CIDR: %w", raw, err))
+			continue
+		}
+		c.TrustedProxies = append(c.TrustedProxies, p)
+	}
+	if c.RateLimitMoneyWritePerMin <= 0 {
+		errs = append(errs, errors.New("RATE_LIMIT_MONEY_WRITE_PER_MIN harus > 0"))
 	}
 	c.JWTKeys = keys
 	return errors.Join(errs...)

@@ -19,6 +19,10 @@ var constraintErrors = map[string]*apperr.Error{
 	"uq_users_email_lower":             apperr.ErrEmailRegistered,
 	"ck_accounts_balance_non_negative": apperr.ErrInsufficientBalance, // jaring terakhir LI-02
 	"uq_journals_reversal_of":          apperr.ErrAlreadyReversed,     // LI-04
+	"uq_merchant_api_keys_active_slot": apperr.ErrAPIKeyLimitReached,  // dua key aktif (C-42)
+	// Jalur normal menangani duplikat order di modul payment (agar existing_resource_id ikut);
+	// pemetaan ini jaring terakhir.
+	"uq_payment_intents_merchant_order": apperr.ErrDuplicateMerchantOrder, // LI-13
 	// Sengaja TIDAK dipetakan (bug → 500 + alert): ck_journals_balanced, uq_journals_source,
 	// trigger append-only. Pelanggaran ini berarti kode aplikasi salah, bukan input user salah.
 }

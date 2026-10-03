@@ -19,7 +19,7 @@
 | 401 | `INVALID_CREDENTIALS` | Email/password salah (pesan tidak membedakan keduanya) | Tidak | — | Login |
 | 401 | `REFRESH_TOKEN_REUSED` | Refresh token lama dipakai ulang; seluruh family dicabut | Tidak | Login ulang | ADR-009 |
 | 403 | `FORBIDDEN` | Resource terlihat, tetapi aksi tidak diizinkan untuk role ini | Tidak | — | Policy (ADR-010) |
-| 403 | ~~`ACCOUNT_LOCKED`~~ | **Tidak dikirim ke client (Step 12 R2-5).** Login terkunci menjawab `401 INVALID_CREDENTIALS` + `Retry-After`, sama persis dengan kredensial salah, agar tidak menjadi oracle enumerasi akun. Status lock hanya di log/metrik | Setelah `Retry-After` | Tunggu | `users.locked_until` |
+| 403 | ~~`ACCOUNT_LOCKED`~~ | **Tidak dikirim ke client (Step 12 R2-5).** Login terkunci menjawab `401 INVALID_CREDENTIALS` (implementasi Sprint 4: **tanpa** `Retry-After`, karena header itu hanya muncul untuk email terdaftar), sama persis dengan kredensial salah, agar tidak menjadi oracle enumerasi akun. Status lock hanya di log/metrik | Setelah `Retry-After` | Tunggu | `users.locked_until` |
 | 404 | `NOT_FOUND` | Resource tidak ada **atau** tidak boleh diketahui pemanggil | Tidak | — | Scoping query / RLS |
 | 409 | `REQUEST_IN_PROGRESS` | Request dengan key yang sama masih diproses | Ya, sama persis | Ulangi dengan backoff | ADR-L02 (`lock_timeout`) |
 | 409 | `RESOURCE_BUSY` | Lock resource tidak didapat dalam `lock_timeout` (2 dtk) | Ya, sama persis | Ulangi dengan backoff | ADR-011 (`55P03`) |

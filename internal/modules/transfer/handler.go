@@ -33,9 +33,10 @@ func NewHandler(pool *pgxpool.Pool, svc *Service, idem *idempotency.Service) *Ha
 	return &Handler{pool: pool, svc: svc, idem: idem}
 }
 
-func (h *Handler) Routes(authed chi.Router) {
-	authed.Post("/transfers", h.create)
-	authed.Get("/transfers/{id}", h.get)
+// Routes: POST dibatasi tier money-write, GET tier read (middleware dipasang pemanggil).
+func (h *Handler) Routes(read, moneyWrite chi.Router) {
+	moneyWrite.Post("/transfers", h.create)
+	read.Get("/transfers/{id}", h.get)
 }
 
 type createRequest struct {

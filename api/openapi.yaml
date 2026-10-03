@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: LedgerPay API
-  version: 0.3.0
+  version: 0.4.0
   summary: Mini payment platform with a double-entry ledger.
   description: |
     Spec-first contract (ADR-003). Sprint 0 skeleton covering Sprint 1–3 paths
@@ -24,6 +24,12 @@ tags:
     description: Wallet balance and transaction history (LF-02).
   - name: transfers
     description: Peer-to-peer transfers (LF-04, LF-05).
+  - name: checkout
+    description: A user pays a merchant's payment intent (LF-10).
+  - name: merchant
+    description: Merchant API, authenticated with an API key (LF-09, LF-10).
+  - name: ops
+    description: Operator actions, role OPS only. Every write is audited.
 
 security:
   - userJWT: []
@@ -58,7 +64,10 @@ paths:
       description: |
         Returns a short-lived access token in the body and sets the refresh token
         as an HttpOnly cookie. Locked accounts get the same response as wrong
-        credentials (no account enumeration).
+        credentials (no account enumeration): after 5 wrong passwords the account is
+        locked for 1 minute, doubling up to 15 minutes; the locked response is a plain
+        401 INVALID_CREDENTIALS without Retry-After. Rate limited to 5/min and 20/h per
+        (IP, email), also for unknown emails.
       security: []
       requestBody:
         required: true
@@ -84,24 +93,35 @@ paths:
       tags: [auth]
       operationId: refreshSession
       summary: Rotate the refresh token and issue a new access token
+      description: |
+        Rotation with reuse detection (ADR-009, C-05):
+        - unused token → new access token + new refresh cookie (same family);
+        - token already used within the last 10 s (parallel refresh from two tabs) → new access
+          token only, no new cookie (the browser already holds the successor);
+        - token used more than 10 s ago → treated as stolen: the whole family is revoked,
+          401 REFRESH_TOKEN_REUSED, cookie cleared.
+        A family can never outlive 30 days from login. CSRF guard: `X-Requested-With: fetch`
+        is required and `Origin`, when sent, must be an allowed origin (403 otherwise).
       security:
         - refreshCookie: []
       parameters:
         - $ref: '#/components/parameters/XRequestedWith'
       responses:
         '200':
-          description: Session refreshed; a new refresh cookie is set.
+          description: Session refreshed; a new refresh cookie is set unless within the grace window.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AccessToken' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /auth/logout:
     post:
       tags: [auth]
       operationId: logout
-      summary: Revoke the current refresh token
+      summary: Revoke the whole session family of the current refresh token
+      description: Always 204 (an invalid or missing cookie still "logs out") and always clears the cookie.
       security:
         - refreshCookie: []
       parameters:
@@ -109,7 +129,8 @@ paths:
       responses:
         '204':
           description: Logged out.
-        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
   /me:
     get:
@@ -259,6 +280,172 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /payment-intents/{id}:
+    get:
+      tags: [checkout]
+      operationId: getPaymentIntentForUser
+      summary: View a payment intent (capability URL before payment, payer only after)
+      description: |
+        Before payment any logged-in user holding the id may view it (checkout data only).
+        After payment only the payer may view it; anyone else gets 404. A REQUIRES_CONFIRMATION
+        intent past `expires_at` is shown as EXPIRED even before the sweeper marks it.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Payment intent (payer view or pre-payment view).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentIntent' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /payment-intents/{id}/confirm:
+    post:
+      tags: [checkout]
+      operationId: confirmPaymentIntent
+      summary: Pay a payment intent from the caller's wallet
+      description: |
+        One transaction: idempotency key → lock intent (FOR UPDATE) → check status and expiry
+        (now() = transaction start) → lock wallets in id order → PAYMENT journal → SUCCEEDED.
+        The amount is never sent by the client. Two tabs confirming at once with different keys:
+        one 200, one 409 INVALID_STATE_TRANSITION. Stored for replay: 200 and 422.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        '200':
+          description: Paid (or replayed — see Idempotent-Replayed).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentIntent' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /merchant/payment-intents:
+    post:
+      tags: [merchant]
+      operationId: createPaymentIntent
+      summary: Create a payment intent
+      description: |
+        Idempotent per merchant (client_type MERCHANT): a retry with the same key replays 201.
+        The same merchant_order_id with a different key while an intent is live →
+        409 DUPLICATE_MERCHANT_ORDER with `existing_resource_id`.
+      security:
+        - merchantApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePaymentIntentRequest' }
+      responses:
+        '201':
+          description: Created (or replayed).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentIntent' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /merchant/payment-intents/{id}:
+    get:
+      tags: [merchant]
+      operationId: getPaymentIntentForMerchant
+      summary: Get one of the caller's payment intents (source of truth for polling)
+      security:
+        - merchantApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Merchant view.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentIntent' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /ops/merchants/{id}/api-keys:
+    post:
+      tags: [ops]
+      operationId: createMerchantApiKey
+      summary: Issue an API key in a free slot (max two active keys)
+      description: |
+        The secret is returned only once. A replay with the same Idempotency-Key returns the same
+        key id with `api_key: null`, because the secret is never stored in plaintext.
+        There is deliberately no merchant-facing endpoint to create keys.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                label: { type: string, maxLength: 100 }
+                expires_at: { type: [string, 'null'], format: date-time }
+      responses:
+        '201':
+          description: Key issued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKeyCreated' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /ops/api-keys/{id}/revoke:
+    post:
+      tags: [ops]
+      operationId: revokeMerchantApiKey
+      summary: Revoke an API key (idempotent; reason audited)
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 10 }
+      responses:
+        '200':
+          description: Revoked (a repeated revoke returns the original revoked_at).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, prefix, revoked_at]
+                properties:
+                  id: { type: string, format: uuid }
+                  prefix: { type: string }
+                  revoked_at: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
 components:
   securitySchemes:
     userJWT:
@@ -271,6 +458,11 @@ components:
       in: cookie
       name: lp_refresh
       description: Opaque refresh token, rotated on every use with reuse detection.
+    merchantApiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: lp_test_<prefix8>_<secret32>
+      description: Merchant API key issued by ops. Stored server-side as SHA-256 only.
 
   parameters:
     IdempotencyKey:
@@ -339,6 +531,10 @@ components:
               field: { type: string }
               code: { type: string }
               message: { type: string }
+        existing_resource_id:
+          type: string
+          format: uuid
+          description: Only for DUPLICATE_MERCHANT_ORDER — the live intent for that order.
     RegisterRequest:
       type: object
       required: [email, password, display_name]
@@ -425,6 +621,53 @@ components:
       required: [display_name]
       properties:
         display_name: { type: string }
+    CreatePaymentIntentRequest:
+      type: object
+      additionalProperties: false
+      required: [merchant_order_id, amount, currency]
+      properties:
+        merchant_order_id: { type: string, pattern: '^[A-Za-z0-9_\-.:/]{1,64}$' }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        description: { type: string, maxLength: 200 }
+        expires_in_seconds: { type: integer, minimum: 300, maximum: 86400, default: 1800 }
+      description: "`amount` between 100 and 10000000000 minor units (Rp100.000.000)."
+    PaymentIntent:
+      type: object
+      description: |
+        Fields depend on the viewer (docs/design/13-api-endpoints.md §2.6): the merchant sees
+        `merchant.id`, `checkout_url` and `payer.display_name`; the payer sees payment details;
+        a viewer before payment sees checkout data only.
+      required: [id, merchant, merchant_order_id, amount, currency, status, expires_at]
+      properties:
+        id: { type: string, format: uuid }
+        merchant:
+          type: object
+          required: [name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        merchant_order_id: { type: string }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        description: { type: [string, 'null'] }
+        status: { type: string, enum: [REQUIRES_CONFIRMATION, SUCCEEDED, PARTIALLY_REFUNDED, REFUNDED, EXPIRED, CANCELLED] }
+        refunded_amount: { $ref: '#/components/schemas/Money' }
+        checkout_url: { type: string, format: uri }
+        payer: { $ref: '#/components/schemas/Party' }
+        expires_at: { type: string, format: date-time }
+        confirmed_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+    ApiKeyCreated:
+      type: object
+      required: [id, prefix, slot, api_key, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        prefix: { type: string, pattern: '^[a-f0-9]{8}$' }
+        slot: { type: integer, enum: [1, 2] }
+        api_key: { type: [string, 'null'], description: Shown once; null on replay. }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
     Transfer:
       type: object
       description: |
@@ -454,18 +697,23 @@ components:
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: FORBIDDEN — missing role (ops) or failed CSRF guard (cookie endpoints).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
     NotFound:
       description: NOT_FOUND — the resource does not exist or must not be known to the caller.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
     Conflict:
-      description: REQUEST_IN_PROGRESS, RESOURCE_BUSY, or EMAIL_ALREADY_REGISTERED.
+      description: REQUEST_IN_PROGRESS, RESOURCE_BUSY, EMAIL_ALREADY_REGISTERED, INVALID_STATE_TRANSITION, DUPLICATE_MERCHANT_ORDER (with existing_resource_id), or API_KEY_LIMIT_REACHED.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
     UnprocessableEntity:
-      description: INSUFFICIENT_BALANCE, SELF_TRANSFER, INVALID_RECIPIENT, ACCOUNT_FROZEN, CURRENCY_NOT_SUPPORTED, or IDEMPOTENCY_KEY_REUSED.
+      description: INSUFFICIENT_BALANCE, SELF_TRANSFER, INVALID_RECIPIENT, ACCOUNT_FROZEN, CURRENCY_NOT_SUPPORTED, PAYMENT_EXPIRED, or IDEMPOTENCY_KEY_REUSED.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }

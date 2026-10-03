@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/db/dbtest"
 	"ledgerpay/internal/platform/idgen"
+	"ledgerpay/internal/platform/ratelimit"
 )
 
 func TestMain(m *testing.M) { dbtest.Main(m) }
@@ -32,9 +34,23 @@ type env struct {
 	srv  *httptest.Server
 	ops  *httptest.Server
 	pool *pgxpool.Pool
+	clk  *clock.Fake
+}
+
+// testTiers: tier default, kecuali money-write yang dilonggarkan supaya test concurrency
+// (100 transfer dari satu user) menguji lock, bukan rate limit. Test rate limit memakai newEnvTiers.
+func testTiers() *ratelimit.Tiers {
+	t := ratelimit.DefaultTiers()
+	t.MoneyWrite.Rules = []ratelimit.Rule{{Events: 10_000, Per: time.Minute}}
+	return &t
 }
 
 func newEnv(t *testing.T, opts ...dbtest.Option) env {
+	t.Helper()
+	return newEnvTiers(t, testTiers(), opts...)
+}
+
+func newEnvTiers(t *testing.T, tiers *ratelimit.Tiers, opts ...dbtest.Option) env {
 	t.Helper()
 	dbtest.SkipIfShort(t)
 	tdb := dbtest.New(t, opts...)
@@ -46,8 +62,11 @@ func newEnv(t *testing.T, opts ...dbtest.Option) env {
 	h := app.APIRouter(app.Deps{
 		Logger: slog.New(slog.NewJSONHandler(io.Discard, nil)), Pool: tdb.App, Tokens: tokens, Clock: clk, IDs: ids,
 		Identity: identity.Config{Argon2: auth.TestArgon2, RefreshTTL: 7 * 24 * time.Hour, RefreshFamilyTTL: 30 * 24 * time.Hour},
+		// Loopback dianggap proxy tepercaya: test bisa mensimulasikan banyak IP client lewat X-Forwarded-For.
+		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
+		AllowedOrigins: []string{"http://localhost:5173"}, PublicBaseURL: "http://localhost:5173", Tiers: tiers,
 	})
-	e := env{srv: httptest.NewServer(h), ops: httptest.NewServer(app.OpsRouter(tdb.App)), pool: tdb.App}
+	e := env{srv: httptest.NewServer(h), ops: httptest.NewServer(app.OpsRouter(tdb.App)), pool: tdb.App, clk: clk}
 	t.Cleanup(e.srv.Close)
 	t.Cleanup(e.ops.Close)
 	return e

@@ -3,6 +3,15 @@ INSERT INTO accounts (id, user_id, is_system, type, normal_side, currency, balan
 VALUES (@id, @user_id, false, 'LIABILITY', 'C', @currency, 0)
 RETURNING id;
 
+-- name: CreateMerchantWallet :one
+INSERT INTO accounts (id, merchant_id, is_system, type, normal_side, currency, balance)
+VALUES (@id, @merchant_id, false, 'LIABILITY', 'C', @currency, 0)
+RETURNING id;
+
+-- name: GetWalletByMerchant :one
+SELECT id, currency, balance, status FROM accounts
+WHERE merchant_id = @merchant_id AND currency = @currency;
+
 -- name: GetWalletByUser :one
 SELECT id, currency, balance, status FROM accounts
 WHERE user_id = @user_id AND currency = @currency;

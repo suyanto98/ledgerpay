@@ -23,6 +23,7 @@ type Account struct {
 	Status     string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+	MerchantID *uuid.UUID
 }
 
 type AuditLog struct {
@@ -80,6 +81,54 @@ type JournalEntry struct {
 	Amount    int64
 	Currency  string
 	CreatedAt time.Time
+}
+
+type Merchant struct {
+	ID                     uuid.UUID
+	Name                   string
+	Status                 string
+	WebhookUrl             *string
+	WebhookSecretEnc       []byte
+	WebhookSecretRotatedAt *time.Time
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
+	Version                int32
+}
+
+type MerchantApiKey struct {
+	ID         uuid.UUID
+	MerchantID uuid.UUID
+	Mode       string
+	Prefix     string
+	KeyHash    []byte
+	Slot       int16
+	Label      *string
+	LastUsedAt *time.Time
+	ExpiresAt  *time.Time
+	RevokedAt  *time.Time
+	CreatedBy  uuid.UUID
+	CreatedAt  time.Time
+}
+
+type PaymentIntent struct {
+	ID                uuid.UUID
+	MerchantID        uuid.UUID
+	MerchantAccountID uuid.UUID
+	MerchantOrderID   string
+	Amount            int64
+	Currency          string
+	RefundedAmount    int64
+	Status            string
+	Description       *string
+	PayerUserID       *uuid.UUID
+	PayerAccountID    *uuid.UUID
+	JournalID         *uuid.UUID
+	ExpiresAt         time.Time
+	ConfirmedAt       *time.Time
+	CancelledAt       *time.Time
+	ExpiredAt         *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 type RefreshToken struct {

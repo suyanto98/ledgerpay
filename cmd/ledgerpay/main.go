@@ -5,6 +5,8 @@
 //	ledgerpay healthcheck   # dipakai HEALTHCHECK container (image distroless tidak punya curl)
 //	ledgerpay ledger-verify # invariant checker ledger (exit 1 kalau ada pelanggaran)
 //	ledgerpay demo-credit <email> <amount>   # isi saldo untuk demo (APP_ENV dev/test saja)
+//	ledgerpay merchant-create <name>         # onboarding merchant + wallet (LF-09: lewat seed/ops)
+//	ledgerpay grant-ops <email>              # beri role OPS (tidak ada endpoint untuk ini)
 //
 // `worker` dan `seed` ditambahkan saat pertama kali dibutuhkan (Sprint 2/6).
 package main
@@ -33,11 +35,12 @@ import (
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/idgen"
 	"ledgerpay/internal/platform/observability"
+	"ledgerpay/internal/platform/ratelimit"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: ledgerpay <api|migrate up|healthcheck|ledger-verify|demo-credit>")
+		fmt.Fprintln(os.Stderr, "usage: ledgerpay <api|migrate up|healthcheck|ledger-verify|demo-credit|merchant-create|grant-ops>")
 		os.Exit(2)
 	}
 	var err error
@@ -52,6 +55,22 @@ func main() {
 		err = runLedgerVerify()
 	case "demo-credit":
 		err = runDemoCredit(os.Args[2:])
+	case "merchant-create":
+		err = runAdmin(os.Args[2:], "usage: ledgerpay merchant-create <name>", func(ctx context.Context, pool *pgxpool.Pool, arg string) error {
+			id, err := app.CreateMerchant(ctx, pool, idgen.V7{}, arg)
+			if err == nil {
+				fmt.Println(id)
+			}
+			return err
+		})
+	case "grant-ops":
+		err = runAdmin(os.Args[2:], "usage: ledgerpay grant-ops <email>", func(ctx context.Context, pool *pgxpool.Pool, arg string) error {
+			if err := app.GrantOps(ctx, pool, arg); err != nil {
+				return err
+			}
+			fmt.Println("granted OPS to", arg, "(berlaku setelah login ulang: role ada di access token)")
+			return nil
+		})
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -89,9 +108,12 @@ func runAPI() error {
 	if err != nil {
 		return err
 	}
+	tiers := ratelimit.DefaultTiers()
+	tiers.MoneyWrite.Rules = []ratelimit.Rule{{Events: cfg.RateLimitMoneyWritePerMin, Per: time.Minute}}
 	deps := app.Deps{
 		Logger: logger, Pool: pool, Tokens: tokens, Clock: clk, IDs: ids, CookieSecure: cfg.CookieSecure,
-		Identity: identity.Config{Argon2: auth.DefaultArgon2, RefreshTTL: cfg.RefreshTTL, RefreshFamilyTTL: cfg.RefreshFamilyTTL},
+		Identity:       identity.Config{Argon2: auth.DefaultArgon2, RefreshTTL: cfg.RefreshTTL, RefreshFamilyTTL: cfg.RefreshFamilyTTL},
+		AllowedOrigins: cfg.AllowedOrigins, TrustedProxies: cfg.TrustedProxies, PublicBaseURL: cfg.PublicBaseURL, Tiers: &tiers,
 	}
 
 	// Timeout server menutup slowloris dan koneksi menggantung (C-29).
@@ -220,4 +242,19 @@ func runDemoCredit(args []string) error {
 	}
 	fmt.Printf("credited %s minor units to %s\n", strconv.FormatInt(amount, 10), args[0])
 	return nil
+}
+
+// runAdmin menjalankan perintah admin satu argumen dengan pool kecil.
+func runAdmin(args []string, usage string, fn func(context.Context, *pgxpool.Pool, string) error) error {
+	if len(args) != 1 {
+		return errors.New(usage)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	_, pool, err := openPool(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	return fn(ctx, pool, args[0])
 }

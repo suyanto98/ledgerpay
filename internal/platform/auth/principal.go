@@ -33,6 +33,54 @@ func WithPrincipal(ctx context.Context, p Principal) context.Context {
 	return context.WithValue(ctx, principalKey{}, p)
 }
 
+// HasRole: apakah principal memiliki role tertentu (contoh "OPS").
+func (p Principal) HasRole(role string) bool {
+	for _, r := range p.Roles {
+		if r == role {
+			return true
+		}
+	}
+	return false
+}
+
+// RequireRole dipasang SETELAH RequireUser. User tanpa role → 403 (endpoint ops bukan rahasia,
+// jadi 403 tidak membocorkan apa pun; ADR-010).
+func RequireRole(role string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p, ok := PrincipalFrom(r.Context())
+			if !ok {
+				httpx.WriteError(w, r, apperr.ErrUnauthenticated)
+				return
+			}
+			if !p.HasRole(role) {
+				httpx.WriteError(w, r, apperr.ErrForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// MerchantPrincipal adalah identitas merchant dari API key (principal kedua, ADR-010).
+type MerchantPrincipal struct {
+	MerchantID uuid.UUID
+	KeyID      uuid.UUID
+}
+
+type merchantKey struct{}
+
+// WithMerchant menaruh merchant principal di context (dipakai middleware API key dan test).
+func WithMerchant(ctx context.Context, m MerchantPrincipal) context.Context {
+	return context.WithValue(ctx, merchantKey{}, m)
+}
+
+// MerchantFrom mengambil merchant principal; ok=false jika request bukan dari merchant.
+func MerchantFrom(ctx context.Context) (MerchantPrincipal, bool) {
+	m, ok := ctx.Value(merchantKey{}).(MerchantPrincipal)
+	return m, ok
+}
+
 // RequireUser memverifikasi "Authorization: Bearer <jwt>" dan menaruh Principal di context.
 func RequireUser(t *Tokens) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

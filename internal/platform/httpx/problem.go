@@ -3,6 +3,7 @@ package httpx
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"ledgerpay/internal/platform/apperr"
@@ -19,6 +20,8 @@ type Problem struct {
 	Instance  string              `json:"instance,omitempty"`
 	RequestID string              `json:"request_id"`
 	Errors    []apperr.FieldError `json:"errors,omitempty"`
+	// Hanya untuk DUPLICATE_MERCHANT_ORDER: ID intent yang sudah ada.
+	ExistingResourceID string `json:"existing_resource_id,omitempty"`
 }
 
 const problemTypeBase = "https://ledgerpay.dev/errors/"
@@ -29,6 +32,9 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	p := NewProblem(r, err)
 	if p.Status >= 500 {
 		observability.Logger(r.Context()).Error("request.failed", "code", p.Code, "err", err.Error())
+	}
+	if e := apperr.As(err); e.RetryAfter > 0 {
+		w.Header().Set("Retry-After", strconv.Itoa(e.RetryAfter))
 	}
 	w.Header().Set("Content-Type", ProblemContentType)
 	w.Header().Set("Cache-Control", "no-store")
@@ -52,6 +58,8 @@ func NewProblem(r *http.Request, err error) Problem {
 		Instance:  r.URL.Path,
 		RequestID: RequestIDFrom(r.Context()),
 		Errors:    e.Fields,
+
+		ExistingResourceID: e.ExistingResourceID,
 	}
 }
 

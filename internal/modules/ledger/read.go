@@ -28,6 +28,15 @@ func (s *Service) WalletOf(ctx context.Context, q store.DBTX, userID uuid.UUID) 
 	return Wallet{AccountID: w.ID, Currency: w.Currency, Balance: *w.Balance, Status: w.Status}, nil
 }
 
+// MerchantWalletOf mengembalikan wallet milik merchant.
+func (s *Service) MerchantWalletOf(ctx context.Context, q store.DBTX, merchantID uuid.UUID) (Wallet, error) {
+	w, err := store.New(q).GetWalletByMerchant(ctx, store.GetWalletByMerchantParams{MerchantID: &merchantID, Currency: SupportedCurrency})
+	if err != nil {
+		return Wallet{}, db.MapError(err)
+	}
+	return Wallet{AccountID: w.ID, Currency: w.Currency, Balance: *w.Balance, Status: w.Status}, nil
+}
+
 // HistoryFilter adalah filter riwayat wallet (docs/design/13-api-endpoints.md §4).
 type HistoryFilter struct {
 	Limit     int32

@@ -22,7 +22,11 @@ type Error struct {
 	Title  string
 	Detail string
 	Fields []FieldError
-	cause  error // tidak pernah dikirim ke client; hanya untuk log
+	// RetryAfter > 0 → header Retry-After (detik). Dipakai RATE_LIMITED.
+	RetryAfter int
+	// ExistingResourceID membantu client melanjutkan (contoh DUPLICATE_MERCHANT_ORDER).
+	ExistingResourceID string
+	cause              error // tidak pernah dikirim ke client; hanya untuk log
 }
 
 func (e *Error) Error() string {
@@ -44,6 +48,20 @@ func (e *Error) Is(target error) bool {
 func (e *Error) WithDetail(detail string) *Error {
 	c := *e
 	c.Detail = detail
+	return &c
+}
+
+// WithRetryAfter mengembalikan salinan dengan header Retry-After (detik, dibulatkan ke atas, minimal 1).
+func (e *Error) WithRetryAfter(seconds int) *Error {
+	c := *e
+	c.RetryAfter = max(seconds, 1)
+	return &c
+}
+
+// WithExistingResource mengembalikan salinan yang menyebut ID resource yang sudah ada.
+func (e *Error) WithExistingResource(id string) *Error {
+	c := *e
+	c.ExistingResourceID = id
 	return &c
 }
 
@@ -74,6 +92,9 @@ var (
 	ErrInternal           = def(http.StatusInternalServerError, "INTERNAL_ERROR", "Internal error")
 	ErrUnavailable        = def(http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Service temporarily unavailable")
 	ErrInvalidCursor      = def(http.StatusBadRequest, "INVALID_CURSOR", "Invalid or expired cursor")
+	ErrRateLimited        = def(http.StatusTooManyRequests, "RATE_LIMITED", "Too many requests")
+	ErrRefreshReused      = def(http.StatusUnauthorized, "REFRESH_TOKEN_REUSED", "Session revoked, please log in again")
+	ErrInvalidState       = def(http.StatusConflict, "INVALID_STATE_TRANSITION", "Action not allowed in the current state")
 )
 
 // Idempotency (katalog §1, ADR-L02).
@@ -95,6 +116,13 @@ var (
 	// (anti-enumerasi, katalog §2).
 	ErrInvalidRecipient     = def(http.StatusUnprocessableEntity, "INVALID_RECIPIENT", "Recipient cannot receive this transfer")
 	ErrCurrencyNotSupported = def(http.StatusUnprocessableEntity, "CURRENCY_NOT_SUPPORTED", "Currency not supported")
+	ErrPaymentExpired       = def(http.StatusUnprocessableEntity, "PAYMENT_EXPIRED", "Payment intent has expired")
+)
+
+// Merchant (katalog §2).
+var (
+	ErrDuplicateMerchantOrder = def(http.StatusConflict, "DUPLICATE_MERCHANT_ORDER", "merchant_order_id already has a live payment intent")
+	ErrAPIKeyLimitReached     = def(http.StatusConflict, "API_KEY_LIMIT_REACHED", "Merchant already has two active API keys")
 )
 
 // Validation membuat VALIDATION_ERROR dengan daftar field yang salah.

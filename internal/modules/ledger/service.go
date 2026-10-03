@@ -34,6 +34,15 @@ func (s *Service) CreateUserWallet(ctx context.Context, tx pgx.Tx, userID uuid.U
 	return db.MapError(err)
 }
 
+// CreateMerchantWallet membuat akun wallet merchant (liability, saldo 0): uang hasil penjualan
+// yang menjadi utang LedgerPay kepada merchant sampai di-payout.
+func (s *Service) CreateMerchantWallet(ctx context.Context, tx pgx.Tx, merchantID uuid.UUID) error {
+	_, err := store.New(tx).CreateMerchantWallet(ctx, store.CreateMerchantWalletParams{
+		ID: s.ids.New(), MerchantID: &merchantID, Currency: SupportedCurrency,
+	})
+	return db.MapError(err)
+}
+
 // PostJournal memvalidasi lalu memposting journal di dalam transaksi pemanggil (tx).
 // Mengembalikan error domain yang ramah (422) sebelum database sempat menolak; constraint DB
 // (CHECK saldo, composite FK currency, deferred trigger keseimbangan) tetap menjadi jaring terakhir.

@@ -64,3 +64,21 @@ sql:
         out: internal/modules/transfer/store
         sql_package: pgx/v5
         emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/merchant.sql
+    gen:
+      go:
+        package: store
+        out: internal/modules/merchant/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/payment.sql
+    gen:
+      go:
+        package: store
+        out: internal/modules/payment/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
