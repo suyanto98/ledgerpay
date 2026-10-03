@@ -1,0 +1,55 @@
+# Compose untuk development lokal (Sprint 1). Compose demo/obs/perf menyusul (docs/design/24-…).
+# Kredensial di file ini HANYA untuk dev lokal; environment lain memakai secret (Step 9).
+name: ledgerpay
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ledgerpay
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres-dev
+      LEDGERPAY_OWNER_PASSWORD: owner-dev
+      LEDGERPAY_APP_PASSWORD: app-dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:55432:5432"     # hanya localhost (untuk psql dev); tidak pernah 0.0.0.0
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ledgerpay"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    command: ["migrate", "up"]
+    environment:
+      MIGRATE_DATABASE_URL: postgres://ledgerpay_owner:owner-dev@postgres:5432/ledgerpay?sslmode=disable
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    command: ["api"]
+    environment:
+      APP_ENV: dev
+      LOG_LEVEL: info
+      DATABASE_URL: postgres://ledgerpay_app:app-dev@postgres:5432/ledgerpay?sslmode=disable
+      # Kunci dev saja (32 byte, base64). Production: GitHub environment secret (Step 12 R4-7).
+      JWT_SIGNING_KEYS: '{"dev1":"ZGV2LW9ubHktand0LXNpZ25pbmcta2V5LTMyYnl0ZXM="}'
+      JWT_ACTIVE_KID: dev1
+      COOKIE_SECURE: "false"       # dev lokal lewat http://localhost
+    ports:
+      - "127.0.0.1:${LP_HTTP_PORT:-8080}:8080"   # API (ubah LP_HTTP_PORT jika 8080 terpakai)
+      - "127.0.0.1:${LP_OPS_PORT:-9090}:9090"    # ops (health) — di demo/prod tidak dipublish
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+volumes:
+  pgdata:

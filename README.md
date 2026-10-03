@@ -2,7 +2,7 @@
 
 > A mini payment platform with a double-entry ledger where financial transactions remain consistent even when requests are duplicated, concurrent, or interrupted by failures.
 
-**Status:** 🚧 Sprint 0 (setup & technical spikes). No product code yet. See [`docs/backlog.md`](docs/backlog.md).
+**Status:** 🚧 Sprint 1 done (walking skeleton: register/login/me, health, CI). See [`docs/backlog.md`](docs/backlog.md).
 
 Designed as a production-oriented mini system for learning and portfolio purposes: small in scope, strict about correctness.
 
@@ -28,11 +28,16 @@ Go · PostgreSQL · sqlc + pgx · goose · Vue 3 + TypeScript · Docker Compose 
 
 ## Getting started
 
-Sprint 0 only ships tooling and contract linting:
+Requirements: Go (toolchain from `go.mod`), Docker with Compose.
 
 ```bash
-make tools        # install sqlc, goose, golangci-lint, actionlint
-make lint         # lint OpenAPI contract + GitHub Actions workflows
+make tools              # install sqlc, goose, golangci-lint, actionlint
+make up                 # postgres + migrations + api, waits until healthy (LP_HTTP_PORT=18080 if 8080 is taken)
+make smoke              # register → login → GET /me with curl
+make test               # unit tests (no Docker)
+make test-integration   # integration tests against a real Postgres (testcontainers)
+make lint               # golangci-lint + OpenAPI + workflows
+make down               # stop the stack
 ```
 
 ## Limitations (by design)

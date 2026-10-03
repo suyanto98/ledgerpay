@@ -11,18 +11,23 @@
 - [x] Spike 1 & 2 (lihat [`spikes/2026-10-02-db-foundations.md`](spikes/2026-10-02-db-foundations.md)); 1 bug desain ditemukan dan diperbaiki
 - [ ] Branch protection (menunggu remote GitHub)
 
-## Sprint 1 — Foundation · 🏁 M1
-- [ ] `go.mod` + `cmd/ledgerpay` (subcommand `api`, `worker`, `migrate`, `seed`, `healthcheck`)
-- [ ] `internal/platform/config` (env, fail fast)
-- [ ] `internal/platform/db`: pool, `WithTx` + retry `40001`/`40P01`, pemetaan nama constraint → error, `testdb` (pola spike, role `ledgerpay_app`)
-- [ ] `internal/platform/httpx`: chi, request ID, recover, slog JSON, RFC 9457, decoder strict, batas body
-- [ ] `internal/platform/observability`: logger + redaction allowlist; health `/healthz` + `/readyz` (port internal, versi DB ≥ minimum)
-- [ ] Migrasi awal: schema, role `ledgerpay_owner`/`ledgerpay_app`, `users` (+ `role`), `refresh_tokens`, `audit_log`, `set_updated_at`, `forbid_update_delete`
-- [ ] Auth: register, login (argon2id), `GET /me`; JWT HS256 + `kid`
-- [ ] Catalogue test: setiap FK punya index (Step 12 C4)
-- [ ] Samakan nama constraint email: katalog error menyebut `uq_users_email`, skema `uq_users_email_lower` (pakai nama skema; test `TestDBErrorMapping_AllCatalogueConstraints` menangkap selisih seperti ini)
-- [ ] Compose dev (postgres + api), target Makefile `up`, `test`, `test-integration`, `migrate`
-- [ ] `pr.yml`: golangci-lint (depguard), unit + integration test (`-race`)
+## Sprint 1 — Foundation · 🏁 M1 ✅
+- [x] `go.mod` + `cmd/ledgerpay` (subcommand `api`, `migrate`, `healthcheck`; `worker`/`seed` saat dibutuhkan, S2/S6)
+- [x] `internal/platform/config` (env, fail fast)
+- [x] `internal/platform/db`: pool, `WithTx` + retry `40001`/`40P01`, pemetaan nama constraint → error, `testdb` (pola spike, role `ledgerpay_app`)
+- [x] `internal/platform/httpx`: chi, request ID, recover, slog JSON, RFC 9457, decoder strict, batas body
+- [x] `internal/platform/observability`: logger + redaction allowlist; health `/healthz` + `/readyz` (port internal, versi DB ≥ minimum)
+- [x] Migrasi awal: schema, role `ledgerpay_owner`/`ledgerpay_app`, `users` (+ `role`), `refresh_tokens`, `audit_log`, `set_updated_at`, `forbid_update_delete`
+- [x] Auth: register, login (argon2id), `GET /me`; JWT HS256 + `kid`
+- [x] Catalogue test: setiap FK punya index (Step 12 C4)
+- [x] Samakan nama constraint email: katalog error menyebut `uq_users_email`, skema `uq_users_email_lower` (pakai nama skema; test `TestDBErrorMapping_AllCatalogueConstraints` menangkap selisih seperti ini)
+- [x] Compose dev (postgres + api), target Makefile `up`, `test`, `test-integration`, `migrate`
+- [x] `pr.yml`: golangci-lint (depguard), unit + integration test (`-race`)
+
+## Catatan dari Sprint 1 (dibawa ke Sprint 2)
+- [ ] Log akses belum memuat `user_id` (logger akses memakai context sebelum autentikasi). Perbaiki dengan menaruh holder field yang bisa diisi middleware auth
+- [ ] Path module Go masih `ledgerpay`; ganti ke `github.com/<username>/ledgerpay` saat username GitHub ditentukan (`go mod edit -module` + ganti import)
+- [ ] CI belum pernah dijalankan di GitHub (repo masih lokal)
 
 ## Sprint 2 — Core Domain
 - [ ] Migrasi `accounts`, `journals`, `journal_entries` (trigger keseimbangan versi `IF`, append-only, composite FK currency)

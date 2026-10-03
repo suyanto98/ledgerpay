@@ -137,7 +137,8 @@ CONSTRAINT ck_refresh_tokens_revoke_reason CHECK (revoke_reason IS NULL OR revok
   ('LOGOUT','REUSE_DETECTED','PASSWORD_CHANGED','ADMIN','MEMBERSHIP_REVOKED')),
 CONSTRAINT ck_refresh_tokens_revoked_has_reason CHECK ((revoked_at IS NULL) = (revoke_reason IS NULL))
 CREATE INDEX ix_refresh_tokens_family_active ON refresh_tokens (family_id) WHERE revoked_at IS NULL;
-CREATE INDEX ix_refresh_tokens_user_active   ON refresh_tokens (user_id)   WHERE revoked_at IS NULL;
+CREATE INDEX ix_refresh_tokens_user_id     ON refresh_tokens (user_id);     -- Sprint 1: penuh, bukan partial (cek FK butuh index atas SEMUA baris; catalogue test C4)
+CREATE INDEX ix_refresh_tokens_parent_id   ON refresh_tokens (parent_id);   -- Sprint 1: FK parent_id juga butuh index
 CREATE INDEX ix_refresh_tokens_expires_at    ON refresh_tokens (expires_at);   -- cleanup
 ```
 

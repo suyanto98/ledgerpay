@@ -1,0 +1,8 @@
+.git
+.github
+bin
+docs
+spikes
+web/node_modules
+**/*_test.go
+*.md

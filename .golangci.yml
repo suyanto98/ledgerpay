@@ -1,0 +1,54 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard            # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - gosec                    # keamanan (SQL dinamis, crypto lemah, dll.; C-12)
+    - depguard                 # batas antar package (ADR-001)
+    - bodyclose
+    - errorlint
+    - noctx
+    - forbidigo
+  settings:
+    depguard:
+      rules:
+        # D1: platform adalah fondasi; tidak boleh tahu modul bisnis.
+        platform-no-modules:
+          files: ["**/internal/platform/**"]
+          deny:
+            - pkg: ledgerpay/internal/modules
+              desc: platform tidak boleh meng-import modul bisnis (ADR-001)
+            - pkg: ledgerpay/internal/app
+              desc: platform tidak boleh meng-import composition root
+        # D3: modul tidak meng-import composition root.
+        modules-no-app:
+          files: ["**/internal/modules/**"]
+          deny:
+            - pkg: ledgerpay/internal/app
+              desc: modul tidak boleh meng-import composition root
+    forbidigo:
+      forbid:
+        # Waktu bisnis dari clock.Clock (bisa dipalsukan di test, C-31). Pengecualian di bawah.
+        - pattern: ^time\.Now$
+          msg: pakai clock.Clock, bukan time.Now (C-31)
+    gosec:
+      excludes:
+        - G104                 # sudah dicakup errcheck
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [gosec, noctx, forbidigo]
+      - path: internal/platform/(clock|db|httpx)/
+        linters: [forbidigo]   # implementasi jam sistem, backoff, dan durasi request
+      - path: internal/platform/db/dbtest/
+        linters: [gosec]       # nama DB test dibangkitkan sendiri, bukan input user
+      - path: internal/modules/identity/store/
+        linters: [errcheck]    # kode hasil sqlc
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
