@@ -8,7 +8,7 @@ ON CONFLICT ON CONSTRAINT uq_idempotency_keys_scope DO NOTHING
 RETURNING id;
 
 -- name: GetKey :one
-SELECT id, request_hash, response_status, response_body
+SELECT id, request_hash, response_status, response_body, resource_id
 FROM idempotency_keys
 WHERE client_type = @client_type AND client_id = @client_id AND endpoint = @endpoint AND key = @key;
 
@@ -17,3 +17,8 @@ UPDATE idempotency_keys
 SET response_status = @response_status, response_body = @response_body,
     resource_type = @resource_type, resource_id = @resource_id
 WHERE id = @id;
+
+-- name: SetKeyResource :exec
+-- Pola (b): tx1 mencatat resource yang dibuat, supaya retry dengan key yang sama (respons masih
+-- NULL) tahu resource mana yang harus dilanjutkan dari recovery point-nya.
+UPDATE idempotency_keys SET resource_type = @resource_type, resource_id = @resource_id WHERE id = @id;

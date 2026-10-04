@@ -39,7 +39,7 @@ func (q *Queries) CompleteKey(ctx context.Context, arg CompleteKeyParams) error 
 }
 
 const getKey = `-- name: GetKey :one
-SELECT id, request_hash, response_status, response_body
+SELECT id, request_hash, response_status, response_body, resource_id
 FROM idempotency_keys
 WHERE client_type = $1 AND client_id = $2 AND endpoint = $3 AND key = $4
 `
@@ -56,6 +56,7 @@ type GetKeyRow struct {
 	RequestHash    []byte
 	ResponseStatus *int16
 	ResponseBody   []byte
+	ResourceID     *uuid.UUID
 }
 
 func (q *Queries) GetKey(ctx context.Context, arg GetKeyParams) (GetKeyRow, error) {
@@ -71,6 +72,7 @@ func (q *Queries) GetKey(ctx context.Context, arg GetKeyParams) (GetKeyRow, erro
 		&i.RequestHash,
 		&i.ResponseStatus,
 		&i.ResponseBody,
+		&i.ResourceID,
 	)
 	return i, err
 }
@@ -108,4 +110,21 @@ func (q *Queries) InsertKey(ctx context.Context, arg InsertKeyParams) (uuid.UUID
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const setKeyResource = `-- name: SetKeyResource :exec
+UPDATE idempotency_keys SET resource_type = $1, resource_id = $2 WHERE id = $3
+`
+
+type SetKeyResourceParams struct {
+	ResourceType *string
+	ResourceID   *uuid.UUID
+	ID           uuid.UUID
+}
+
+// Pola (b): tx1 mencatat resource yang dibuat, supaya retry dengan key yang sama (respons masih
+// NULL) tahu resource mana yang harus dilanjutkan dari recovery point-nya.
+func (q *Queries) SetKeyResource(ctx context.Context, arg SetKeyResourceParams) error {
+	_, err := q.db.Exec(ctx, setKeyResource, arg.ResourceType, arg.ResourceID, arg.ID)
+	return err
 }

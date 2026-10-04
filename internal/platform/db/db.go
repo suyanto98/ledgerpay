@@ -18,6 +18,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"ledgerpay/internal/platform/testhook"
 )
 
 // Options adalah pengaturan pool dan timeout per sesi.
@@ -122,7 +124,16 @@ func runTx(ctx context.Context, b Beginner, opts pgx.TxOptions, fn func(tx pgx.T
 	if err = fn(tx); err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	// Titik hook FS-04: "koneksi putus sebelum COMMIT" → rollback, tidak ada efek.
+	if err = testhook.Pause(ctx, "db.before_commit"); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+	// Titik hook FS-03: COMMIT sudah berhasil, tetapi pemanggil menerima error ("commit outcome
+	// unknown"). Client akan retry dengan Idempotency-Key yang sama dan harus mendapat replay.
+	return testhook.Pause(ctx, "db.after_commit")
 }
 
 // retryable: 40001 serialization_failure, 40P01 deadlock_detected. Keduanya berarti

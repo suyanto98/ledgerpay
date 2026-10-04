@@ -191,27 +191,115 @@ func (s *Service) Execute(r *http.Request, req Request, fn Func) (Response, erro
 			return err
 		}
 
-		body, err := json.Marshal(out.Body)
+		resp, err = complete(ctx, q, keyID, out)
+		return err
+	})
+	return resp, err
+}
+
+// complete menulis respons ke baris key (di tx pemanggil) dan mengembalikan respons untuk client.
+func complete(ctx context.Context, q *store.Queries, keyID uuid.UUID, out Outcome) (Response, error) {
+	body, err := json.Marshal(out.Body)
+	if err != nil {
+		return Response{}, err
+	}
+	stored := body
+	if out.Stored != nil {
+		if stored, err = json.Marshal(out.Stored); err != nil {
+			return Response{}, err
+		}
+	}
+	status := int16(out.Status) //nolint:gosec // G115: status HTTP 100–599 muat di int16
+	if err := q.CompleteKey(ctx, store.CompleteKeyParams{
+		ID: keyID, ResponseStatus: &status, ResponseBody: stored,
+		ResourceType: nonEmpty(out.ResourceType), ResourceID: out.ResourceID,
+	}); err != nil {
+		return Response{}, db.MapError(err)
+	}
+	return Response{Status: out.Status, Body: body}, nil
+}
+
+// ---------------------------------------------------------------- pola (b): recovery point
+
+// Reservation adalah hasil tx1 pola (b).
+type Reservation struct {
+	KeyID      uuid.UUID
+	ResourceID uuid.UUID
+	// Done terisi kalau tidak ada yang perlu dilanjutkan: respons sudah tersimpan (replay), atau
+	// pembuatan resource ditolak 422 (disimpan seperti pola a).
+	Done *Response
+}
+
+// Reserve adalah langkah tx1 ADR-L02 pola (b), untuk operasi yang harus memanggil pihak luar
+// (provider) dan karena itu TIDAK BOLEH berada dalam satu transaksi DB:
+//
+//	tx1: INSERT key (respons NULL) + create(resource) + catat resource di key   → COMMIT
+//	     (di luar tx) panggil provider, idempotency key ke provider = id resource
+//	tx2: simpan hasil di resource + Complete(key)                              → COMMIT
+//
+// Retry dengan key yang sama saat respons masih NULL TIDAK ditolak, melainkan mengembalikan
+// resource yang sama, supaya pemanggil melanjutkan dari recovery point-nya.
+func (s *Service) Reserve(r *http.Request, req Request, resourceType string, create func(ctx context.Context, tx pgx.Tx, keyID uuid.UUID) (uuid.UUID, error)) (Reservation, error) {
+	ctx := r.Context()
+	var res Reservation
+	err := db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		res = Reservation{}
+		q := store.New(tx)
+		keyID, err := q.InsertKey(ctx, store.InsertKeyParams{
+			ID: s.ids.New(), ClientType: req.ClientType, ClientID: req.ClientID, Endpoint: req.Endpoint,
+			Key: req.Key, RequestHash: req.Hash, ExpiresAt: s.clock.Now().Add(Retention),
+		})
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			row, err := q.GetKey(ctx, store.GetKeyParams{ClientType: req.ClientType, ClientID: req.ClientID, Endpoint: req.Endpoint, Key: req.Key})
+			if err != nil {
+				return db.MapError(err)
+			}
+			if !bytes.Equal(row.RequestHash, req.Hash) {
+				return apperr.ErrIdempotencyKeyReused
+			}
+			if row.ResponseStatus != nil {
+				res.Done = &Response{Status: int(*row.ResponseStatus), Body: row.ResponseBody, Replayed: true}
+				return nil
+			}
+			if row.ResourceID == nil {
+				return apperr.ErrRequestInProgress
+			}
+			res.KeyID, res.ResourceID = row.ID, *row.ResourceID // lanjutkan dari recovery point
+			return nil
+		case isLockTimeout(err):
+			return apperr.ErrRequestInProgress.WithCause(err)
+		case err != nil:
+			return db.MapError(err)
+		}
+		sp, err := tx.Begin(ctx)
 		if err != nil {
 			return err
 		}
-		stored := body
-		if out.Stored != nil {
-			if stored, err = json.Marshal(out.Stored); err != nil {
-				return err
+		id, cerr := create(ctx, sp, keyID)
+		if cerr != nil {
+			_ = sp.Rollback(ctx)
+			e := apperr.As(cerr)
+			if !storable(e) {
+				return cerr
 			}
+			resp, err := complete(ctx, q, keyID, Outcome{Status: e.Status, Body: httpx.NewProblem(r, e)})
+			res.Done = &resp
+			return err
 		}
-		status := int16(out.Status) //nolint:gosec // G115: status HTTP 100–599 muat di int16
-		if err := q.CompleteKey(ctx, store.CompleteKeyParams{
-			ID: keyID, ResponseStatus: &status, ResponseBody: stored,
-			ResourceType: nonEmpty(out.ResourceType), ResourceID: out.ResourceID,
-		}); err != nil {
-			return db.MapError(err)
+		if err := sp.Commit(ctx); err != nil {
+			return err
 		}
-		resp = Response{Status: out.Status, Body: body}
-		return nil
+		res.KeyID, res.ResourceID = keyID, id
+		return q.SetKeyResource(ctx, store.SetKeyResourceParams{ResourceType: &resourceType, ResourceID: &id, ID: keyID})
 	})
-	return resp, err
+	return res, err
+}
+
+// Complete adalah bagian akhir tx2 pola (b): menyimpan respons final di transaksi yang sama dengan
+// pembaruan resource, sehingga "respons tersimpan" ⇔ "resource sudah di recovery point akhir".
+func Complete(ctx context.Context, tx pgx.Tx, keyID uuid.UUID, out Outcome) (Response, error) {
+	return complete(ctx, store.New(tx), keyID, out)
 }
 
 func replay(ctx context.Context, q *store.Queries, req Request) (Response, error) {

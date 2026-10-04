@@ -1,6 +1,8 @@
 package identity
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
@@ -105,10 +107,18 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
-	if !h.strict(w, r, "refresh") {
-		return
+	// Key auth-strict untuk refresh = IP + SESI (hash cookie), bukan IP saja. Temuan E2E Sprint 5:
+	// SPA memanggil refresh setiap kali dimuat ulang, jadi limit 5/menit per IP membuat semua user
+	// di belakang satu NAT (kantor) ter-logout. Tanpa cookie tidak dihitung (langsung 401, tanpa
+	// query DB); tier auth-ip 30/menit per IP tetap membatasi penyerang yang merotasi cookie palsu.
+	raw := refreshCookie(r)
+	if raw != "" {
+		sum := sha256.Sum256([]byte(raw))
+		if !h.strict(w, r, "refresh|"+hex.EncodeToString(sum[:8])) {
+			return
+		}
 	}
-	res, err := h.svc.Refresh(r.Context(), refreshCookie(r), meta(r))
+	res, err := h.svc.Refresh(r.Context(), raw, meta(r))
 	if err != nil {
 		if apperr.As(err).Code == apperr.ErrRefreshReused.Code {
 			h.setRefreshCookie(w, "", -1) // family sudah dicabut: hapus cookie di browser

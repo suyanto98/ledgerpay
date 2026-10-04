@@ -95,6 +95,8 @@ var (
 	ErrRateLimited        = def(http.StatusTooManyRequests, "RATE_LIMITED", "Too many requests")
 	ErrRefreshReused      = def(http.StatusUnauthorized, "REFRESH_TOKEN_REUSED", "Session revoked, please log in again")
 	ErrInvalidState       = def(http.StatusConflict, "INVALID_STATE_TRANSITION", "Action not allowed in the current state")
+	ErrInvalidSignature   = def(http.StatusUnauthorized, "INVALID_SIGNATURE", "Invalid webhook signature")
+	ErrStaleWebhook       = def(http.StatusBadRequest, "STALE_WEBHOOK", "Webhook timestamp outside the allowed window")
 )
 
 // Idempotency (katalog §1, ADR-L02).

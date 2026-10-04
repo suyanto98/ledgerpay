@@ -23,7 +23,7 @@ services:
       retries: 30
 
   migrate:
-    build: { context: .., dockerfile: deploy/Dockerfile }
+    build: { context: .., dockerfile: deploy/Dockerfile, target: ledgerpay }
     command: ["migrate", "up"]
     environment:
       MIGRATE_DATABASE_URL: postgres://ledgerpay_owner:owner-dev@postgres:5432/ledgerpay?sslmode=disable
@@ -32,7 +32,7 @@ services:
     restart: "no"
 
   api:
-    build: { context: .., dockerfile: deploy/Dockerfile }
+    build: { context: .., dockerfile: deploy/Dockerfile, target: ledgerpay }
     command: ["api"]
     environment:
       APP_ENV: dev
@@ -47,11 +47,49 @@ services:
       # Demo B sengaja mengirim 100 transfer dari satu user dalam 1 detik untuk menguji LOCK.
       # Default produksi 30/menit akan menjawab 70 di antaranya dengan 429, jadi dev dinaikkan.
       RATE_LIMIT_MONEY_WRITE_PER_MIN: "600"
+      PROVIDER_BASE_URL: http://mock-provider:9090
+      PROVIDER_API_SECRET: mock-api-secret-dev
+      PROVIDER_WEBHOOK_SECRETS: whsec-dev-only
+      PROVIDER_CALLBACK_URL: http://api:8080/api/v1/webhooks/provider
     ports:
       - "127.0.0.1:${LP_HTTP_PORT:-8080}:8080"   # API (ubah LP_HTTP_PORT jika 8080 terpakai)
       - "127.0.0.1:${LP_OPS_PORT:-9090}:9090"    # ops (health) — di demo/prod tidak dipublish
     depends_on:
       migrate: { condition: service_completed_successfully }
+      mock-provider: { condition: service_started }
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+  # Pemroses latar: inbox webhook (Sprint 5); job runner menyusul (Sprint 6).
+  worker:
+    build: { context: .., dockerfile: deploy/Dockerfile, target: ledgerpay }
+    command: ["worker"]
+    environment:
+      APP_ENV: dev
+      LOG_LEVEL: info
+      DATABASE_URL: postgres://ledgerpay_app:app-dev@postgres:5432/ledgerpay?sslmode=disable
+      PROVIDER_BASE_URL: http://mock-provider:9090
+      PROVIDER_API_SECRET: mock-api-secret-dev
+      PUBLIC_BASE_URL: http://localhost:5173
+      WORKER_ID: worker-1
+    healthcheck: { disable: true }   # worker belum punya endpoint ops (Sprint 6/7)
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      mock-provider: { condition: service_started }
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+  # Payment gateway tiruan (ADR-L05). /admin/* hanya untuk skrip demo/test.
+  mock-provider:
+    build: { context: .., dockerfile: deploy/Dockerfile, target: mock-provider }
+    environment:
+      MOCK_API_SECRET: mock-api-secret-dev
+      MOCK_WEBHOOK_SECRET: whsec-dev-only
+      MOCK_PUBLIC_URL: http://localhost:${LP_MOCK_PORT:-9091}   # dibuka browser user (halaman checkout)
+    ports:
+      - "127.0.0.1:${LP_MOCK_PORT:-9091}:9090"
     read_only: true
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]

@@ -82,3 +82,21 @@ sql:
         out: internal/modules/payment/store
         sql_package: pgx/v5
         emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/topup.sql
+    gen:
+      go:
+        package: store
+        out: internal/modules/topup/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/inbox.sql
+    gen:
+      go:
+        package: store
+        out: internal/modules/inbox/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true

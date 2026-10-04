@@ -51,6 +51,15 @@ type Config struct {
 	// karena demo itu sengaja mengirim 100 transfer dari satu user dalam satu detik.
 	RateLimitMoneyWritePerMin int `env:"RATE_LIMIT_MONEY_WRITE_PER_MIN" envDefault:"30"`
 
+	// Payment provider (mock-provider di V1, ADR-L05).
+	ProviderBaseURL        string   `env:"PROVIDER_BASE_URL"`                         // contoh http://mock-provider:9090
+	ProviderAPISecret      string   `env:"PROVIDER_API_SECRET"`                       // Authorization: Bearer ke provider
+	ProviderWebhookSecrets []string `env:"PROVIDER_WEBHOOK_SECRETS" envSeparator:","` // >1 saat rotasi
+	ProviderCallbackURL    string   `env:"PROVIDER_CALLBACK_URL"`                     // URL webhook LedgerPay yang dipanggil provider
+
+	WorkerID           string        `env:"WORKER_ID"` // default: hostname
+	WorkerPollInterval time.Duration `env:"WORKER_POLL_INTERVAL" envDefault:"500ms"`
+
 	// Diisi dari JWTSigningKeysJSON / TrustedProxiesRaw setelah validasi.
 	JWTKeys        map[string][]byte `env:"-"`
 	TrustedProxies []netip.Prefix    `env:"-"`
@@ -89,10 +98,25 @@ func (c *Config) ValidateAPI() error {
 		}
 		c.TrustedProxies = append(c.TrustedProxies, p)
 	}
+	if c.ProviderBaseURL == "" || c.ProviderAPISecret == "" || len(c.ProviderWebhookSecrets) == 0 || c.ProviderCallbackURL == "" {
+		errs = append(errs, errors.New("PROVIDER_BASE_URL, PROVIDER_API_SECRET, PROVIDER_WEBHOOK_SECRETS, PROVIDER_CALLBACK_URL wajib"))
+	}
 	if c.RateLimitMoneyWritePerMin <= 0 {
 		errs = append(errs, errors.New("RATE_LIMIT_MONEY_WRITE_PER_MIN harus > 0"))
 	}
 	c.JWTKeys = keys
+	return errors.Join(errs...)
+}
+
+// ValidateWorker memastikan semua yang dibutuhkan subcommand `worker` tersedia.
+func (c *Config) ValidateWorker() error {
+	var errs []error
+	if c.DatabaseURL == "" {
+		errs = append(errs, errors.New("DATABASE_URL wajib"))
+	}
+	if c.ProviderBaseURL == "" || c.ProviderAPISecret == "" {
+		errs = append(errs, errors.New("PROVIDER_BASE_URL dan PROVIDER_API_SECRET wajib (verify-by-fetch)"))
+	}
 	return errors.Join(errs...)
 }
 

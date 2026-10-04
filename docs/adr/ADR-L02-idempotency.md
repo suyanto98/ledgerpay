@@ -75,6 +75,10 @@ tx2:  UPDATE topups SET provider_ref, checkout_url, recovery_point = PROVIDER_CR
 
 Kalau provider gagal terus, top-up tetap `PENDING` dan job sweeper menandai `EXPIRED` setelah batas waktu. Lihat [ADR-L08](ADR-L08-inbound-webhook-inbox.md) untuk webhook yang datang terlambat.
 
+### Catatan implementasi pola (b) (Sprint 5)
+- `idempotency.Reserve` (tx1: key + resource + `resource_id` di key) dan `idempotency.Complete` (dipanggil di tx2 bersama pembaruan resource). Retry saat respons masih NULL mengembalikan resource yang sama untuk dilanjutkan, bukan `REQUEST_IN_PROGRESS`.
+- **Body ke provider harus identik di setiap retry.** Semua field diturunkan dari baris resource (top-up), termasuk `correlation_id`. Versi awal mengirim request ID yang berubah di setiap request, sehingga retry setelah timeout selalu ditolak provider (`422 idempotency_mismatch`) dan top-up tidak pernah bisa dilanjutkan. Ditangkap oleh `TestTopUp_ProviderTimeout_RetryResumesFromRecoveryPoint`.
+
 ### Retensi
 `expires_at = created_at + 7 hari`. Job cleanup harian menghapus key kedaluwarsa secara batch. Setelah kedaluwarsa, key yang sama dianggap baru. Ini didokumentasikan di API docs, dan retry wajar oleh client terjadi dalam hitungan menit, bukan minggu.
 

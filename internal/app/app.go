@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -14,9 +15,11 @@ import (
 
 	"ledgerpay/db/migrations"
 	"ledgerpay/internal/modules/identity"
+	"ledgerpay/internal/modules/inbox"
 	"ledgerpay/internal/modules/ledger"
 	"ledgerpay/internal/modules/merchant"
 	"ledgerpay/internal/modules/payment"
+	"ledgerpay/internal/modules/topup"
 	"ledgerpay/internal/modules/transfer"
 	"ledgerpay/internal/modules/wallet"
 	"ledgerpay/internal/platform/apperr"
@@ -42,6 +45,20 @@ type Deps struct {
 	TrustedProxies []netip.Prefix
 	PublicBaseURL  string
 	Tiers          *ratelimit.Tiers // nil → ratelimit.DefaultTiers()
+
+	Provider       topup.Provider
+	CallbackURL    string   // URL webhook LedgerPay yang diberikan ke provider
+	WebhookSecrets []string // secret HMAC webhook provider (lebih dari satu saat rotasi)
+}
+
+// topupService dirakit di satu tempat, dipakai API (POST /topups) dan worker (inbox).
+func topupService(d Deps, l *ledger.Service) *topup.Service {
+	return topup.NewService(l, d.Provider, d.IDs, topup.Config{CallbackURL: d.CallbackURL, ReturnBaseURL: strings.TrimRight(d.PublicBaseURL, "/")})
+}
+
+// InboxProcessor merakit worker inbox (dipakai `ledgerpay worker` dan test).
+func InboxProcessor(d Deps, cfg inbox.ProcessorConfig) *inbox.Processor {
+	return inbox.NewProcessor(d.Pool, map[string]inbox.Applier{"charge": topupService(d, ledger.NewService(d.IDs))}, cfg)
 }
 
 // APIRouter adalah router API publik, di-mount di /api/v1.
@@ -63,6 +80,8 @@ func APIRouter(d Deps) http.Handler {
 	transferH := transfer.NewHandler(d.Pool, transfer.NewService(ledgerSvc, users, d.IDs), idem)
 	merchantH := merchant.NewHandler(merchant.NewService(d.Pool, ledgerSvc, d.IDs, d.Clock), idem)
 	paymentH := payment.NewHandler(d.Pool, payment.NewService(ledgerSvc, users, d.IDs), idem, d.PublicBaseURL)
+	topupH := topup.NewHandler(d.Pool, topupService(d, ledgerSvc), idem)
+	inboxH := inbox.NewHandler(d.Pool, d.WebhookSecrets, d.Clock, d.IDs)
 
 	r := chi.NewRouter()
 	r.Use(httpx.RequestID(d.Logger), httpx.Recover, httpx.SecurityHeaders, httpx.ClientIP(d.TrustedProxies),
@@ -86,6 +105,8 @@ func APIRouter(d Deps) http.Handler {
 		paymentH.UserRoutes(read, money)
 		paymentH.MerchantRoutes(merchantAPI)
 		merchantH.OpsRoutes(ops)
+		topupH.Routes(read, money)
+		inboxH.Routes(v1) // publik: autentikasi = tanda tangan HMAC provider
 	})
 	return r
 }

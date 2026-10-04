@@ -18,8 +18,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ledgerpay/internal/app"
+	"ledgerpay/internal/mockprovider"
 	"ledgerpay/internal/modules/identity"
 	"ledgerpay/internal/modules/ledger"
+	"ledgerpay/internal/modules/topup"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
 	"ledgerpay/internal/platform/db"
@@ -31,11 +33,16 @@ import (
 func TestMain(m *testing.M) { dbtest.Main(m) }
 
 type env struct {
-	srv  *httptest.Server
-	ops  *httptest.Server
-	pool *pgxpool.Pool
-	clk  *clock.Fake
+	srv     *httptest.Server
+	ops     *httptest.Server
+	pool    *pgxpool.Pool
+	clk     *clock.Fake
+	mock    *mockprovider.Server // payment provider tiruan, in-process
+	mockSrv *httptest.Server
+	deps    app.Deps
 }
+
+const testWebhookSecret = "whsec_test"
 
 // testTiers: tier default, kecuali money-write yang dilonggarkan supaya test concurrency
 // (100 transfer dari satu user) menguji lock, bukan rate limit. Test rate limit memakai newEnvTiers.
@@ -59,14 +66,29 @@ func newEnvTiers(t *testing.T, tiers *ratelimit.Tiers, opts ...dbtest.Option) en
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := app.APIRouter(app.Deps{
+	// Server API dibuat dulu (handler diisi belakangan), karena URL-nya dibutuhkan sebagai
+	// callback_url yang diberikan ke provider.
+	var api http.Handler
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { api.ServeHTTP(w, r) }))
+	mock := mockprovider.New(mockprovider.Config{
+		APISecret: "mock_api_secret", WebhookSecret: testWebhookSecret, TimeScale: 0.001,
+		HoldTimeout: 2 * time.Second, Now: clk.Now, Logger: slog.New(slog.NewJSONHandler(io.Discard, nil)),
+	})
+	mockSrv := httptest.NewServer(mock.Handler())
+	deps := app.Deps{
 		Logger: slog.New(slog.NewJSONHandler(io.Discard, nil)), Pool: tdb.App, Tokens: tokens, Clock: clk, IDs: ids,
 		Identity: identity.Config{Argon2: auth.TestArgon2, RefreshTTL: 7 * 24 * time.Hour, RefreshFamilyTTL: 30 * 24 * time.Hour},
 		// Loopback dianggap proxy tepercaya: test bisa mensimulasikan banyak IP client lewat X-Forwarded-For.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 		AllowedOrigins: []string{"http://localhost:5173"}, PublicBaseURL: "http://localhost:5173", Tiers: tiers,
-	})
-	e := env{srv: httptest.NewServer(h), ops: httptest.NewServer(app.OpsRouter(tdb.App)), pool: tdb.App, clk: clk}
+		// Timeout klien provider 300 ms < HoldTimeout mock 2 dtk: skenario timeout_* benar-benar timeout.
+		Provider:    topup.NewHTTPProviderTimeout(mockSrv.URL, "mock_api_secret", 300*time.Millisecond),
+		CallbackURL: srv.URL + "/api/v1/webhooks/provider", WebhookSecrets: []string{testWebhookSecret},
+	}
+	api = app.APIRouter(deps)
+	e := env{srv: srv, ops: httptest.NewServer(app.OpsRouter(tdb.App)), pool: tdb.App, clk: clk, mock: mock, mockSrv: mockSrv, deps: deps}
+	t.Cleanup(mockSrv.Close)
+	t.Cleanup(mock.Close) // LIFO: webhook yang masih terjadwal dihentikan SEBELUM server API ditutup
 	t.Cleanup(e.srv.Close)
 	t.Cleanup(e.ops.Close)
 	return e

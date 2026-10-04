@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 # Multi-stage: compile di image Go, jalankan di distroless (tanpa shell, tanpa package manager,
-# user non-root). Permukaan serangan kecil (C-28). Satu binary untuk api/migrate/healthcheck.
+# user non-root). Permukaan serangan kecil (C-28). Satu binary untuk api/worker/migrate/healthcheck.
+# Target `mock-provider` (dev/test/demo saja) adalah image TERPISAH: binary mock tidak pernah ikut
+# di image ledgerpay yang dideploy.
 
 FROM golang:1.26-alpine AS build
 WORKDIR /src
@@ -11,9 +13,17 @@ ARG VERSION=dev
 # Cache mount menyimpan modul dan hasil kompilasi antar-build (rebuild jauh lebih cepat).
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/ledgerpay ./cmd/ledgerpay
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/ ./cmd/ledgerpay ./cmd/mock-provider
 
-FROM gcr.io/distroless/static-debian12:nonroot
+# ---- payment provider tiruan (ADR-L05), hanya untuk compose dev/demo dan E2E
+FROM gcr.io/distroless/static-debian12:nonroot AS mock-provider
+COPY --from=build /out/mock-provider /app/mock-provider
+USER nonroot:nonroot
+EXPOSE 9090
+ENTRYPOINT ["/app/mock-provider"]
+
+# ---- image aplikasi (target default: tahap terakhir)
+FROM gcr.io/distroless/static-debian12:nonroot AS ledgerpay
 ARG VERSION=dev
 LABEL org.opencontainers.image.title="ledgerpay" \
       org.opencontainers.image.version="${VERSION}" \

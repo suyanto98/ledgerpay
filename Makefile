@@ -6,10 +6,10 @@ export PATH := $(GOBIN):$(PATH)
 COMPOSE := docker compose -f deploy/compose.yml
 REDOCLY := npx --yes @redocly/cli@1
 
-.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions gen gen-check smoke demo-a demo-b demo-payment
+.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions gen gen-check smoke demo-a demo-b demo-payment demo-topup web web-check test-e2e
 
 help: ## Tampilkan daftar target
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
 
 tools: ## Pasang toolchain Go (sqlc, goose, golangci-lint, actionlint)
 	go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
@@ -18,8 +18,8 @@ tools: ## Pasang toolchain Go (sqlc, goose, golangci-lint, actionlint)
 	go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 
 # ------------------------------------------------------------------ local stack
-up: ## Jalankan postgres + migrate + api (build ulang image), tunggu sampai sehat
-	$(COMPOSE) up -d --build --wait api
+up: ## Jalankan postgres + migrate + api + worker + mock-provider (build ulang image), tunggu sampai siap
+	$(COMPOSE) up -d --build --wait api worker mock-provider
 
 down: ## Hentikan stack (data postgres tetap di volume)
 	$(COMPOSE) down
@@ -45,6 +45,9 @@ demo-a: ## Demo A: idempotency (stack harus jalan: make up)
 demo-b: ## Demo B: 100 transfer paralel dari saldo Rp100.000
 	./scripts/demo/b_concurrency.sh
 
+demo-topup: ## Demo Sprint 5: top-up lewat mock-provider, webhook duplikat & signature palsu
+	./scripts/demo/topup.sh
+
 demo-payment: ## Demo Sprint 4: merchant API key → payment intent → confirm dari dua tab
 	./scripts/demo/payment.sh
 
@@ -59,7 +62,17 @@ test-integration: ## Integration test (butuh Docker), termasuk test interleaving
 	go test -race -count=1 -tags testhooks ./...
 
 test-concurrency: ## Ulangi test concurrency 20× untuk mendeteksi flaky (sebelum merge, roadmap S3)
-	go test -race -count=20 -tags testhooks -run 'Concurrent|Deadlock|Idempotency|LockTimeout|Naive|Confirm|Parallel' ./internal/app/ ./internal/modules/transfer/
+	go test -race -count=20 -tags testhooks -run 'Concurrent|Deadlock|Idempotency|LockTimeout|Naive|Confirm|Parallel|LeaseExpired|CommitOutcome|ConnectionDrop' ./internal/app/ ./internal/modules/transfer/
+
+# ------------------------------------------------------------------ frontend
+web: ## Jalankan Vue SPA (Vite) di http://localhost:5173, /api di-proxy ke LP_HTTP_PORT
+	cd web && yarn install --frozen-lockfile && yarn dev
+
+web-check: ## Typecheck + unit test + build frontend
+	cd web && yarn install --frozen-lockfile && yarn typecheck && yarn test:unit && yarn build
+
+test-e2e: ## Playwright E2E (stack harus jalan: make up)
+	cd web && yarn install --frozen-lockfile && yarn e2e
 
 # ------------------------------------------------------------------ lint & codegen
 lint: lint-go lint-api lint-actions ## Semua lint

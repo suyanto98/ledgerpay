@@ -92,3 +92,57 @@ jobs:
           node-version: '22'
       - name: Redocly lint
         run: npx --yes @redocly/cli@1 lint api/openapi.yaml
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - run: yarn install --frozen-lockfile
+      - name: Typecheck, unit test, build
+        run: |
+          yarn typecheck
+          yarn test:unit
+          yarn build
+
+  # E2E (Sprint 5 DoD): stack compose sungguhan (api + worker + mock-provider + postgres) + Playwright.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - name: Start stack
+        run: docker compose -f deploy/compose.yml up -d --build --wait api worker mock-provider
+      - name: Install frontend + browser
+        working-directory: web
+        run: |
+          yarn install --frozen-lockfile
+          npx playwright install --with-deps chromium
+      - name: Playwright
+        working-directory: web
+        env:
+          CI: "true"
+          LP_HTTP_PORT: "8080"
+        run: yarn e2e
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f deploy/compose.yml logs --no-color api worker mock-provider | tail -300
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          retention-days: 7

@@ -26,6 +26,17 @@ linters:
               desc: platform tidak boleh meng-import modul bisnis (ADR-001)
             - pkg: ledgerpay/internal/app
               desc: platform tidak boleh meng-import composition root
+        # D4: mock-provider mensimulasikan PIHAK LUAR: tidak boleh tahu internal LedgerPay
+        # (kecuali format tanda tangan webhook yang memang kontrak bersama).
+        mockprovider-is-external:
+          files: ["**/internal/mockprovider/**", "**/cmd/mock-provider/**"]
+          deny:
+            - pkg: ledgerpay/internal/modules
+              desc: mock-provider adalah sistem eksternal tiruan (ADR-L05)
+            - pkg: ledgerpay/internal/app
+              desc: mock-provider adalah sistem eksternal tiruan (ADR-L05)
+            - pkg: ledgerpay/db
+              desc: mock-provider tidak memakai database LedgerPay
         # D3: modul tidak meng-import composition root.
         modules-no-app:
           files: ["**/internal/modules/**"]

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: LedgerPay API
-  version: 0.4.0
+  version: 0.5.0
   summary: Mini payment platform with a double-entry ledger.
   description: |
     Spec-first contract (ADR-003). Sprint 0 skeleton covering Sprint 1–3 paths
@@ -30,6 +30,10 @@ tags:
     description: Merchant API, authenticated with an API key (LF-09, LF-10).
   - name: ops
     description: Operator actions, role OPS only. Every write is audited.
+  - name: topups
+    description: Wallet top-up through the payment provider (LF-07). Balance changes only via verified webhooks.
+  - name: webhooks
+    description: Inbound provider webhooks (ADR-L08). Authenticated by HMAC signature, not by JWT.
 
 security:
   - userJWT: []
@@ -446,6 +450,121 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /topups:
+    post:
+      tags: [topups]
+      operationId: createTopup
+      summary: Start a top-up (creates a provider checkout session; never credits the wallet)
+      description: |
+        Recovery-point pattern (ADR-L02 b): tx1 stores the top-up (recovery_point CREATED) and the
+        idempotency key with no response → the provider is called OUTSIDE any DB transaction with
+        Idempotency-Key = topup id → tx2 stores provider_ref + checkout_url and the response atomically.
+
+        If the provider times out or fails, the response is 201 with `checkout_url: null` and is NOT
+        stored: retrying with the same Idempotency-Key resumes the same top-up from its recovery point
+        (the provider returns the same charge). The wallet is credited only when the worker processes
+        a verified `charge.succeeded` webhook.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [amount, currency]
+              properties:
+                amount: { $ref: '#/components/schemas/Money' }
+                currency: { $ref: '#/components/schemas/Currency' }
+              description: "`amount` between 1000000 (Rp10.000) and 1000000000 (Rp10.000.000) minor units."
+      responses:
+        '201':
+          description: Top-up created (or resumed / replayed).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TopUp' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /topups/{id}:
+    get:
+      tags: [topups]
+      operationId: getTopup
+      summary: Poll a top-up (owner only)
+      description: EXPIRED is a soft status — a late successful webhook can still turn it into SUCCEEDED.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Top-up.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TopUp' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /webhooks/provider:
+    post:
+      tags: [webhooks]
+      operationId: receiveProviderWebhook
+      summary: Receive a provider event (verify, store, 200 — no business effect here)
+      description: |
+        1. raw body is read before JSON parsing; 2. `Provider-Signature: t=<unix>,v1=<hex>` with
+        HMAC-SHA256(secret, t + "." + raw_body), constant-time compare (several v1 / secrets allowed
+        during rotation) → 401 INVALID_SIGNATURE; 3. |now − t| ≤ 300 s → else 400 STALE_WEBHOOK;
+        4. INSERT into the inbox, deduplicated on the event id (a duplicate is still 200 so the provider
+        stops retrying). A worker applies monotonic transitions and re-fetches the charge from the
+        provider before crediting (verify-by-fetch).
+      security: []
+      parameters:
+        - name: Provider-Signature
+          in: header
+          required: true
+          schema: { type: string, example: 't=1790946000,v1=5f2b…' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, type, data]
+              properties:
+                id: { type: string, description: 'Event id; stable across provider retries.' }
+                type: { type: string, enum: [charge.succeeded, charge.failed, charge.pending] }
+                created_at: { type: string, format: date-time }
+                data:
+                  type: object
+                  properties:
+                    charge_id: { type: string }
+                    reference: { type: string, description: The LedgerPay top-up id. }
+                    amount: { $ref: '#/components/schemas/Money' }
+                    currency: { $ref: '#/components/schemas/Currency' }
+                    status: { type: string }
+      responses:
+        '200':
+          description: 'Stored (or already stored: response has duplicate = true).'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received: { type: boolean }
+                  duplicate: { type: boolean }
+        '400':
+          description: STALE_WEBHOOK or MALFORMED_JSON.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '401':
+          description: INVALID_SIGNATURE.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
 components:
   securitySchemes:
     userJWT:
@@ -667,6 +786,22 @@ components:
         slot: { type: integer, enum: [1, 2] }
         api_key: { type: [string, 'null'], description: Shown once; null on replay. }
         note: { type: string }
+        created_at: { type: string, format: date-time }
+    TopUp:
+      type: object
+      required: [id, amount, currency, status, checkout_url, expires_at, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        status: { type: string, enum: [PENDING, SUCCEEDED, FAILED, EXPIRED] }
+        checkout_url:
+          type: [string, 'null']
+          format: uri
+          description: Provider hosted checkout. null while the provider charge is not created yet (retry with the same key).
+        failure_reason: { type: string }
+        expires_at: { type: string, format: date-time }
+        succeeded_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
     Transfer:
       type: object

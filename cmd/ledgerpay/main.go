@@ -1,6 +1,7 @@
 // Command ledgerpay adalah satu binary dengan beberapa subcommand (ADR-001):
 //
 //	ledgerpay api           # server API publik (:8080) + ops (:9090)
+//	ledgerpay worker        # pemroses latar: inbox webhook (Sprint 5); job runner menyusul (Sprint 6)
 //	ledgerpay migrate up    # jalankan migrasi (role ledgerpay_owner)
 //	ledgerpay healthcheck   # dipakai HEALTHCHECK container (image distroless tidak punya curl)
 //	ledgerpay ledger-verify # invariant checker ledger (exit 1 kalau ada pelanggaran)
@@ -28,7 +29,9 @@ import (
 	"ledgerpay/db/migrations"
 	"ledgerpay/internal/app"
 	"ledgerpay/internal/modules/identity"
+	"ledgerpay/internal/modules/inbox"
 	"ledgerpay/internal/modules/ledger"
+	"ledgerpay/internal/modules/topup"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
 	"ledgerpay/internal/platform/config"
@@ -40,13 +43,15 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: ledgerpay <api|migrate up|healthcheck|ledger-verify|demo-credit|merchant-create|grant-ops>")
+		fmt.Fprintln(os.Stderr, "usage: ledgerpay <api|worker|migrate up|healthcheck|ledger-verify|demo-credit|merchant-create|grant-ops>")
 		os.Exit(2)
 	}
 	var err error
 	switch os.Args[1] {
 	case "api":
 		err = runAPI()
+	case "worker":
+		err = runWorker()
 	case "migrate":
 		err = runMigrate(os.Args[2:])
 	case "healthcheck":
@@ -114,6 +119,8 @@ func runAPI() error {
 		Logger: logger, Pool: pool, Tokens: tokens, Clock: clk, IDs: ids, CookieSecure: cfg.CookieSecure,
 		Identity:       identity.Config{Argon2: auth.DefaultArgon2, RefreshTTL: cfg.RefreshTTL, RefreshFamilyTTL: cfg.RefreshFamilyTTL},
 		AllowedOrigins: cfg.AllowedOrigins, TrustedProxies: cfg.TrustedProxies, PublicBaseURL: cfg.PublicBaseURL, Tiers: &tiers,
+		Provider:    topup.NewHTTPProvider(cfg.ProviderBaseURL, cfg.ProviderAPISecret),
+		CallbackURL: cfg.ProviderCallbackURL, WebhookSecrets: cfg.ProviderWebhookSecrets,
 	}
 
 	// Timeout server menutup slowloris dan koneksi menggantung (C-29).
@@ -257,4 +264,38 @@ func runAdmin(args []string, usage string, fn func(context.Context, *pgxpool.Poo
 	}
 	defer pool.Close()
 	return fn(ctx, pool, args[0])
+}
+
+// runWorker menjalankan pemroses latar. Worker lebih sabar menunggu lock (5 dtk, ADR-011) karena
+// tidak ada user yang menunggu respons. Verify-by-fetch ke provider selalu di luar transaksi.
+func runWorker() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.ValidateWorker(); err != nil {
+		return err
+	}
+	logger := observability.NewLogger(os.Stdout, cfg.LogLevel, "worker", cfg.AppEnv, cfg.Version)
+	slog.SetDefault(logger)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	pool, err := db.NewPool(ctx, cfg.DatabaseURL, db.Options{
+		MaxConns: 10, StatementTimeout: cfg.DBStatementTimeout, LockTimeout: 5 * time.Second, IdleInTxTimeout: cfg.DBIdleInTxTimeout,
+	})
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	workerID := cfg.WorkerID
+	if workerID == "" {
+		workerID, _ = os.Hostname()
+	}
+	deps := app.Deps{Logger: logger, Pool: pool, Clock: clock.System{}, IDs: idgen.V7{},
+		Provider: topup.NewHTTPProvider(cfg.ProviderBaseURL, cfg.ProviderAPISecret), CallbackURL: cfg.ProviderCallbackURL, PublicBaseURL: cfg.PublicBaseURL}
+	p := app.InboxProcessor(deps, inbox.ProcessorConfig{WorkerID: workerID})
+	logger.Info("worker.started", "worker_id", workerID)
+	p.Run(observability.WithLogger(ctx, logger), cfg.WorkerPollInterval)
+	logger.Info("worker.stopped")
+	return nil
 }

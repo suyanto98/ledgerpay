@@ -352,7 +352,7 @@ Kolom **CI**: `U` unit · `I` integration · `C` contract · `M` migration · `X
 
 ## 5. Traceability matrix
 
-Status semua baris: **planned**. Matriks ini wajib diperbarui di PR yang menambah atau mengubah invariant/skenario. Test `TestTraceability_DocsReferenceExistingTests` (nightly; **Step 12: S17, mulai M4**) mem-parse dokumen ini dan memastikan setiap nama test benar-benar ada di kode.
+Status awal semua baris: **planned**. Sejak Sprint 5, baris yang sudah punya test di kode ditandai **implemented (sprint)** dan nama test diselaraskan dengan nama sebenarnya di repo. Matriks ini wajib diperbarui di PR yang menambah atau mengubah invariant/skenario. Test `TestTraceability_DocsReferenceExistingTests` (nightly; **Step 12: S17, mulai M4**) mem-parse dokumen ini dan memastikan setiap nama test benar-benar ada di kode.
 
 ### 5.1 LedgerPay invariants
 
@@ -366,7 +366,7 @@ Status semua baris: **planned**. Matriks ini wajib diperbarui di PR yang menamba
 | LI-06 Satu journal per (source, purpose) | `TestJournalPurpose_Templates`, `TestInbox_LeaseExpired_ProcessedOnce`, `TestRecon_Rerun_Idempotent` |
 | LI-07 Transisi sah | `TestStateMachine_{TopUp,PaymentIntent,Payout,Inbox}`, `TestPayoutStatusCheck_VsOpsResolve` |
 | LI-08 Σ refund ≤ amount | `TestRefund_ConcurrentExceedingAmount` |
-| LI-09 Event webhook sekali | `TestWebhook_DuplicateEvents_CreditOnce`, `TestInbox_LeaseExpired_ProcessedOnce` |
+| LI-09 Event webhook sekali | `TestTopup_DuplicateWebhook_OneJournal`, `TestInbox_LeaseExpired_ProcessedOnce` — **implemented (S5)** |
 | LI-10 Payout ke bank sekali | `TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend`, `TestPayoutSubmit_CrashBeforeBankCall_ResubmitAfterSafeWindow`, `TestPayout_TimeoutAfterProcess_ResolvesViaStatusQuery` |
 | LI-11 Integer minor unit | `TestMoney_*`, contract test uang-sebagai-string (`TestContract_MoneyIsString`) |
 | LI-12 Liability cocok aset (eventual) | `TestRecon_ClassifiesAllCategories`, `TestRecon_Rerun_Idempotent` |
@@ -402,16 +402,16 @@ Status semua baris: **planned**. Matriks ini wajib diperbarui di PR yang menamba
 
 | Skenario | Test |
 |---|---|
-| FS-01 Duplicate request | `TestTransfer_IdempotentReplay`, `TestTransfer_RejectedResultIsReplayed` |
-| FS-02 Concurrent payment | `TestTransfer_ConcurrentDoubleSpend_100x`, `TestTransfer_OppositeDirections_NoDeadlock`, `TestRefund_ConcurrentExceedingAmount` |
-| FS-03 Database failure | `TestTransfer_ConnectionDropBeforeCommit`, `TestTransfer_CommitOutcomeUnknown` |
-| FS-04 Server crash | `TestConfirm_CrashAfterCommit` |
-| FS-05 Provider timeout | `TestPayout_TimeoutAfterProcess_ResolvesViaStatusQuery`, `TestTopUp_ProviderTimeout_RetryResumesFromRecoveryPoint` |
-| FS-06 Webhook duplicate | `TestWebhook_DuplicateEvents_CreditOnce`, `TestWebhook_BadSignature_401`, `TestWebhook_StaleTimestamp_400` |
-| FS-07 Webhook terlambat / tidak berurutan | `TestTopup_LateWebhookAfterExpiry_Credited`, `TestWebhook_OutOfOrder_NoRegression`, `TestWebhook_FinalStateConflict_FlagsRecon` |
-| FS-08 Worker crash | `TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend`, `TestJobRunner_LeaseExpiry_Reclaims` |
-| FS-09 Network timeout | `TestPaymentIntent_RetryAfterClientTimeout`, `TestMerchantWebhook_RetryBackoffThenDead`, `TestMerchantWebhook_StableEventID` |
-| FS-10 Partial processing | `TestPartial/<checkpoint>`, `TestTopupRecover_StuckCreated_Completed` |
+| FS-01 Duplicate request | `TestTransfer_IdempotentReplay`, `TestTransfer_DomainRejectionIsReplayed`, `TestPaymentIntent_DuplicateMerchantOrder_409` — **implemented (S3–S4)** |
+| FS-02 Concurrent payment | `TestTransfer_ConcurrentDoubleSpend_100x`, `TestTransfer_OppositeDirections_NoDeadlock`, `TestConfirm_ParallelTabs_OnePayment`, `TestConfirm_SecondTabWaitsForIntentLock` — **implemented (S3–S4)**; `TestRefund_ConcurrentExceedingAmount` planned (S6) |
+| FS-03 Database failure | `TestTransfer_CommitOutcomeUnknown`, `TestTransfer_ConnectionDropBeforeCommit` — **implemented (S5)** |
+| FS-04 Server crash | `TestTransfer_ConnectionDropBeforeCommit` (crash sebelum COMMIT → rollback), `TestTransfer_CommitOutcomeUnknown` (crash setelah COMMIT, sebelum respons → replay) — **implemented (S5)** |
+| FS-05 Provider timeout | `TestTopUp_ProviderTimeout_RetryResumesFromRecoveryPoint` — **implemented (S5)**; `TestPayout_TimeoutAfterProcess_ResolvesViaStatusQuery` planned (S6) |
+| FS-06 Webhook duplicate | `TestTopup_DuplicateWebhook_OneJournal`, `TestWebhook_BadSignatureRejected`, `TestWebhook_ReplayOutsideWindowRejected`, `TestInbox_VerifyByFetch_ForgedWebhookNoCredit` — **implemented (S5)** |
+| FS-07 Webhook terlambat / tidak berurutan | `TestTopup_LateWebhookAfterExpiry_Credited`, `TestTopup_OutOfOrderAndConflict_NeverReversed` — **implemented (S5)**; recon item untuk CONFLICT planned (S9) |
+| FS-08 Worker crash | `TestInbox_LeaseExpired_ProcessedOnce` — **implemented (S5)**; `TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend`, `TestJobRunner_LeaseExpiry_Reclaims` planned (S6) |
+| FS-09 Network timeout | planned (S6): `TestPaymentIntent_RetryAfterClientTimeout`, `TestMerchantWebhook_RetryBackoffThenDead`, `TestMerchantWebhook_StableEventID` |
+| FS-10 Partial processing | `TestTopUp_ProviderTimeout_RetryResumesFromRecoveryPoint` (retry client melanjutkan dari recovery point) — **implemented (S5)**; `TestTopupRecover_StuckCreated_Completed` (job tanpa client) planned (S6) |
 | PFS-01 Job crash | `crash_resume_identical_result` |
 | PFS-02 Duplicate execution | `run_create_double_click_replays`, `calc_chunk_zombie_fenced` |
 | PFS-03 Employee berubah | `stale_detected_for_writer_committed_after_chunk_read`, `TestPeriodGuard_FinalizedPeriodRejected` |

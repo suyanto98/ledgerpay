@@ -310,3 +310,18 @@ func TestHeaders_PresentOnEveryResponse(t *testing.T) {
 		}
 	}
 }
+
+// Temuan E2E Sprint 5: refresh dibatasi per SESI, bukan per IP. Banyak user di belakang satu IP
+// (NAT kantor) yang memuat ulang SPA tidak boleh saling menghabiskan kuota refresh.
+func TestRateLimit_RefreshIsPerSessionNotPerIP(t *testing.T) {
+	tiers := ratelimit.DefaultTiers()
+	e := newEnvTiers(t, &tiers)
+	for i := range 8 { // 8 user, satu IP (loopback), masing-masing refresh sekali
+		email := fmt.Sprintf("u%d@example.com", i)
+		register(t, e, email)
+		c := loginCookie(t, e, email)
+		if r, b := e.cookiePost(t, "/api/v1/auth/refresh", c, nil); r.StatusCode != http.StatusOK {
+			t.Fatalf("user %d behind the same IP: refresh must not be rate limited by others, got %d %v", i, r.StatusCode, b)
+		}
+	}
+}

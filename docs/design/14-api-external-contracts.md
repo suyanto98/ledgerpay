@@ -22,6 +22,11 @@ Error mock memakai bentuk ringkas `{ "error": { "code": "…", "message": "…" 
 | Gagal | 400 `invalid_request` · 401 `unauthorized` · 503 `unavailable` (skenario `error_5xx`) · timeout (skenario `timeout_*`) |
 | Perilaku LedgerPay | 201 → tx2 (`PROVIDER_CREATED`). 5xx/timeout → biarkan `recovery_point = CREATED`; job `topup.recover` atau retry client mengulang dengan key yang sama |
 
+> **Catatan implementasi Sprint 5:**
+> - ID charge/event berformat `ch_<epoch>_<seq>` / `evt_<epoch>_<seq>` (epoch base36 per run). ID berurutan murni (`ch_000001`) dipakai ulang setelah restart atau `/admin/reset`, padahal database LedgerPay tidak ikut di-reset, sehingga `uq_topups_provider_ref` bentrok (ditemukan oleh E2E).
+> - LedgerPay mengirim `metadata.correlation_id = topup id` (bukan request ID): body `POST /v1/charges` harus **identik** di setiap retry dengan key yang sama, kalau tidak provider menjawab `422 idempotency_mismatch`.
+> - State mock in-memory (bukan DB terpisah); `GET /admin/deliveries` ditambahkan sebagai bukti pengiriman webhook untuk demo/test; `POST /admin/charges/{id}/pay|fail` menggantikan klik tombol untuk otomasi.
+
 ### 1.2 `GET /v1/charges/{id}` dan `GET /v1/charges?reference=<topup_id>`
 Response `{ "id", "reference", "status": "PENDING|SUCCEEDED|FAILED|EXPIRED", "amount", "currency", "paid_at", "failure_reason" }`. Lookup by `reference` dipakai sweeper sebelum menandai top-up `EXPIRED` (LF-07 AC6) dan oleh `topup.recover` ketika tidak yakin apakah charge sudah dibuat (404 `not_found` → aman membuat charge).
 

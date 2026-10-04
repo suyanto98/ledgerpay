@@ -148,6 +148,27 @@ type RefreshToken struct {
 	Ip              *netip.Addr
 }
 
+type Topup struct {
+	ID            uuid.UUID
+	UserID        uuid.UUID
+	AccountID     uuid.UUID
+	Amount        int64
+	Currency      string
+	Status        string
+	RecoveryPoint string
+	Provider      string
+	ProviderRef   *string
+	CheckoutUrl   *string
+	ExpiresAt     time.Time
+	SucceededAt   *time.Time
+	FailedAt      *time.Time
+	ExpiredAt     *time.Time
+	FailureReason *string
+	JournalID     *uuid.UUID
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
 type Transfer struct {
 	ID                uuid.UUID
 	SenderUserID      uuid.UUID
@@ -176,4 +197,24 @@ type User struct {
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	Version          int32
+}
+
+type WebhookInbox struct {
+	ID              uuid.UUID
+	Provider        string
+	ProviderEventID string
+	EventType       string
+	ResourceRef     string
+	Payload         []byte
+	RawBody         []byte
+	SignatureTs     time.Time
+	Status          string
+	Outcome         *string
+	Attempts        int32
+	NextAttemptAt   time.Time
+	LockedBy        *string
+	LockedUntil     *time.Time
+	LastError       *string
+	ReceivedAt      time.Time
+	ProcessedAt     *time.Time
 }

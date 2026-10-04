@@ -74,3 +74,23 @@
 - [ ] Housekeeping: revoke otomatis API key yang `expires_at`-nya lewat (masih menempati slot) — job Sprint 6
 - [ ] Rate limiter in-memory: batas efektif × jumlah instance; versi Redis bila >1 instance (ADR-007)
 
+
+## Sprint 5 — Testing ✅
+- [x] `mock-provider` (service terpisah, `cmd/mock-provider`): charges + idempotency, halaman checkout, webhook bertanda tangan, skenario global/per-request/magic amount, `/admin/*`
+- [x] Top-up `POST /topups` pola recovery point (idempotency `Reserve`/`Complete`), `GET /topups/{id}`
+- [x] `webhook_inbox` + endpoint (HMAC, window 5 menit, dedupe) + worker (claim dengan lease, fencing, transisi monoton, verify-by-fetch, backoff → DEAD); subcommand `ledgerpay worker`
+- [x] Test FS-03/04/06/07/10 + lease kedaluwarsa (`testhooks`), matriks traceability diperbarui
+- [x] Vue SPA minimal di `web/` (login/daftar, wallet, transfer, top-up) + Playwright E2E (`web/e2e`), job CI `frontend` dan `e2e`
+- [x] `make demo-topup`, `make web`, `make web-check`, `make test-e2e`
+
+## Catatan dari Sprint 5 (dibawa ke sprint berikutnya)
+- [ ] mock-provider menyimpan state **in-memory** (desain: DB terpisah `migrations_mock`). Cukup untuk dev/E2E; DB dibutuhkan kalau mock harus bertahan restart (settlement CSV, Sprint 9)
+- [ ] Endpoint mock payout (`/v1/payouts`) dan settlement CSV belum ada (Sprint 6 dan 9)
+- [ ] Job `topup.recover` (top-up macet di `CREATED` tanpa retry client) dan `topup.expire_sweep` (cek provider dulu) — Sprint 6 job runner
+- [ ] Event `CONFLICT` hanya dicatat log; `recon_items` di tx yang sama menunggu tabel recon (Sprint 9)
+- [ ] Metrik `webhook_late_total`, `webhook_inbox_dead_total`, alert DEAD — Sprint 7 observability
+- [ ] Replay event `DEAD` dari ops console (`DEAD → RECEIVED`) — Sprint 8
+- [ ] Retensi inbox (hapus > 90 hari, bukan `RECEIVED`) — job cleanup Sprint 6
+- [ ] SPA memakai fetch wrapper tangan; desain: client typed dari `openapi-typescript` (Sprint 8, bersama UI checkout)
+- [ ] Job CI `frontend`/`e2e` belum pernah berjalan di GitHub (repo lokal)
+- [ ] Worker belum punya endpoint health/metrics (compose: healthcheck dimatikan) — Sprint 6/7
