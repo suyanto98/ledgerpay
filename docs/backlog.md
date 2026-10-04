@@ -126,7 +126,7 @@
 - [x] README draft (bahasa Inggris) dengan placeholder `[LINK]`, `[SCREENSHOT]`, `[MEASURE]`
 
 ## Catatan dari Sprint 7 (dibawa ke sprint berikutnya)
-- [ ] **Deploy sungguhan ke VM + domain** (dijalankan user: `cloud-init.yaml` / `bootstrap.sh`, `init-env.sh`, `deploy.sh <host> <sha>`); isi link live di README
+- [ ] **Deploy sungguhan ke VM + domain**: **ditunda sampai aplikasi siap dipakai** (keputusan 2026-10-04). Skrip tetap dijaga berfungsi lewat `deploy.sh local` setiap sprint. Nanti dijalankan user: `cloud-init.yaml` / `bootstrap.sh`, `init-env.sh`, `deploy.sh <host> <sha>`; isi link live di README
 - [ ] **Video demo ~5 menit** (direkam user) + screenshot Grafana/Jaeger untuk README
 - [ ] Sisa katalog metrik: histogram durasi transaksi DB per nama, `app_http_request_size`, metrik scheduler per job terjadwal
 - [ ] Loki/agregasi log belum ada (log JSON hanya di `docker logs`)
