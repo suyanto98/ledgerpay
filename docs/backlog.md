@@ -94,3 +94,23 @@
 - [ ] SPA memakai fetch wrapper tangan; desain: client typed dari `openapi-typescript` (Sprint 8, bersama UI checkout)
 - [ ] Job CI `frontend`/`e2e` belum pernah berjalan di GitHub (repo lokal)
 - [ ] Worker belum punya endpoint health/metrics (compose: healthcheck dimatikan) — Sprint 6/7
+
+## Sprint 6 — Background Processing ✅
+- [x] Job runner `internal/platform/jobs`: claim SKIP LOCKED + lease, heartbeat, backoff + jitter, dead + `OnDead` di tx yang sama, `CompleteInTx` dengan fencing, `Permanent`, panic recovery, lane (bulkhead), scheduler tanpa leader election
+- [x] Payout: migrasi `payouts` (rekening AES-GCM), `POST /payouts` (hold + outbox), `GET /payouts/{id}`, `payout.submit` (SUBMITTED dicommit sebelum bank), `payout.status_check` (30s…6h → `needs_reconciliation`), respons tak cocok → UNKNOWN, resubmit hanya setelah safe window
+- [x] Mock bank (`/v1/payouts`, status query, `/admin/transfers`, magic 0408/0409/0503/0422, `response_mismatch`)
+- [x] Sweeper terjadwal: `topup.recover`, `topup.expire_sweep` (cek provider dulu), `intent.expire_sweep` (+ webhook `payment.expired`), `ledger.verify`, cleanup jobs & idempotency
+- [x] Webhook keluar (`webhookout`): outbox di tx confirm/sweeper, HMAC per merchant (secret terenkripsi), 7 percobaan → DEAD, egress guard SSRF (`platform/egress`)
+- [x] Keyring PII (`platform/crypto`), CLI `merchant-webhook`, validasi dependency saat start, Demo C (`make demo-c`)
+
+## Catatan dari Sprint 6 (dibawa ke sprint berikutnya)
+- [ ] Endpoint ops: `POST /ops/payouts/{id}/resolve`, `GET /ops/jobs`, `POST /ops/jobs/{id}/retry`, `POST /ops/webhook-deliveries/{id}/replay` (Sprint 8, ops console)
+- [ ] `GET /payouts` (list + cursor) untuk UI (Sprint 8)
+- [ ] Metrik `job_dead_total`, `payout_unknown_current`, `payout_unknown_oldest_age_seconds`, `db_deadlock_total`, invariant ledger + alert (Sprint 7)
+- [ ] Worker belum punya endpoint health/metrics; compose healthcheck dimatikan (Sprint 7)
+- [ ] `maintenance.refresh_token_cleanup` dan `maintenance.inbox_cleanup` belum dijadwalkan
+- [ ] Job `pii.reencrypt` (dibutuhkan saat rotasi kunci keyring pertama kali)
+- [ ] `EXPLAIN (ANALYZE, BUFFERS)` query claim jobs (amandemen ADR-006) — bersama load test Sprint 9
+- [ ] Mock bank tidak pernah menjawab `202 PROCESSING`; cabang `OutcomeProcessing` belum teruji end-to-end
+- [ ] `needs_reconciliation` baru ditandai; dikonsumsi rekonsiliasi Sprint 9
+- [ ] Konfigurasi webhook merchant hanya lewat CLI (belum ada rotasi secret dual-window, §6.2)

@@ -87,6 +87,66 @@ func (q *Queries) InsertTopup(ctx context.Context, arg InsertTopupParams) (time.
 	return created_at, err
 }
 
+const listExpiredPending = `-- name: ListExpiredPending :many
+SELECT id, provider_ref FROM topups
+WHERE status = 'PENDING' AND expires_at <= now()
+ORDER BY expires_at LIMIT $1
+`
+
+type ListExpiredPendingRow struct {
+	ID          uuid.UUID
+	ProviderRef *string
+}
+
+// Sweeper topup.expire_sweep: top-up PENDING yang lewat expires_at (batch).
+func (q *Queries) ListExpiredPending(ctx context.Context, batch int32) ([]ListExpiredPendingRow, error) {
+	rows, err := q.db.Query(ctx, listExpiredPending, batch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListExpiredPendingRow
+	for rows.Next() {
+		var i ListExpiredPendingRow
+		if err := rows.Scan(&i.ID, &i.ProviderRef); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStuckCreated = `-- name: ListStuckCreated :many
+SELECT id FROM topups
+WHERE recovery_point = 'CREATED' AND status = 'PENDING' AND created_at < now() - interval '30 seconds'
+ORDER BY created_at LIMIT $1
+`
+
+// Job topup.recover: charge provider belum tercatat (crash/timeout di antara tx1 dan tx2) dan
+// client tidak pernah retry. Umur > 30 dtk supaya tidak balapan dengan request yang sedang berjalan.
+func (q *Queries) ListStuckCreated(ctx context.Context, batch int32) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listStuckCreated, batch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockTopupByID = `-- name: LockTopupByID :one
 SELECT id, account_id, amount, currency, status, recovery_point, provider_ref
 FROM topups WHERE id = $1
@@ -165,6 +225,18 @@ type MarkProviderCreatedParams struct {
 // saling menimpa; yang kalah mendapat 0 baris dan cukup membaca ulang.
 func (q *Queries) MarkProviderCreated(ctx context.Context, arg MarkProviderCreatedParams) (int64, error) {
 	result, err := q.db.Exec(ctx, markProviderCreated, arg.ProviderRef, arg.CheckoutUrl, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markTopupExpired = `-- name: MarkTopupExpired :execrows
+UPDATE topups SET status = 'EXPIRED', expired_at = now() WHERE id = $1 AND status = 'PENDING'
+`
+
+func (q *Queries) MarkTopupExpired(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markTopupExpired, id)
 	if err != nil {
 		return 0, err
 	}

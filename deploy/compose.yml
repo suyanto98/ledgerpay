@@ -51,6 +51,8 @@ services:
       PROVIDER_API_SECRET: mock-api-secret-dev
       PROVIDER_WEBHOOK_SECRETS: whsec-dev-only
       PROVIDER_CALLBACK_URL: http://api:8080/api/v1/webhooks/provider
+      PII_KEYRING: '{"v1":"ZGV2LW9ubHktcGlpLWVuY3J5cHRpb24ta2V5LTMyYiE="}'   # dev saja (32 byte)
+      PII_ACTIVE_KEY_VERSION: v1
     ports:
       - "127.0.0.1:${LP_HTTP_PORT:-8080}:8080"   # API (ubah LP_HTTP_PORT jika 8080 terpakai)
       - "127.0.0.1:${LP_OPS_PORT:-9090}:9090"    # ops (health) — di demo/prod tidak dipublish
@@ -73,7 +75,13 @@ services:
       PROVIDER_API_SECRET: mock-api-secret-dev
       PUBLIC_BASE_URL: http://localhost:5173
       WORKER_ID: worker-1
-    healthcheck: { disable: true }   # worker belum punya endpoint ops (Sprint 6/7)
+      PII_KEYRING: '{"v1":"ZGV2LW9ubHktcGlpLWVuY3J5cHRpb24ta2V5LTMyYiE="}'
+      PII_ACTIVE_KEY_VERSION: v1
+      # Dev saja: server merchant tiruan ada di jaringan compose (IP private). Metadata cloud tetap diblok.
+      WEBHOOK_EGRESS_ALLOW_CIDRS: 172.16.0.0/12,192.168.0.0/16
+      PAYOUT_SAFE_WINDOW: 5m
+    healthcheck: { disable: true }   # worker belum punya endpoint ops (Sprint 7)
+    stop_grace_period: 30s           # job in-flight diberi waktu selesai (default Docker 10 dtk terlalu pendek)
     depends_on:
       migrate: { condition: service_completed_successfully }
       mock-provider: { condition: service_started }

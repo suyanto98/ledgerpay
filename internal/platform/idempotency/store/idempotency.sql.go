@@ -38,6 +38,19 @@ func (q *Queries) CompleteKey(ctx context.Context, arg CompleteKeyParams) error 
 	return err
 }
 
+const deleteExpiredKeys = `-- name: DeleteExpiredKeys :execrows
+DELETE FROM idempotency_keys WHERE id IN (SELECT id FROM idempotency_keys WHERE expires_at < now() LIMIT 5000)
+`
+
+// Retensi 7 hari (job maintenance.idempotency_cleanup), batch supaya tidak mengunci lama.
+func (q *Queries) DeleteExpiredKeys(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredKeys)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getKey = `-- name: GetKey :one
 SELECT id, request_hash, response_status, response_body, resource_id
 FROM idempotency_keys

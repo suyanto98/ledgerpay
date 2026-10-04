@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
+	"ledgerpay/internal/platform/crypto"
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/idgen"
 )
@@ -39,14 +41,61 @@ import (
 const Mode = "test"
 
 type Service struct {
-	pool   *pgxpool.Pool
-	ledger *ledger.Service
-	ids    idgen.Generator
-	clock  clock.Clock
+	pool    *pgxpool.Pool
+	ledger  *ledger.Service
+	ids     idgen.Generator
+	clock   clock.Clock
+	keyring *crypto.Keyring // secret webhook merchant terenkripsi at-rest
 }
 
-func NewService(pool *pgxpool.Pool, l *ledger.Service, ids idgen.Generator, c clock.Clock) *Service {
-	return &Service{pool: pool, ledger: l, ids: ids, clock: c}
+func NewService(pool *pgxpool.Pool, l *ledger.Service, ids idgen.Generator, c clock.Clock, kr *crypto.Keyring) *Service {
+	return &Service{pool: pool, ledger: l, ids: ids, clock: c, keyring: kr}
+}
+
+// ErrNoWebhook: merchant belum mengonfigurasi webhook.
+var ErrNoWebhook = errors.New("merchant: no webhook configured")
+
+var webhookURLPattern = regexp.MustCompile(`^https?://[^\s]+$`)
+
+// SetWebhook mendaftarkan URL webhook dan membuat secret HMAC baru (ditampilkan SEKALI). Hanya lewat
+// CLI admin (tidak ada endpoint di V1). Secret disimpan terenkripsi, AAD = merchant id.
+func (s *Service) SetWebhook(ctx context.Context, merchantID uuid.UUID, url string, requireHTTPS bool) (string, error) {
+	if !webhookURLPattern.MatchString(url) || (requireHTTPS && !strings.HasPrefix(url, "https://")) {
+		return "", apperr.Validation(apperr.FieldError{Field: "webhook_url", Code: "INVALID_FORMAT"})
+	}
+	raw := make([]byte, 24)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	secret := "whsec_" + base64.RawURLEncoding.EncodeToString(raw)
+	enc, err := s.keyring.Encrypt([]byte(secret), []byte(merchantID.String()))
+	if err != nil {
+		return "", err
+	}
+	n, err := store.New(s.pool).SetMerchantWebhook(ctx, store.SetMerchantWebhookParams{ID: merchantID, WebhookUrl: &url, WebhookSecretEnc: enc})
+	if err != nil {
+		return "", db.MapError(err)
+	}
+	if n == 0 {
+		return "", apperr.ErrNotFound
+	}
+	return secret, nil
+}
+
+// WebhookTarget mengembalikan URL + secret terdekripsi untuk pengiriman webhook.
+func (s *Service) WebhookTarget(ctx context.Context, q db.DBTX, merchantID uuid.UUID) (string, []byte, error) {
+	row, err := store.New(q).GetMerchantWebhook(ctx, merchantID)
+	if err != nil {
+		return "", nil, db.MapError(err)
+	}
+	if row.WebhookUrl == nil {
+		return "", nil, ErrNoWebhook
+	}
+	secret, err := s.keyring.Decrypt(row.WebhookSecretEnc, []byte(merchantID.String()))
+	if err != nil {
+		return "", nil, err
+	}
+	return *row.WebhookUrl, secret, nil
 }
 
 // Create mendaftarkan merchant beserta wallet-nya dalam satu transaksi (hanya lewat CLI seed/ops).

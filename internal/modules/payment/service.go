@@ -47,14 +47,30 @@ type Users interface {
 	DisplayName(ctx context.Context, q db.DBTX, id uuid.UUID) (string, error)
 }
 
+// Events: penerbit webhook keluar ke merchant (modul webhookout, disuntikkan composition root).
+// Dipanggil DI tx bisnis: event ada ⇔ perubahan status commit (outbox).
+type Events interface {
+	Publish(ctx context.Context, tx pgx.Tx, merchantID uuid.UUID, eventType string, data any) error
+}
+
 type Service struct {
 	ledger *ledger.Service
 	users  Users
+	events Events
 	ids    idgen.Generator
 }
 
-func NewService(l *ledger.Service, u Users, ids idgen.Generator) *Service {
-	return &Service{ledger: l, users: u, ids: ids}
+func NewService(l *ledger.Service, u Users, ev Events, ids idgen.Generator) *Service {
+	return &Service{ledger: l, users: u, events: ev, ids: ids}
+}
+
+// eventData: snapshot intent untuk payload webhook (kontrak §3.2).
+func eventData(in Intent) map[string]any {
+	return map[string]any{"payment_intent": map[string]any{
+		"id": in.ID, "merchant_order_id": in.MerchantOrderID, "amount": ledger.FormatAmount(in.Amount),
+		"currency": in.Currency, "refunded_amount": ledger.FormatAmount(in.RefundedAmount), "status": in.Status,
+		"confirmed_at": in.ConfirmedAt,
+	}}
 }
 
 // Intent adalah payment intent lengkap; handler memilih field sesuai siapa yang melihat.
@@ -193,8 +209,39 @@ func (s *Service) Confirm(ctx context.Context, tx pgx.Tx, payerID, intentID uuid
 	if n != 1 { // mustahil selama baris terkunci; kalau terjadi, batalkan semuanya
 		return Intent{}, apperr.ErrInvalidState
 	}
-	// Sprint 6: INSERT webhook_deliveries + job webhook.deliver di tx yang sama (outbox).
-	return s.load(ctx, tx, pi.ID)
+	paid, err := s.load(ctx, tx, pi.ID)
+	if err != nil {
+		return Intent{}, err
+	}
+	// Outbox: webhook payment.succeeded di tx yang SAMA. Tidak ada pembayaran tanpa event terjadwal,
+	// dan tidak ada event untuk pembayaran yang rollback.
+	if err := s.events.Publish(ctx, tx, paid.MerchantID, "payment.succeeded", eventData(paid)); err != nil {
+		return Intent{}, err
+	}
+	return paid, nil
+}
+
+// SweepExpired (job intent.expire_sweep): tandai intent kedaluwarsa + webhook payment.expired, satu tx.
+func (s *Service) SweepExpired(ctx context.Context, b db.Beginner, batch int32) (int, error) {
+	n := 0
+	err := db.WithTx(ctx, b, func(tx pgx.Tx) error {
+		ids, err := ExpireDue(ctx, tx, batch)
+		if err != nil {
+			return err
+		}
+		n = len(ids)
+		for _, id := range ids {
+			in, err := s.load(ctx, tx, id)
+			if err != nil {
+				return err
+			}
+			if err := s.events.Publish(ctx, tx, in.MerchantID, "payment.expired", eventData(in)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return n, err
 }
 
 // ExpireDue menandai intent kedaluwarsa (sweeper; dijadwalkan sebagai job di Sprint 6).

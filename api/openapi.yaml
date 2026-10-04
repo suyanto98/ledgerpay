@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: LedgerPay API
-  version: 0.5.0
+  version: 0.6.0
   summary: Mini payment platform with a double-entry ledger.
   description: |
     Spec-first contract (ADR-003). Sprint 0 skeleton covering Sprint 1–3 paths
@@ -34,6 +34,8 @@ tags:
     description: Wallet top-up through the payment provider (LF-07). Balance changes only via verified webhooks.
   - name: webhooks
     description: Inbound provider webhooks (ADR-L08). Authenticated by HMAC signature, not by JWT.
+  - name: payouts
+    description: Withdraw to a bank account (LF-11). The outcome may be temporarily unknown (ADR-L06).
 
 security:
   - userJWT: []
@@ -565,6 +567,55 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
 
+  /payouts:
+    post:
+      tags: [payouts]
+      operationId: createPayout
+      summary: Withdraw to a bank account (funds held immediately; bank called by a worker)
+      description: |
+        One transaction: idempotency key → hold journal (DR wallet / CR PAYOUT_IN_TRANSIT) →
+        payout PENDING (account number encrypted at rest) → job `payout.submit` (outbox). No bank
+        call happens in this request, hence 202. Stored for replay: 202 and 422.
+
+        The worker commits SUBMITTED before calling the bank. A timeout, 5xx, crash, or a success
+        response that does not match the local record makes the payout UNKNOWN; it is resolved by
+        status queries (30s, 2m, 10m, 1h, 6h), never by a blind resubmit or an automatic reversal.
+        Users see `display_status: PROCESSING` until the outcome is final.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePayoutRequest' }
+      responses:
+        '202':
+          description: Payout accepted (or replayed).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payout' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /payouts/{id}:
+    get:
+      tags: [payouts]
+      operationId: getPayout
+      summary: Get a payout (owner only)
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Payout.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payout' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
 components:
   securitySchemes:
     userJWT:
@@ -786,6 +837,41 @@ components:
         slot: { type: integer, enum: [1, 2] }
         api_key: { type: [string, 'null'], description: Shown once; null on replay. }
         note: { type: string }
+        created_at: { type: string, format: date-time }
+    CreatePayoutRequest:
+      type: object
+      additionalProperties: false
+      required: [amount, currency, destination]
+      properties:
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        destination:
+          type: object
+          additionalProperties: false
+          required: [bank_code, account_number, holder_name]
+          properties:
+            bank_code: { type: string, enum: [MOCKBANK, BCA, BNI, BRI, MANDIRI] }
+            account_number: { type: string, pattern: '^[0-9]{6,20}$' }
+            holder_name: { type: string, minLength: 2, maxLength: 100 }
+      description: "`amount` between 1000000 (Rp10.000) and 2500000000 (Rp25.000.000) minor units."
+    Payout:
+      type: object
+      required: [id, amount, currency, status, display_status, destination, hold_journal_id, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        status: { type: string, enum: [PENDING, SUBMITTED, UNKNOWN, SUCCEEDED, FAILED] }
+        display_status: { type: string, enum: [PROCESSING, SUCCEEDED, FAILED] }
+        destination:
+          type: object
+          required: [bank_code, account_number_masked, holder_name]
+          properties:
+            bank_code: { type: string }
+            account_number_masked: { type: string, example: '******7890' }
+            holder_name: { type: string }
+        hold_journal_id: { type: string, format: uuid }
+        needs_reconciliation: { type: boolean }
         created_at: { type: string, format: date-time }
     TopUp:
       type: object

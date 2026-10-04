@@ -8,6 +8,7 @@
 //	ledgerpay demo-credit <email> <amount>   # isi saldo untuk demo (APP_ENV dev/test saja)
 //	ledgerpay merchant-create <name>         # onboarding merchant + wallet (LF-09: lewat seed/ops)
 //	ledgerpay grant-ops <email>              # beri role OPS (tidak ada endpoint untuk ini)
+//	ledgerpay merchant-webhook <id> <url>    # daftarkan webhook merchant; secret tampil SEKALI
 //
 // `worker` dan `seed` ditambahkan saat pertama kali dibutuhkan (Sprint 2/6).
 package main
@@ -24,18 +25,21 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ledgerpay/db/migrations"
 	"ledgerpay/internal/app"
 	"ledgerpay/internal/modules/identity"
-	"ledgerpay/internal/modules/inbox"
 	"ledgerpay/internal/modules/ledger"
+	"ledgerpay/internal/modules/payout"
 	"ledgerpay/internal/modules/topup"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
 	"ledgerpay/internal/platform/config"
+	"ledgerpay/internal/platform/crypto"
 	"ledgerpay/internal/platform/db"
+	"ledgerpay/internal/platform/egress"
 	"ledgerpay/internal/platform/idgen"
 	"ledgerpay/internal/platform/observability"
 	"ledgerpay/internal/platform/ratelimit"
@@ -43,7 +47,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: ledgerpay <api|worker|migrate up|healthcheck|ledger-verify|demo-credit|merchant-create|grant-ops>")
+		fmt.Fprintln(os.Stderr, "usage: ledgerpay <api|worker|migrate up|healthcheck|ledger-verify|demo-credit|merchant-create|merchant-webhook|grant-ops>")
 		os.Exit(2)
 	}
 	var err error
@@ -68,6 +72,8 @@ func main() {
 			}
 			return err
 		})
+	case "merchant-webhook":
+		err = runMerchantWebhook(os.Args[2:])
 	case "grant-ops":
 		err = runAdmin(os.Args[2:], "usage: ledgerpay grant-ops <email>", func(ctx context.Context, pool *pgxpool.Pool, arg string) error {
 			if err := app.GrantOps(ctx, pool, arg); err != nil {
@@ -121,6 +127,11 @@ func runAPI() error {
 		AllowedOrigins: cfg.AllowedOrigins, TrustedProxies: cfg.TrustedProxies, PublicBaseURL: cfg.PublicBaseURL, Tiers: &tiers,
 		Provider:    topup.NewHTTPProvider(cfg.ProviderBaseURL, cfg.ProviderAPISecret),
 		CallbackURL: cfg.ProviderCallbackURL, WebhookSecrets: cfg.ProviderWebhookSecrets,
+		Keyring: cfg.Keyring, Egress: egress.Policy{AllowCIDRs: cfg.EgressAllow, RequireHTTPS: cfg.RequireHTTPSHooks},
+		PayoutSafeWindow: cfg.PayoutSafeWindow,
+	}
+	if err := deps.ValidateAPI(); err != nil {
+		return err
 	}
 
 	// Timeout server menutup slowloris dan koneksi menggantung (C-29).
@@ -292,10 +303,45 @@ func runWorker() error {
 		workerID, _ = os.Hostname()
 	}
 	deps := app.Deps{Logger: logger, Pool: pool, Clock: clock.System{}, IDs: idgen.V7{},
-		Provider: topup.NewHTTPProvider(cfg.ProviderBaseURL, cfg.ProviderAPISecret), CallbackURL: cfg.ProviderCallbackURL, PublicBaseURL: cfg.PublicBaseURL}
-	p := app.InboxProcessor(deps, inbox.ProcessorConfig{WorkerID: workerID})
-	logger.Info("worker.started", "worker_id", workerID)
-	p.Run(observability.WithLogger(ctx, logger), cfg.WorkerPollInterval)
+		Provider: topup.NewHTTPProvider(cfg.ProviderBaseURL, cfg.ProviderAPISecret), CallbackURL: cfg.ProviderCallbackURL, PublicBaseURL: cfg.PublicBaseURL,
+		Bank:    payout.NewHTTPBank(cfg.ProviderBaseURL, cfg.ProviderAPISecret, 10*time.Second),
+		Keyring: cfg.Keyring, Egress: egress.Policy{AllowCIDRs: cfg.EgressAllow, RequireHTTPS: cfg.RequireHTTPSHooks},
+		PayoutSafeWindow: cfg.PayoutSafeWindow}
+	if err := deps.ValidateWorker(); err != nil {
+		return err
+	}
+	// ID unik per START (hostname:pid:uuid): worker yang restart tidak pernah dianggap pemilik lease lamanya.
+	id := fmt.Sprintf("%s:%d:%s", workerID, os.Getpid(), uuid.NewString()[:8])
+	w := app.NewWorker(deps, app.WorkerConfig{ID: id})
+	logger.Info("worker.started", "worker_id", id)
+	w.Run(observability.WithLogger(ctx, logger), cfg.WorkerPollInterval)
 	logger.Info("worker.stopped")
+	return nil
+}
+
+func runMerchantWebhook(args []string) error {
+	if len(args) != 2 {
+		return errors.New("usage: ledgerpay merchant-webhook <merchant-id> <url>")
+	}
+	id, err := uuid.Parse(args[0])
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cfg, pool, err := openPool(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	kr, err := crypto.ParseKeyring(cfg.PIIKeyringJSON, cfg.PIIActiveVersion)
+	if err != nil {
+		return err
+	}
+	secret, err := app.SetMerchantWebhook(ctx, pool, kr, id, args[1], !cfg.Dev())
+	if err != nil {
+		return err
+	}
+	fmt.Println(secret) // satu-satunya saat secret terlihat; yang tersimpan hanya ciphertext
 	return nil
 }

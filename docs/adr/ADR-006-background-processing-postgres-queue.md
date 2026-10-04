@@ -62,6 +62,12 @@ RETURNING *;
 ### Amandemen (Step 11): verifikasi rencana query claim
 Kondisi `(status='queued' AND run_at <= now()) OR (status='running' AND locked_until < now())` bisa berakhir dengan BitmapOr + sort, bukan index scan yang rapi pada partial index. Kalau `EXPLAIN (ANALYZE, BUFFERS)` saat coding menunjukkan itu bermasalah, pakai alternatif yang lebih sederhana: **lease reaper** terpisah (`UPDATE jobs SET status='queued', run_at=now() WHERE status='running' AND locked_until < now()`, dijalankan tiap beberapa detik), sehingga query claim hanya memakai partial index `ix_jobs_claimable (run_at) WHERE status='queued'`. Fencing tetap aman, karena `CompleteInTx` mensyaratkan `status='running' AND locked_by=$worker`. Job yang sudah di-reap tidak bisa diselesaikan oleh worker zombie.
 
+### Catatan implementasi (Sprint 6)
+- **Satu sumber waktu:** `run_at` untuk backoff, delay status check, dan claim semuanya dihitung dengan `now()` database (`make_interval(secs => …)`), bukan jam aplikasi. Jam aplikasi (fake clock di test, drift di produksi) yang berbeda dari jam DB membuat job jatuh tempo terlalu cepat atau terlambat.
+- **Scheduler:** `EnqueueScheduledJob` memakai `INSERT … SELECT … WHERE NOT EXISTS (dedupe_key)` + `ON CONFLICT` partial unique. Celah "bucket sudah succeeded lalu replika lain meng-enqueue lagi" (yang diterima desain) tertutup selama retensi job; `Tick` boleh dipanggil berulang setiap 15 dtk tanpa logika `Due()`.
+- **Lane:** tiga `Runner` (money 4, webhook-out 8, maintenance 2) + loop inbox. `ReleaseJob` saat shutdown mengembalikan job yang dibatalkan tanpa menghitung percobaan.
+- Query claim memakai bentuk satu-query (queued OR lease expired); verifikasi `EXPLAIN` dibawa ke Sprint 9.
+
 ## Reason
 
 - Menghapus dual-write dengan cara paling sederhana: satu `COMMIT` mencakup efek bisnis dan pekerjaan lanjutannya.

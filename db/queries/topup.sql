@@ -34,3 +34,19 @@ WHERE id = @id AND status IN ('PENDING', 'EXPIRED');
 -- name: MarkTopupFailed :execrows
 UPDATE topups SET status = 'FAILED', failure_reason = @failure_reason, failed_at = now()
 WHERE id = @id AND status IN ('PENDING', 'EXPIRED');
+
+-- name: ListExpiredPending :many
+-- Sweeper topup.expire_sweep: top-up PENDING yang lewat expires_at (batch).
+SELECT id, provider_ref FROM topups
+WHERE status = 'PENDING' AND expires_at <= now()
+ORDER BY expires_at LIMIT @batch;
+
+-- name: MarkTopupExpired :execrows
+UPDATE topups SET status = 'EXPIRED', expired_at = now() WHERE id = @id AND status = 'PENDING';
+
+-- name: ListStuckCreated :many
+-- Job topup.recover: charge provider belum tercatat (crash/timeout di antara tx1 dan tx2) dan
+-- client tidak pernah retry. Umur > 30 dtk supaya tidak balapan dengan request yang sedang berjalan.
+SELECT id FROM topups
+WHERE recovery_point = 'CREATED' AND status = 'PENDING' AND created_at < now() - interval '30 seconds'
+ORDER BY created_at LIMIT @batch;

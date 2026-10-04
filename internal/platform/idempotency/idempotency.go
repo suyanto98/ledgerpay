@@ -348,3 +348,9 @@ func Write(w http.ResponseWriter, resp Response) {
 	w.WriteHeader(resp.Status)
 	_, _ = w.Write(resp.Body)
 }
+
+// Cleanup menghapus key kedaluwarsa (job maintenance.idempotency_cleanup).
+func Cleanup(ctx context.Context, q db.DBTX) (int64, error) {
+	n, err := store.New(q).DeleteExpiredKeys(ctx)
+	return n, db.MapError(err)
+}

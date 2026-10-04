@@ -100,3 +100,30 @@ sql:
         out: internal/modules/inbox/store
         sql_package: pgx/v5
         emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/jobs.sql
+    gen:
+      go:
+        package: store
+        out: internal/platform/jobs/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/payout.sql
+    gen:
+      go:
+        package: store
+        out: internal/modules/payout/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/webhookout.sql
+    gen:
+      go:
+        package: store
+        out: internal/modules/webhookout/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true

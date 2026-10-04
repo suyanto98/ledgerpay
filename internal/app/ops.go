@@ -13,6 +13,7 @@ import (
 	"ledgerpay/internal/modules/merchant"
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/clock"
+	"ledgerpay/internal/platform/crypto"
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/idgen"
 )
@@ -52,7 +53,12 @@ func DemoCredit(ctx context.Context, pool *pgxpool.Pool, ids idgen.Generator, em
 
 // CreateMerchant mendaftarkan merchant + wallet-nya (onboarding lewat seed/ops, LF-09 AC1).
 func CreateMerchant(ctx context.Context, pool *pgxpool.Pool, ids idgen.Generator, name string) (uuid.UUID, error) {
-	return merchant.NewService(pool, ledger.NewService(ids), ids, clock.System{}).Create(ctx, name)
+	return merchant.NewService(pool, ledger.NewService(ids), ids, clock.System{}, nil).Create(ctx, name)
+}
+
+// SetMerchantWebhook mendaftarkan URL webhook merchant dan mengembalikan secret baru (tampil SEKALI).
+func SetMerchantWebhook(ctx context.Context, pool *pgxpool.Pool, kr *crypto.Keyring, merchantID uuid.UUID, url string, requireHTTPS bool) (string, error) {
+	return merchant.NewService(pool, ledger.NewService(idgen.V7{}), idgen.V7{}, clock.System{}, kr).SetWebhook(ctx, merchantID, url, requireHTTPS)
 }
 
 // GrantOps memberi role OPS. Hanya lewat CLI (akses shell ke server = akses admin); tidak ada

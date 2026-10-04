@@ -83,6 +83,12 @@ Ops (Sari) melihat payout `UNKNOWN` atau mismatch dari reconciliation, lalu memi
 ### Amandemen (Step 6): respons provider yang tidak cocok
 Respons sukses yang `payout_id`, amount, atau rekening tujuannya tidak cocok dengan catatan lokal **tidak** diperlakukan sebagai `SUCCEEDED`. Payout menjadi `UNKNOWN` + `needs_reconciliation = true` + alert (indikasi bug atau provider yang dikompromikan).
 
+### Catatan implementasi (Sprint 6)
+- **Guard sebelum journal tanpa melanggar FK:** `settle_journal_id`/`reversal_journal_id` adalah FK langsung (tidak deferred), sehingga `UPDATE payouts … SET settle_journal_id = $j` tidak bisa dijalankan sebelum journal ada. Urutannya: `SELECT … FROM payouts WHERE id = $p AND status = ANY($expected) FOR UPDATE` (guard + lock, pihak yang kalah mendapat 0 baris dan tidak pernah memposting) → `PostJournal` → `UPDATE` status + journal id → `CompleteInTx`.
+- **Respons tidak cocok** dideteksi adapter (`SubmitResult.Mismatch`): reference, amount, currency, dan status harus sama dengan catatan lokal.
+- **Safe window** dihitung dengan jam DB (`now() - submitted_at`), dikonfigurasi `PAYOUT_SAFE_WINDOW` (default 5 menit).
+- Demo C (`make demo-c`): worker di-`docker kill` saat menunggu bank → lease 30 dtk → UNKNOWN → status query 30 dtk → SUCCEEDED; bank: 1 request, 1 transfer.
+
 ## Reason
 
 - Satu-satunya pendekatan yang benar untuk ketiga hasil tanpa pernah menebak.

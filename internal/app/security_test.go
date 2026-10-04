@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -323,5 +324,19 @@ func TestRateLimit_RefreshIsPerSessionNotPerIP(t *testing.T) {
 		if r, b := e.cookiePost(t, "/api/v1/auth/refresh", c, nil); r.StatusCode != http.StatusOK {
 			t.Fatalf("user %d behind the same IP: refresh must not be rate limited by others, got %d %v", i, r.StatusCode, b)
 		}
+	}
+}
+
+// Wiring yang lupa harus menggagalkan START, bukan panic di request uang pertama (temuan Demo C).
+func TestDeps_ValidateRejectsMissingKeyring(t *testing.T) {
+	e := newEnv(t)
+	d := e.deps
+	d.Keyring = nil
+	if err := d.ValidateAPI(); err == nil || !strings.Contains(err.Error(), "Keyring") {
+		t.Fatalf("missing Keyring must be rejected at startup, got %v", err)
+	}
+	d.Bank = nil
+	if err := d.ValidateWorker(); err == nil || !strings.Contains(err.Error(), "Bank") {
+		t.Fatalf("missing Bank must be rejected at startup, got %v", err)
 	}
 }

@@ -115,3 +115,28 @@ func TestInbox_LeaseExpired_ProcessedOnce(t *testing.T) {
 	}
 	assertLedgerHealthy(t, e)
 }
+
+// TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend (LI-10, FS-08): worker mati SETELAH bank
+// menerima payout tetapi SEBELUM Tx-b mencatat hasilnya. Job dikirim ulang; payout masih SUBMITTED →
+// worker TIDAK submit ulang, melainkan UNKNOWN → status query → SUCCEEDED. Bank menerima tepat SATU
+// request dan mengeksekusi satu transfer.
+func TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend(t *testing.T) {
+	e := newEnv(t)
+	rina, rinaID := login(t, e, "rina@example.com")
+	seedTopup(t, e, rinaID, 10_000_000)
+	_, po := e.createPayout(t, rina, "2000000", "1234567890")
+	id := po["id"].(string)
+	failFirst(t, "payout.after_bank_call", errors.New("injected: worker killed after the bank accepted"))
+
+	e.drain(t, e.newWorker(t), 10)
+	if s, src, _ := e.payoutRow(t, id); s != "SUCCEEDED" || src != "STATUS_QUERY" {
+		t.Fatalf("want SUCCEEDED resolved by STATUS_QUERY (not by a second submit), got %s %s", s, src)
+	}
+	if executed, received := e.mock.PayoutStats(id); executed != 1 || received != 1 {
+		t.Fatalf("bank must receive exactly ONE submit: executed=%d received=%d", executed, received)
+	}
+	if j := journalsFor(t, e, id); j["PAYOUT_SETTLE"] != 1 {
+		t.Fatalf("exactly one settle journal, got %v", j)
+	}
+	assertLedgerHealthy(t, e)
+}

@@ -58,6 +58,24 @@ type IdempotencyKey struct {
 	UpdatedAt      time.Time
 }
 
+type Job struct {
+	ID            uuid.UUID
+	Kind          string
+	Payload       []byte
+	Status        string
+	Attempts      int32
+	MaxAttempts   int32
+	RunAt         time.Time
+	LockedBy      *string
+	LockedUntil   *time.Time
+	LastError     *string
+	DedupeKey     *string
+	CorrelationID *string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	CompletedAt   *time.Time
+}
+
 type Journal struct {
 	ID               uuid.UUID
 	Purpose          string
@@ -131,6 +149,33 @@ type PaymentIntent struct {
 	UpdatedAt         time.Time
 }
 
+type Payout struct {
+	ID                  uuid.UUID
+	UserID              uuid.UUID
+	AccountID           uuid.UUID
+	Amount              int64
+	Currency            string
+	Status              string
+	BankCode            string
+	AccountNumberEnc    []byte
+	AccountNumberLast4  string
+	HolderName          string
+	HoldJournalID       uuid.UUID
+	SettleJournalID     *uuid.UUID
+	ReversalJournalID   *uuid.UUID
+	SubmitAttempts      int32
+	StatusCheckAttempts int32
+	NeedsReconciliation bool
+	LastProviderStatus  *string
+	LastError           *string
+	SubmittedAt         *time.Time
+	ResolvedAt          *time.Time
+	ResolvedBy          *uuid.UUID
+	ResolutionSource    *string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
 type RefreshToken struct {
 	ID              uuid.UUID
 	UserID          uuid.UUID
@@ -197,6 +242,32 @@ type User struct {
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	Version          int32
+}
+
+type WebhookDelivery struct {
+	ID             uuid.UUID
+	MerchantID     uuid.UUID
+	EventID        uuid.UUID
+	EventType      string
+	Payload        []byte
+	Status         string
+	Attempts       int32
+	LastStatusCode *int32
+	LastError      *string
+	LastAttemptAt  *time.Time
+	DeliveredAt    *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type WebhookDeliveryAttempt struct {
+	ID         uuid.UUID
+	DeliveryID uuid.UUID
+	AttemptNo  int32
+	StatusCode *int32
+	DurationMs int32
+	Error      *string
+	CreatedAt  time.Time
 }
 
 type WebhookInbox struct {

@@ -6,7 +6,7 @@ export PATH := $(GOBIN):$(PATH)
 COMPOSE := docker compose -f deploy/compose.yml
 REDOCLY := npx --yes @redocly/cli@1
 
-.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions gen gen-check smoke demo-a demo-b demo-payment demo-topup web web-check test-e2e
+.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions gen gen-check smoke demo-a demo-b demo-c demo-payment demo-topup web web-check test-e2e
 
 help: ## Tampilkan daftar target
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -48,6 +48,9 @@ demo-b: ## Demo B: 100 transfer paralel dari saldo Rp100.000
 demo-topup: ## Demo Sprint 5: top-up lewat mock-provider, webhook duplikat & signature palsu
 	./scripts/demo/topup.sh
 
+demo-c: ## Demo C: payout timeout_after_process + docker kill worker → tetap 1 transfer
+	./scripts/demo/c_payout_recovery.sh
+
 demo-payment: ## Demo Sprint 4: merchant API key → payment intent → confirm dari dua tab
 	./scripts/demo/payment.sh
 
@@ -62,7 +65,7 @@ test-integration: ## Integration test (butuh Docker), termasuk test interleaving
 	go test -race -count=1 -tags testhooks ./...
 
 test-concurrency: ## Ulangi test concurrency 20× untuk mendeteksi flaky (sebelum merge, roadmap S3)
-	go test -race -count=20 -tags testhooks -run 'Concurrent|Deadlock|Idempotency|LockTimeout|Naive|Confirm|Parallel|LeaseExpired|CommitOutcome|ConnectionDrop' ./internal/app/ ./internal/modules/transfer/
+	go test -race -count=20 -tags testhooks -run 'Concurrent|Deadlock|Idempotency|LockTimeout|Naive|Confirm|Parallel|LeaseExpired|CommitOutcome|ConnectionDrop|Payout|JobRunner|MerchantWebhook' ./internal/app/ ./internal/modules/transfer/ ./internal/platform/jobs/
 
 # ------------------------------------------------------------------ frontend
 web: ## Jalankan Vue SPA (Vite) di http://localhost:5173, /api di-proxy ke LP_HTTP_PORT

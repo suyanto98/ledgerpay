@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v11"
+
+	"ledgerpay/internal/platform/crypto"
 )
 
 type Config struct {
@@ -57,12 +59,50 @@ type Config struct {
 	ProviderWebhookSecrets []string `env:"PROVIDER_WEBHOOK_SECRETS" envSeparator:","` // >1 saat rotasi
 	ProviderCallbackURL    string   `env:"PROVIDER_CALLBACK_URL"`                     // URL webhook LedgerPay yang dipanggil provider
 
+	// Enkripsi PII at-rest: {"v1":"base64-32B"}; versi aktif untuk enkripsi baru (rotasi: §6.3).
+	PIIKeyringJSON   string `env:"PII_KEYRING"`
+	PIIActiveVersion string `env:"PII_ACTIVE_KEY_VERSION"`
+	// Webhook keluar: CIDR yang boleh dituju walaupun private. HANYA dev/test (contoh jaringan compose);
+	// ditolak di environment lain (C-44). Di luar dev/test, URL webhook wajib https.
+	WebhookEgressAllowCIDRs []string `env:"WEBHOOK_EGRESS_ALLOW_CIDRS" envSeparator:","`
+	// Safe window kontrak bank (ADR-L06): NOT_FOUND baru boleh berarti "tidak pernah diterima" setelah ini.
+	PayoutSafeWindow time.Duration `env:"PAYOUT_SAFE_WINDOW" envDefault:"5m"`
+
 	WorkerID           string        `env:"WORKER_ID"` // default: hostname
 	WorkerPollInterval time.Duration `env:"WORKER_POLL_INTERVAL" envDefault:"500ms"`
 
-	// Diisi dari JWTSigningKeysJSON / TrustedProxiesRaw setelah validasi.
-	JWTKeys        map[string][]byte `env:"-"`
-	TrustedProxies []netip.Prefix    `env:"-"`
+	// Diisi dari JWTSigningKeysJSON / TrustedProxiesRaw / dst. setelah validasi.
+	JWTKeys           map[string][]byte `env:"-"`
+	TrustedProxies    []netip.Prefix    `env:"-"`
+	Keyring           *crypto.Keyring   `env:"-"`
+	EgressAllow       []netip.Prefix    `env:"-"`
+	RequireHTTPSHooks bool              `env:"-"`
+}
+
+// Dev melaporkan apakah environment adalah dev/test (pagar untuk fitur yang tidak aman di produksi).
+func (c *Config) Dev() bool { return c.AppEnv == "dev" || c.AppEnv == "test" }
+
+// validateShared: keyring PII + kebijakan egress, dipakai api dan worker.
+func (c *Config) validateShared() []error {
+	var errs []error
+	kr, err := crypto.ParseKeyring(c.PIIKeyringJSON, c.PIIActiveVersion)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("PII_KEYRING / PII_ACTIVE_KEY_VERSION: %w", err))
+	}
+	c.Keyring = kr
+	for _, raw := range c.WebhookEgressAllowCIDRs {
+		p, err := netip.ParsePrefix(strings.TrimSpace(raw))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("WEBHOOK_EGRESS_ALLOW_CIDRS: %q bukan CIDR", raw))
+			continue
+		}
+		c.EgressAllow = append(c.EgressAllow, p)
+	}
+	if len(c.EgressAllow) > 0 && !c.Dev() {
+		errs = append(errs, errors.New("WEBHOOK_EGRESS_ALLOW_CIDRS hanya boleh di APP_ENV dev/test (SSRF, C-44)"))
+	}
+	c.RequireHTTPSHooks = !c.Dev()
+	return errs
 }
 
 // Load membaca env. Validasi per subcommand ada di ValidateAPI (dan nanti ValidateWorker).
@@ -104,6 +144,7 @@ func (c *Config) ValidateAPI() error {
 	if c.RateLimitMoneyWritePerMin <= 0 {
 		errs = append(errs, errors.New("RATE_LIMIT_MONEY_WRITE_PER_MIN harus > 0"))
 	}
+	errs = append(errs, c.validateShared()...)
 	c.JWTKeys = keys
 	return errors.Join(errs...)
 }
@@ -115,8 +156,9 @@ func (c *Config) ValidateWorker() error {
 		errs = append(errs, errors.New("DATABASE_URL wajib"))
 	}
 	if c.ProviderBaseURL == "" || c.ProviderAPISecret == "" {
-		errs = append(errs, errors.New("PROVIDER_BASE_URL dan PROVIDER_API_SECRET wajib (verify-by-fetch)"))
+		errs = append(errs, errors.New("PROVIDER_BASE_URL dan PROVIDER_API_SECRET wajib (verify-by-fetch, payout)"))
 	}
+	errs = append(errs, c.validateShared()...)
 	return errors.Join(errs...)
 }
 

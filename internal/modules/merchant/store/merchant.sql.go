@@ -98,6 +98,22 @@ func (q *Queries) GetMerchant(ctx context.Context, id uuid.UUID) (GetMerchantRow
 	return i, err
 }
 
+const getMerchantWebhook = `-- name: GetMerchantWebhook :one
+SELECT webhook_url, webhook_secret_enc FROM merchants WHERE id = $1
+`
+
+type GetMerchantWebhookRow struct {
+	WebhookUrl       *string
+	WebhookSecretEnc []byte
+}
+
+func (q *Queries) GetMerchantWebhook(ctx context.Context, id uuid.UUID) (GetMerchantWebhookRow, error) {
+	row := q.db.QueryRow(ctx, getMerchantWebhook, id)
+	var i GetMerchantWebhookRow
+	err := row.Scan(&i.WebhookUrl, &i.WebhookSecretEnc)
+	return i, err
+}
+
 const insertAPIKey = `-- name: InsertAPIKey :one
 INSERT INTO merchant_api_keys (id, merchant_id, mode, prefix, key_hash, slot, label, expires_at, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -193,6 +209,25 @@ func (q *Queries) RevokeKey(ctx context.Context, arg RevokeKeyParams) (RevokeKey
 		&i.RevokedAt,
 	)
 	return i, err
+}
+
+const setMerchantWebhook = `-- name: SetMerchantWebhook :execrows
+UPDATE merchants SET webhook_url = $1, webhook_secret_enc = $2, webhook_secret_rotated_at = now()
+WHERE id = $3
+`
+
+type SetMerchantWebhookParams struct {
+	WebhookUrl       *string
+	WebhookSecretEnc []byte
+	ID               uuid.UUID
+}
+
+func (q *Queries) SetMerchantWebhook(ctx context.Context, arg SetMerchantWebhookParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setMerchantWebhook, arg.WebhookUrl, arg.WebhookSecretEnc, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const touchKeyLastUsed = `-- name: TouchKeyLastUsed :exec

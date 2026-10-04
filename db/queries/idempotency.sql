@@ -22,3 +22,7 @@ WHERE id = @id;
 -- Pola (b): tx1 mencatat resource yang dibuat, supaya retry dengan key yang sama (respons masih
 -- NULL) tahu resource mana yang harus dilanjutkan dari recovery point-nya.
 UPDATE idempotency_keys SET resource_type = @resource_type, resource_id = @resource_id WHERE id = @id;
+
+-- name: DeleteExpiredKeys :execrows
+-- Retensi 7 hari (job maintenance.idempotency_cleanup), batch supaya tidak mengunci lama.
+DELETE FROM idempotency_keys WHERE id IN (SELECT id FROM idempotency_keys WHERE expires_at < now() LIMIT 5000);

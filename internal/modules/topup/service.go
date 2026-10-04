@@ -322,3 +322,69 @@ func (s *Service) credit(ctx context.Context, tx pgx.Tx, topupID, walletID uuid.
 	}
 	return nil
 }
+
+// ---------------------------------------------------------------- sweeper (dijadwalkan job runner)
+
+// ExpireSweep (job topup.expire_sweep): top-up PENDING yang lewat waktu. Provider ditanya DULU:
+// kalau ternyata sudah dibayar (webhook hilang/terlambat), kredit diterapkan lewat jalur yang sama
+// dengan inbox; hanya yang benar-benar belum dibayar yang menjadi EXPIRED.
+func (s *Service) ExpireSweep(ctx context.Context, pool Pool, batch int32) (expired, credited int, err error) {
+	rows, err := store.New(pool).ListExpiredPending(ctx, batch)
+	if err != nil {
+		return 0, 0, db.MapError(err)
+	}
+	for _, r := range rows {
+		paid := false
+		if r.ProviderRef != nil {
+			ch, err := s.provider.GetCharge(ctx, *r.ProviderRef) // di luar tx
+			if err != nil && !errors.Is(err, ErrChargeNotFound) {
+				return expired, credited, err // provider down: sweep berikutnya mencoba lagi
+			}
+			paid = err == nil && ch.Status == StatusSucceeded
+		}
+		err := db.WithTx(ctx, pool, func(tx pgx.Tx) error {
+			q := store.New(tx)
+			t, err := q.LockTopupByID(ctx, r.ID)
+			if err != nil {
+				return err
+			}
+			if t.Status != StatusPending { // webhook sudah memproses di sela-sela: no-op
+				return nil
+			}
+			if paid {
+				credited++
+				observability.Logger(ctx).Warn("topup.credited_by_sweeper", "topup_id", t.ID.String())
+				return s.credit(ctx, tx, t.ID, t.AccountID, t.Amount, t.Currency, "sweeper:"+t.ID.String())
+			}
+			expired++
+			_, err = q.MarkTopupExpired(ctx, t.ID)
+			return err
+		})
+		if err != nil {
+			return expired, credited, db.MapError(err)
+		}
+	}
+	return expired, credited, nil
+}
+
+// Recover (job topup.recover): melanjutkan top-up yang macet di recovery point CREATED tanpa
+// menunggu client. Respons idempotency sengaja TIDAK ditulis di sini: kalau client kelak retry
+// dengan key yang sama, EnsureCharge melihat PROVIDER_CREATED, melewati provider, lalu menyimpan respons.
+func (s *Service) Recover(ctx context.Context, pool Pool, batch int32) (int, error) {
+	ids, err := store.New(pool).ListStuckCreated(ctx, batch)
+	if err != nil {
+		return 0, db.MapError(err)
+	}
+	done := 0
+	for _, id := range ids {
+		_, err := s.EnsureCharge(ctx, pool, id, func(context.Context, pgx.Tx, Topup) error { return nil })
+		if errors.Is(err, ErrProviderPending) {
+			continue // provider masih bermasalah: sweep berikutnya
+		}
+		if err != nil {
+			return done, err
+		}
+		done++
+	}
+	return done, nil
+}

@@ -57,8 +57,26 @@ type Charge struct {
 
 // Scenario global (PUT /admin/scenario).
 type Scenario struct {
-	Charges  string   `json:"charges"`  // ok | timeout_after_process | timeout_before_process | error_5xx | decline
-	Webhooks []string `json:"webhooks"` // webhook_duplicate:n | webhook_delay:<dur> | webhook_out_of_order | webhook_bad_signature
+	Charges           string   `json:"charges"`             // ok | timeout_after_process | timeout_before_process | error_5xx | decline
+	Webhooks          []string `json:"webhooks"`            // webhook_duplicate:n | webhook_delay:<dur> | webhook_out_of_order | webhook_bad_signature
+	Payouts           string   `json:"payouts"`             // ok | timeout_after_process | timeout_before_process | error_5xx | decline | response_mismatch
+	PayoutStatusQuery string   `json:"payout_status_query"` // enabled (default) | disabled
+}
+
+// bankPayout adalah transfer keluar di sisi bank.
+type bankPayout struct {
+	ID          string     `json:"id"`
+	Reference   string     `json:"reference"`
+	Status      string     `json:"status"` // SUCCEEDED, FAILED
+	Amount      string     `json:"amount"`
+	Currency    string     `json:"currency"`
+	ProcessedAt *time.Time `json:"processed_at"`
+	Reason      string     `json:"failure_reason,omitempty"`
+}
+
+type payoutStats struct {
+	executed int // uang benar-benar dikirim (bukti Demo C: harus 1)
+	received int // request yang masuk (termasuk retry/resubmit)
 }
 
 // Delivery mencatat setiap percobaan kirim webhook (GET /admin/deliveries: bukti di demo).
@@ -87,6 +105,9 @@ type Server struct {
 	idem       map[string]idemEntry
 	scenario   Scenario
 	deliveries []Delivery
+	payouts    map[string]*bankPayout // per Idempotency-Key (= payout id LedgerPay)
+	sink       []SinkHit              // webhook merchant yang diterima (server merchant tiruan untuk demo)
+	stats      map[string]*payoutStats
 	seq        int
 	epoch      string // prefix ID per "run": unik lintas restart/reset (temuan Sprint 5, lihat resetLocked)
 
@@ -130,6 +151,7 @@ func (s *Server) Close() {
 func (s *Server) resetLocked() {
 	s.charges, s.byRef, s.idem = map[string]*Charge{}, map[string]string{}, map[string]idemEntry{}
 	s.scenario, s.deliveries, s.seq = Scenario{Charges: "ok"}, nil, 0
+	s.payouts, s.stats, s.sink = map[string]*bankPayout{}, map[string]*payoutStats{}, nil
 	s.epoch = strconv.FormatInt(s.cfg.Now().UnixNano()/1e6, 36) // milidetik, base36
 }
 
@@ -146,6 +168,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/reset", s.reset)
 	mux.HandleFunc("POST /admin/charges/{id}/{action}", s.adminComplete)
 	mux.HandleFunc("GET /admin/deliveries", s.getDeliveries)
+	mux.HandleFunc("POST /v1/payouts", s.auth(s.createPayout))
+	mux.HandleFunc("GET /v1/payouts/{key}", s.auth(s.getPayout))
+	mux.HandleFunc("GET /admin/transfers", s.getTransfers)
+	mux.HandleFunc("POST /merchant-sink", s.sinkReceive)
+	mux.HandleFunc("GET /admin/merchant-sink", s.sinkList)
 	return mux
 }
 
@@ -262,6 +289,172 @@ func (s *Server) findCharge(w http.ResponseWriter, r *http.Request) {
 	}
 	r.SetPathValue("id", id)
 	s.getCharge(w, r)
+}
+
+// ---------------------------------------------------------------- bank: transfer keluar (payout)
+
+// Magic value rekening tujuan (14-api-external-contracts §1.7): E2E/Demo C memicu skenario dari
+// nomor rekening, tanpa mengubah state global dan tanpa LedgerPay tahu.
+var magicAccountSuffix = map[string]string{
+	"0408": "timeout_after_process", // Demo C: uang terkirim, respons hilang
+	"0409": "timeout_before_process",
+	"0503": "error_5xx",
+	"0422": "decline",
+}
+
+type createPayoutRequest struct {
+	Amount      string `json:"amount"`
+	Currency    string `json:"currency"`
+	Reference   string `json:"reference"`
+	Destination struct {
+		BankCode      string `json:"bank_code"`
+		AccountNumber string `json:"account_number"`
+		HolderName    string `json:"holder_name"`
+	} `json:"destination"`
+}
+
+// createPayout: bank yang benar TIDAK PERNAH memproses key yang sama dua kali. Key yang sudah ada
+// menjawab status payout yang ada, apa pun skenarionya.
+func (s *Server) createPayout(w http.ResponseWriter, r *http.Request) {
+	key := r.Header.Get("Idempotency-Key")
+	body, err := readAll(r)
+	var in createPayoutRequest
+	if err != nil || key == "" || json.Unmarshal(body, &in) != nil || in.Amount == "" {
+		writeErr(w, http.StatusBadRequest, "invalid_request", "Idempotency-Key and a valid body are required")
+		return
+	}
+	s.mu.Lock()
+	st := s.stats[key]
+	if st == nil {
+		st = &payoutStats{}
+		s.stats[key] = st
+	}
+	st.received++
+	if existing, ok := s.payouts[key]; ok {
+		out := *existing
+		s.mu.Unlock()
+		writePayout(w, out)
+		return
+	}
+	scenario := r.Header.Get("X-Mock-Scenario")
+	if scenario == "" {
+		scenario = s.scenario.Payouts
+	}
+	acct := in.Destination.AccountNumber
+	if len(acct) >= 4 {
+		if m, ok := magicAccountSuffix[acct[len(acct)-4:]]; ok {
+			scenario = m
+		}
+	}
+	switch scenario {
+	case "error_5xx":
+		s.mu.Unlock()
+		writeErr(w, http.StatusServiceUnavailable, "unavailable", "bank temporarily unavailable")
+		return
+	case "timeout_before_process": // TIDAK diproses; bank tidak mengenal key ini (status query: 404)
+		s.mu.Unlock()
+		s.hold(r)
+		writeErr(w, http.StatusGatewayTimeout, "timeout", "not processed")
+		return
+	}
+	s.seq++
+	now := s.cfg.Now()
+	p := &bankPayout{ID: fmt.Sprintf("po_%s_%06d", s.epoch, s.seq), Reference: in.Reference, Amount: in.Amount, Currency: in.Currency, ProcessedAt: &now}
+	if scenario == "decline" {
+		p.Status, p.Reason = "FAILED", "account_closed"
+	} else {
+		p.Status = "SUCCEEDED"
+		st.executed++ // uang keluar dari bank
+	}
+	s.payouts[key] = p
+	out := *p
+	s.mu.Unlock()
+
+	switch scenario {
+	case "timeout_after_process": // SUDAH dikirim, respons tidak pernah sampai → LedgerPay UNKNOWN
+		s.hold(r)
+	case "response_mismatch": // amandemen ADR-L06: respons sukses yang isinya tidak cocok
+		out.Amount = out.Amount + "0"
+	}
+	writePayout(w, out)
+}
+
+func writePayout(w http.ResponseWriter, p bankPayout) {
+	out, _ := json.Marshal(p)
+	if p.Status == "FAILED" {
+		writeErr(w, http.StatusUnprocessableEntity, "declined", p.Reason)
+		return
+	}
+	writeRaw(w, http.StatusOK, out)
+}
+
+// getPayout: status query. Kontrak safe window: payout yang diterima bank selalu terlihat di sini
+// paling lambat 5 menit setelah diterima (di mock: seketika).
+func (s *Server) getPayout(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	disabled := s.scenario.PayoutStatusQuery == "disabled"
+	p, ok := s.payouts[r.PathValue("key")]
+	var out []byte
+	if ok {
+		out, _ = json.Marshal(p)
+	}
+	s.mu.Unlock()
+	switch {
+	case disabled:
+		writeErr(w, http.StatusServiceUnavailable, "unavailable", "status query disabled by scenario")
+	case !ok:
+		writeErr(w, http.StatusNotFound, "not_found", "unknown idempotency key")
+	default:
+		writeRaw(w, http.StatusOK, out)
+	}
+}
+
+func (s *Server) getTransfers(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Query().Get("idempotency_key")
+	s.mu.Lock()
+	st := s.stats[key]
+	var executed, received int
+	if st != nil {
+		executed, received = st.executed, st.received
+	}
+	s.mu.Unlock()
+	out, _ := json.Marshal(map[string]any{"idempotency_key": key, "transfers_executed": executed, "requests_received": received})
+	writeRaw(w, http.StatusOK, out)
+}
+
+// PayoutStats mengembalikan (transfer yang dieksekusi, request yang diterima) untuk satu key (test).
+func (s *Server) PayoutStats(key string) (executed, received int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if st := s.stats[key]; st != nil {
+		return st.executed, st.received
+	}
+	return 0, 0
+}
+
+// ---------------------------------------------------------------- server merchant tiruan (demo webhook keluar)
+
+// SinkHit adalah satu webhook LedgerPay yang diterima "server merchant" tiruan.
+type SinkHit struct {
+	EventID string          `json:"event_id"`
+	Attempt string          `json:"attempt"`
+	Body    json.RawMessage `json:"body"`
+	At      time.Time       `json:"at"`
+}
+
+func (s *Server) sinkReceive(w http.ResponseWriter, r *http.Request) {
+	body, _ := readAll(r)
+	s.mu.Lock()
+	s.sink = append(s.sink, SinkHit{EventID: r.Header.Get("LedgerPay-Event-Id"), Attempt: r.Header.Get("LedgerPay-Delivery-Attempt"), Body: body, At: s.cfg.Now()})
+	s.mu.Unlock()
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) sinkList(w http.ResponseWriter, _ *http.Request) {
+	s.mu.Lock()
+	out, _ := json.Marshal(append([]SinkHit{}, s.sink...))
+	s.mu.Unlock()
+	writeRaw(w, http.StatusOK, out)
 }
 
 // ---------------------------------------------------------------- halaman checkout (untuk user / demo)

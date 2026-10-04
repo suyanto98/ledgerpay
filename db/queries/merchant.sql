@@ -34,3 +34,10 @@ RETURNING id, merchant_id, prefix, revoked_at;
 -- audit_log adalah tabel shared (append-only); setiap modul menulis aksinya sendiri.
 INSERT INTO audit_log (id, actor_type, actor_id, action, target_type, target_id, request_id, reason)
 VALUES (@id, @actor_type, @actor_id, @action, @target_type, @target_id, @request_id, @reason);
+
+-- name: SetMerchantWebhook :execrows
+UPDATE merchants SET webhook_url = @webhook_url, webhook_secret_enc = @webhook_secret_enc, webhook_secret_rotated_at = now()
+WHERE id = @id;
+
+-- name: GetMerchantWebhook :one
+SELECT webhook_url, webhook_secret_enc FROM merchants WHERE id = @id;
