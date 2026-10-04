@@ -18,6 +18,7 @@ import (
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/httpx"
 	"ledgerpay/internal/platform/idempotency"
+	"ledgerpay/internal/platform/metrics"
 )
 
 // endpoint adalah scope key idempotency: template rute, bukan path konkret.
@@ -146,8 +147,10 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		cmd.IdempotencyKeyID = &keyID
 		t, err := h.svc.Create(ctx, tx, cmd)
 		if err != nil {
+			metrics.Transfers.WithLabelValues(transferOutcome(err)).Inc()
 			return idempotency.Outcome{}, err
 		}
+		metrics.Transfers.WithLabelValues("completed").Inc()
 		return idempotency.Outcome{Status: http.StatusCreated, Body: view(t, p.UserID), ResourceType: "transfer", ResourceID: &t.ID}, nil
 	})
 	if err != nil {
@@ -155,6 +158,21 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	idempotency.Write(w, resp)
+}
+
+// transferOutcome: label terbatas dari error domain (bukan teks error).
+func transferOutcome(err error) string {
+	switch apperr.As(err).Code {
+	case apperr.ErrInsufficientBalance.Code:
+		return "insufficient_balance"
+	case apperr.ErrInvalidRecipient.Code:
+		return "invalid_recipient"
+	case apperr.ErrSelfTransfer.Code:
+		return "self_transfer"
+	case apperr.ErrAccountFrozen.Code:
+		return "frozen"
+	}
+	return "error"
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {

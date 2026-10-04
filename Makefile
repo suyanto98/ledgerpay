@@ -6,7 +6,7 @@ export PATH := $(GOBIN):$(PATH)
 COMPOSE := docker compose -f deploy/compose.yml
 REDOCLY := npx --yes @redocly/cli@1
 
-.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions gen gen-check smoke demo-a demo-b demo-c demo-payment demo-topup web web-check test-e2e
+.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions lint-shell gen gen-check smoke demo-a demo-b demo-c demo-payment demo-topup web web-check test-e2e up-obs test-alerts dashboards
 
 help: ## Tampilkan daftar target
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -67,6 +67,17 @@ test-integration: ## Integration test (butuh Docker), termasuk test interleaving
 test-concurrency: ## Ulangi test concurrency 20× untuk mendeteksi flaky (sebelum merge, roadmap S3)
 	go test -race -count=20 -tags testhooks -run 'Concurrent|Deadlock|Idempotency|LockTimeout|Naive|Confirm|Parallel|LeaseExpired|CommitOutcome|ConnectionDrop|Payout|JobRunner|MerchantWebhook' ./internal/app/ ./internal/modules/transfer/ ./internal/platform/jobs/
 
+# ------------------------------------------------------------------ observability
+up-obs: ## Stack + Prometheus/Grafana/Jaeger (Grafana http://localhost:3000, Jaeger http://localhost:16686)
+	LP_OTLP_ENDPOINT=http://jaeger:4318/v1/traces $(COMPOSE) --profile obs up -d --build --wait api worker mock-provider prometheus grafana jaeger
+
+dashboards: ## Generate JSON dashboard Grafana dari deploy/grafana/gen_dashboards.py
+	python3 deploy/grafana/gen_dashboards.py
+
+test-alerts: ## Validasi + unit test alert rules Prometheus (promtool)
+	docker run --rm -v "$$PWD/deploy/prometheus/rules:/r:ro" -w /r --entrypoint promtool prom/prometheus:v3.5.0 check rules ledgerpay.yml platform.yml
+	docker run --rm -v "$$PWD/deploy/prometheus:/p:ro" -w /p/tests --entrypoint promtool prom/prometheus:v3.5.0 test rules ledgerpay_test.yml
+
 # ------------------------------------------------------------------ frontend
 web: ## Jalankan Vue SPA (Vite) di http://localhost:5173, /api di-proxy ke LP_HTTP_PORT
 	cd web && yarn install --frozen-lockfile && yarn dev
@@ -78,10 +89,13 @@ test-e2e: ## Playwright E2E (stack harus jalan: make up)
 	cd web && yarn install --frozen-lockfile && yarn e2e
 
 # ------------------------------------------------------------------ lint & codegen
-lint: lint-go lint-api lint-actions ## Semua lint
+lint: lint-go lint-api lint-actions lint-shell ## Semua lint
 
 lint-go: ## golangci-lint (gosec, depguard, ...)
 	golangci-lint run ./...
+
+lint-shell: ## shellcheck semua skrip (deploy + demo)
+	docker run --rm -v "$$PWD:/w:ro" -w /w koalaman/shellcheck:stable -x -S warning scripts/*.sh scripts/demo/*.sh deploy/prod/*.sh
 
 lint-api: ## Lint kontrak OpenAPI
 	$(REDOCLY) lint api/openapi.yaml

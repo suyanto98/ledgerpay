@@ -1,9 +1,9 @@
 -- name: EnqueueJob :execrows
 -- Outbox: dipanggil DI DALAM transaksi bisnis. Dedupe selama job masih hidup (queued/running).
 -- Semua jadwal memakai jam DATABASE (now()), sama dengan acuan klaim: satu sumber waktu.
-INSERT INTO jobs (id, kind, payload, max_attempts, run_at, dedupe_key, correlation_id)
+INSERT INTO jobs (id, kind, payload, max_attempts, run_at, dedupe_key, correlation_id, trace_parent)
 VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(payload), sqlc.arg(max_attempts),
-        now() + make_interval(secs => sqlc.arg(delay_secs)::float8), sqlc.narg(dedupe_key), sqlc.narg(correlation_id))
+        now() + make_interval(secs => sqlc.arg(delay_secs)::float8), sqlc.narg(dedupe_key), sqlc.narg(correlation_id), sqlc.narg(trace_parent))
 ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL AND status IN ('queued', 'running') DO NOTHING;
 
 -- name: EnqueueScheduledJob :execrows
@@ -26,7 +26,7 @@ WHERE id IN (
   ORDER BY run_at
   LIMIT sqlc.arg(batch)
   FOR UPDATE SKIP LOCKED)
-RETURNING id, kind, payload, attempts, max_attempts, correlation_id;
+RETURNING id, kind, payload, attempts, max_attempts, correlation_id, trace_parent;
 
 -- name: CompleteJob :execrows
 -- FENCING: hanya pemegang lease saat ini. 0 baris = lease sudah diambil worker lain (zombie) →
@@ -60,3 +60,11 @@ DELETE FROM jobs WHERE id IN (
   WHERE (status = 'succeeded' AND completed_at < now() - interval '7 days')
      OR (status = 'dead' AND completed_at < now() - interval '30 days')
   LIMIT 5000);
+
+-- name: JobStats :many
+-- Gauge periodik (15 dtk): kedalaman antrean, umur job jatuh tempo tertua, outbox lag.
+SELECT kind, status, count(*)::bigint AS n,
+       coalesce(extract(epoch FROM now() - min(run_at) FILTER (WHERE status = 'queued' AND run_at <= now())), 0)::float8 AS oldest_due_secs,
+       coalesce(extract(epoch FROM now() - min(run_at) FILTER (WHERE status = 'queued' AND run_at <= now() AND attempts = 0)), 0)::float8 AS lag_secs
+FROM jobs WHERE status IN ('queued', 'running', 'dead')
+GROUP BY kind, status;

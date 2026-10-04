@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"ledgerpay/internal/platform/apperr"
+	"ledgerpay/internal/platform/metrics"
 )
 
 // constraintErrors memetakan nama constraint (atau unique index) → error domain.
@@ -57,6 +58,7 @@ func MapError(err error) error {
 	}
 	switch pgErr.Code {
 	case "55P03": // lock_not_available (lock_timeout)
+		metrics.DBLockTimeouts.WithLabelValues("resource").Inc()
 		return apperr.ErrResourceBusy.WithCause(err)
 	case "40001", "40P01": // retry WithTx sudah habis
 		return apperr.ErrResourceBusy.WithCause(err)

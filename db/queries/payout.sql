@@ -50,3 +50,8 @@ UPDATE payouts SET submit_attempts = submit_attempts + 1 WHERE id = @id;
 
 -- name: FlagNeedsReconciliation :exec
 UPDATE payouts SET needs_reconciliation = true, last_error = @last_error WHERE id = @id;
+
+-- name: UnknownStats :one
+-- Gauge periodik: payout UNKNOWN saat ini + umur yang tertua (alert > 1 jam).
+SELECT count(*)::bigint AS n, coalesce(extract(epoch FROM now() - min(updated_at)), 0)::float8 AS oldest_secs
+FROM payouts WHERE status = 'UNKNOWN';

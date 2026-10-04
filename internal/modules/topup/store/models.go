@@ -74,6 +74,7 @@ type Job struct {
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	CompletedAt   *time.Time
+	TraceParent   *string
 }
 
 type Journal struct {

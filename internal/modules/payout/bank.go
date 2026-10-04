@@ -11,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"ledgerpay/internal/platform/metrics"
+	"ledgerpay/internal/platform/tracing"
 )
 
 // Outcome adalah hasil submit menurut LedgerPay (docs/design/14-api-external-contracts.md §1.4).
@@ -64,7 +67,8 @@ type HTTPBank struct {
 }
 
 func NewHTTPBank(baseURL, secret string, timeout time.Duration) *HTTPBank {
-	return &HTTPBank{baseURL: strings.TrimRight(baseURL, "/"), secret: secret, client: &http.Client{Timeout: timeout}}
+	return &HTTPBank{baseURL: strings.TrimRight(baseURL, "/"), secret: secret,
+		client: &http.Client{Timeout: timeout, Transport: metrics.OutboundTransport("bank", tracing.Transport(nil))}}
 }
 
 type bankPayoutJSON struct {

@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -29,6 +30,7 @@ import (
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/httpx"
 	"ledgerpay/internal/platform/idgen"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/observability"
 	"ledgerpay/internal/platform/testhook"
 	"ledgerpay/internal/platform/webhooksig"
@@ -97,9 +99,12 @@ func (h *Handler) receive(w http.ResponseWriter, r *http.Request) {
 	ts, err := webhooksig.Verify(r.Header.Get("Provider-Signature"), raw, h.secrets, h.clock.Now(), SignatureTolerance)
 	switch {
 	case errors.Is(err, webhooksig.ErrStale):
+		metrics.InboxReceived.WithLabelValues("stale_timestamp").Inc()
 		httpx.WriteError(w, r, apperr.ErrStaleWebhook)
 		return
 	case err != nil:
+		metrics.InboxReceived.WithLabelValues("signature_invalid").Inc()
+		metrics.WebhookSigFailures.WithLabelValues().Inc()
 		observability.Logger(r.Context()).Warn("webhook.signature_rejected", "reason", err.Error())
 		httpx.WriteError(w, r, apperr.ErrInvalidSignature)
 		return
@@ -115,6 +120,7 @@ func (h *Handler) receive(w http.ResponseWriter, r *http.Request) {
 		Payload: raw, RawBody: raw, SignatureTs: ts,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
+		metrics.InboxReceived.WithLabelValues("duplicate").Inc()
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"received": true, "duplicate": true})
 		return
 	}
@@ -122,6 +128,7 @@ func (h *Handler) receive(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, db.MapError(err))
 		return
 	}
+	metrics.InboxReceived.WithLabelValues("accepted").Inc()
 	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"received": true})
 }
 
@@ -136,6 +143,7 @@ type ProcessorConfig struct {
 }
 
 type Processor struct {
+	lastLoop atomic.Int64
 	pool     *pgxpool.Pool
 	appliers map[string]Applier // per keluarga event: "charge" → topup
 	cfg      ProcessorConfig
@@ -159,6 +167,7 @@ func NewProcessor(pool *pgxpool.Pool, appliers map[string]Applier, cfg Processor
 func (p *Processor) Run(ctx context.Context, interval time.Duration) {
 	log := observability.Logger(ctx)
 	for {
+		p.lastLoop.Store(time.Now().UnixNano()) //nolint:forbidigo // heartbeat teknis
 		n, err := p.RunOnce(ctx)
 		if err != nil && ctx.Err() == nil {
 			log.Error("inbox.run_failed", "err", err.Error())
@@ -172,6 +181,24 @@ func (p *Processor) Run(ctx context.Context, interval time.Duration) {
 		case <-time.After(interval):
 		}
 	}
+}
+
+// LastLoop: waktu iterasi loop terakhir (readiness worker).
+func (p *Processor) LastLoop() time.Time {
+	if n := p.lastLoop.Load(); n > 0 {
+		return time.Unix(0, n)
+	}
+	return time.Time{}
+}
+
+// Stats mengisi gauge inbox pending (loop periodik worker).
+func Stats(ctx context.Context, q db.DBTX) error {
+	n, err := store.New(q).PendingCount(ctx)
+	if err != nil {
+		return db.MapError(err)
+	}
+	metrics.InboxPending.WithLabelValues().Set(float64(n))
+	return nil
 }
 
 // RunOnce meng-claim satu batch dan memprosesnya. Mengembalikan jumlah event yang di-claim.
@@ -234,8 +261,10 @@ func (p *Processor) finish(ctx context.Context, ev store.ClaimEventsRow, apply f
 		params := store.FinalizeEventParams{ID: ev.ID, Status: status}
 		if dead != "" {
 			params.Status, params.LastError = "DEAD", &dead
+			metrics.InboxDead.WithLabelValues().Inc()
 		} else {
 			params.Outcome = &outcome
+			metrics.InboxProcessed.WithLabelValues(strings.ToLower(outcome)).Inc()
 		}
 		return q.FinalizeEvent(ctx, params)
 	})

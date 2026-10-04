@@ -246,6 +246,18 @@ func (q *Queries) GetWalletByUser(ctx context.Context, arg GetWalletByUserParams
 	return i, err
 }
 
+const globalImbalance = `-- name: GlobalImbalance :one
+SELECT coalesce(sum(CASE direction WHEN 'D' THEN amount ELSE -amount END), 0)::bigint FROM journal_entries
+`
+
+// LI-01 global: Σ seluruh debit − Σ seluruh kredit (minor unit). Normalnya 0.
+func (q *Queries) GlobalImbalance(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, globalImbalance)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const insertEntry = `-- name: InsertEntry :exec
 INSERT INTO journal_entries (id, journal_id, account_id, direction, amount, currency)
 VALUES ($1, $2, $3, $4, $5, $6)

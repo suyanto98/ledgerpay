@@ -8,6 +8,7 @@ import (
 
 	"ledgerpay/internal/modules/ledger/store"
 	"ledgerpay/internal/platform/db"
+	"ledgerpay/internal/platform/metrics"
 )
 
 // Drift adalah akun yang saldo materialized-nya berbeda dari Σ entries (LI-03).
@@ -21,12 +22,15 @@ type Drift struct {
 type Report struct {
 	BalanceDrift       []Drift
 	UnbalancedJournals []string
+	GlobalImbalance    int64 // Σ debit − Σ kredit seluruh ledger (minor unit); normal 0
 }
 
-func (r Report) OK() bool { return len(r.BalanceDrift) == 0 && len(r.UnbalancedJournals) == 0 }
+func (r Report) OK() bool {
+	return len(r.BalanceDrift) == 0 && len(r.UnbalancedJournals) == 0 && r.GlobalImbalance == 0
+}
 
 func (r Report) String() string {
-	return fmt.Sprintf("balance drift: %v; unbalanced journals: %v", r.BalanceDrift, r.UnbalancedJournals)
+	return fmt.Sprintf("balance drift: %v; unbalanced journals: %v; global imbalance: %d", r.BalanceDrift, r.UnbalancedJournals, r.GlobalImbalance)
 }
 
 // Verify menjalankan invariant checker dalam SATU snapshot (Repeatable Read, read only), supaya
@@ -54,7 +58,17 @@ func Verify(ctx context.Context, b db.Beginner) (Report, error) {
 		for _, j := range unbalanced {
 			rep.UnbalancedJournals = append(rep.UnbalancedJournals, j.String())
 		}
-		return nil
+		rep.GlobalImbalance, err = q.GlobalImbalance(ctx)
+		return err
 	})
 	return rep, err
+}
+
+// Publish mengisi gauge INVARIANT dari laporan verifikasi (job ledger.verify). Gauge diperbarui
+// SETIAP verifikasi (termasuk kembali ke 0), dan timestamp sukses memungkinkan alert "verifikasi basi".
+func (r Report) Publish(now float64) {
+	metrics.LedgerDriftAccounts.WithLabelValues().Set(float64(len(r.BalanceDrift)))
+	metrics.LedgerUnbalanced.WithLabelValues().Set(float64(len(r.UnbalancedJournals)))
+	metrics.LedgerGlobalImbalance.WithLabelValues().Set(float64(r.GlobalImbalance))
+	metrics.LedgerVerifiedAt.WithLabelValues().Set(now)
 }

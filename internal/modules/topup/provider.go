@@ -11,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"ledgerpay/internal/platform/metrics"
+	"ledgerpay/internal/platform/tracing"
 )
 
 // Provider adalah payment gateway dari sudut pandang LedgerPay. Kode produksi tidak tahu apakah
@@ -58,7 +61,8 @@ func NewHTTPProvider(baseURL, secret string) *HTTPProvider {
 
 // NewHTTPProviderTimeout: timeout kustom (test memakai nilai kecil untuk mensimulasikan provider timeout).
 func NewHTTPProviderTimeout(baseURL, secret string, timeout time.Duration) *HTTPProvider {
-	return &HTTPProvider{baseURL: strings.TrimRight(baseURL, "/"), secret: secret, client: &http.Client{Timeout: timeout}}
+	return &HTTPProvider{baseURL: strings.TrimRight(baseURL, "/"), secret: secret,
+		client: &http.Client{Timeout: timeout, Transport: metrics.OutboundTransport("provider", tracing.Transport(nil))}}
 }
 
 type chargeJSON struct {

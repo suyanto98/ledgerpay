@@ -6,15 +6,19 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/attribute"
 
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/jobs/store"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/observability"
+	"ledgerpay/internal/platform/tracing"
 )
 
 // Handler mengerjakan satu job. Kalau handler menulis DB, ia memanggil CompleteInTx di tx bisnisnya;
@@ -34,6 +38,7 @@ type Kind struct {
 
 // Runner adalah satu "lane" (bulkhead): loop klaim + pool goroutine sendiri untuk sekumpulan kind.
 type Runner struct {
+	lastLoop    atomic.Int64 // unix nano iterasi loop klaim terakhir (readiness worker)
 	pool        *pgxpool.Pool
 	kinds       map[string]Kind
 	names       []string
@@ -75,6 +80,14 @@ func NewRunner(pool *pgxpool.Pool, cfg RunnerConfig, kinds ...Kind) *Runner {
 	return r
 }
 
+// LastLoop: waktu iterasi loop klaim terakhir (nol kalau belum pernah jalan).
+func (r *Runner) LastLoop() time.Time {
+	if n := r.lastLoop.Load(); n > 0 {
+		return time.Unix(0, n)
+	}
+	return time.Time{}
+}
+
 // MaxAttempts kind (untuk producer yang meng-enqueue).
 func (r *Runner) MaxAttempts(kind string) int { return r.kinds[kind].MaxAttempts }
 
@@ -84,6 +97,7 @@ func (r *Runner) Run(ctx context.Context, interval time.Duration) {
 	var wg sync.WaitGroup
 	log := observability.Logger(ctx)
 	for ctx.Err() == nil {
+		r.lastLoop.Store(time.Now().UnixNano()) //nolint:forbidigo // heartbeat teknis
 		free := r.concurrency - len(sem)
 		n := 0
 		if free > 0 { // jangan klaim melebihi kapasitas: lease bisa habis selagi job menunggu di memori
@@ -137,6 +151,9 @@ func (r *Runner) claim(ctx context.Context, batch int) ([]*Job, error) {
 		if row.CorrelationID != nil {
 			j.CorrelationID = *row.CorrelationID
 		}
+		if row.TraceParent != nil {
+			j.TraceParent = *row.TraceParent
+		}
 		out = append(out, j)
 	}
 	return out, nil
@@ -149,16 +166,27 @@ func (r *Runner) process(parent context.Context, j *Job) {
 	// selesai (sampai timeout-nya) alih-alih langsung dibatalkan di tengah panggilan bank.
 	ctx, cancel := context.WithTimeout(observability.WithLogger(context.WithoutCancel(parent), log), k.Timeout)
 	defer cancel()
+	// Span ROOT baru dengan LINK ke request producer (bukan child): Jaeger bisa melompat dari
+	// POST /payouts ke job payout.submit tanpa trace berdurasi menit/jam.
+	ctx, span := tracing.StartLinked(ctx, "job "+j.Kind, j.TraceParent,
+		attribute.String("app.job_id", j.ID.String()), attribute.String("app.job_kind", j.Kind),
+		attribute.Int("app.attempt", j.Attempts), attribute.String("app.correlation_id", j.CorrelationID))
+	defer span.End()
 	if k.Heartbeat {
 		go r.heartbeat(ctx, cancel, j)
 	}
 
+	start := time.Now() //nolint:forbidigo // durasi teknis
 	err := safeCall(ctx, k.Handler, j)
 	bg := context.WithoutCancel(ctx) // pencatatan hasil tetap jalan walaupun ctx handler sudah habis
+	outcome := "ok"
+	defer func() { metrics.JobDuration.WithLabelValues(j.Kind, outcome).Observe(metrics.Since(start)) }()
 	switch {
 	case err == nil && !j.completed:
 		err = db.WithTx(bg, r.pool, func(tx pgx.Tx) error { return CompleteInTx(bg, tx, j) })
 		if errors.Is(err, ErrLeaseLost) {
+			outcome = "fenced"
+			metrics.JobFenced.WithLabelValues(j.Kind).Inc()
 			log.Warn("jobs.lease_lost")
 		} else if err != nil {
 			log.Error("jobs.complete_failed", "err", err.Error())
@@ -166,9 +194,11 @@ func (r *Runner) process(parent context.Context, j *Job) {
 	case err == nil:
 		log.Info("jobs.succeeded")
 	case errors.Is(err, ErrLeaseLost):
+		outcome = "fenced"
+		metrics.JobFenced.WithLabelValues(j.Kind).Inc()
 		log.Warn("jobs.lease_lost", "detail", "business transaction rolled back; the new lease owner finishes the job")
 	default:
-		r.fail(bg, k, j, err, log)
+		outcome = r.fail(bg, k, j, err, log)
 	}
 }
 
@@ -188,7 +218,13 @@ func safeCall(ctx context.Context, h Handler, j *Job) (err error) {
 func (r *Runner) fail(ctx context.Context, k Kind, j *Job, cause error, log interface {
 	Warn(string, ...any)
 	Error(string, ...any)
-}) {
+}) (outcome string) {
+	class := "retryable"
+	if IsPermanent(cause) {
+		class = "permanent"
+	}
+	metrics.JobFailures.WithLabelValues(j.Kind, class).Inc()
+	outcome = "retry"
 	msg := cause.Error()
 	if len(msg) > 2048 {
 		msg = msg[:2048]
@@ -205,6 +241,8 @@ func (r *Runner) fail(ctx context.Context, k Kind, j *Job, cause error, log inte
 			return err
 		}
 		if status == "dead" {
+			outcome = "dead"
+			metrics.JobDead.WithLabelValues(j.Kind).Inc()
 			log.Error("jobs.dead", "err", msg, "permanent", permanent)
 			if k.OnDead != nil { // bawa state bisnis ke kondisi terminal yang jujur, di tx yang sama
 				return k.OnDead(ctx, tx, j)
@@ -217,6 +255,7 @@ func (r *Runner) fail(ctx context.Context, k Kind, j *Job, cause error, log inte
 	if err != nil && !errors.Is(err, ErrLeaseLost) {
 		log.Error("jobs.fail_update_failed", "err", err.Error())
 	}
+	return outcome
 }
 
 // heartbeat memperpanjang lease job panjang. Lease hilang → ctx handler dibatalkan; CompleteInTx
@@ -231,6 +270,7 @@ func (r *Runner) heartbeat(ctx context.Context, cancel context.CancelFunc, j *Jo
 		case <-t.C:
 			n, err := store.New(r.pool).HeartbeatJob(ctx, store.HeartbeatJobParams{LeaseSecs: r.lease.Seconds(), ID: j.ID, Worker: &j.worker})
 			if err == nil && n == 0 {
+				metrics.JobLeaseLost.WithLabelValues(j.Kind).Inc()
 				observability.Logger(ctx).Warn("jobs.heartbeat_lost_lease")
 				cancel()
 				return

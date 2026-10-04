@@ -23,6 +23,7 @@ import (
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/idgen"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/observability"
 )
 
@@ -89,6 +90,7 @@ func (s *Service) CreatePending(ctx context.Context, tx pgx.Tx, userID uuid.UUID
 	if _, err := store.New(tx).InsertTopup(ctx, store.InsertTopupParams{ID: id, UserID: userID, AccountID: w.AccountID, Amount: amount, Currency: currency}); err != nil {
 		return uuid.Nil, db.MapError(err)
 	}
+	metrics.Topups.WithLabelValues("created").Inc()
 	return id, nil
 }
 
@@ -275,8 +277,11 @@ func (s *Service) ApplyEvent(ctx context.Context, tx pgx.Tx, eventType, eventID 
 		if err := s.credit(ctx, tx, row.ID, row.AccountID, row.Amount, row.Currency, eventID); err != nil {
 			return "", "", "", err
 		}
+		metrics.Topups.WithLabelValues("succeeded").Inc()
 		if row.Status == StatusExpired {
-			observability.Logger(ctx).Warn("topup.webhook_late", "topup_id", row.ID.String()) // metrik webhook_late_total (Sprint 7)
+			metrics.WebhookLate.WithLabelValues().Inc()
+			metrics.Topups.WithLabelValues("late_credited").Inc()
+			observability.Logger(ctx).Warn("topup.webhook_late", "topup_id", row.ID.String())
 		}
 		return "PROCESSED", "APPLIED", "", nil
 	case "charge.failed":
@@ -290,6 +295,7 @@ func (s *Service) ApplyEvent(ctx context.Context, tx pgx.Tx, eventType, eventID 
 		if _, err := q.MarkTopupFailed(ctx, store.MarkTopupFailedParams{ID: row.ID, FailureReason: ev.Data.FailureReason}); err != nil {
 			return "", "", "", db.MapError(err)
 		}
+		metrics.Topups.WithLabelValues("failed").Inc()
 		return "PROCESSED", "APPLIED", "", nil
 	}
 	return "IGNORED", "STALE", "", nil
@@ -357,6 +363,7 @@ func (s *Service) ExpireSweep(ctx context.Context, pool Pool, batch int32) (expi
 				return s.credit(ctx, tx, t.ID, t.AccountID, t.Amount, t.Currency, "sweeper:"+t.ID.String())
 			}
 			expired++
+			metrics.Topups.WithLabelValues("expired").Inc()
 			_, err = q.MarkTopupExpired(ctx, t.ID)
 			return err
 		})

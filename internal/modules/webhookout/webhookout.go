@@ -27,6 +27,7 @@ import (
 	"ledgerpay/internal/platform/egress"
 	"ledgerpay/internal/platform/idgen"
 	"ledgerpay/internal/platform/jobs"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/observability"
 	"ledgerpay/internal/platform/webhooksig"
 )
@@ -96,6 +97,7 @@ func (s *Service) Kinds() []jobs.Kind {
 			if err := j.Decode(&p); err != nil {
 				return nil
 			}
+			metrics.WebhookDeliveryDead.WithLabelValues().Inc()
 			return store.New(tx).MarkDeliveryDead(ctx, p.DeliveryID) // replay manual oleh ops (Sprint 8)
 		},
 	}}
@@ -143,6 +145,7 @@ func (s *Service) deliver(ctx context.Context, j *jobs.Job) error {
 	}
 	log := observability.Logger(ctx).With("delivery_id", d.ID.String(), "event_id", d.EventID.String(), "attempt", attempt)
 	if sendErr == nil && resp.StatusCode/100 == 2 {
+		metrics.WebhookDeliveries.WithLabelValues("delivered").Inc()
 		log.Info("webhook.delivered", "status", resp.StatusCode)
 		return db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
 			qt := store.New(tx)
@@ -156,9 +159,16 @@ func (s *Service) deliver(ctx context.Context, j *jobs.Job) error {
 		})
 	}
 	reason := fmt.Sprintf("HTTP %d", resp.StatusCode) // 3xx/4xx/5xx = gagal (redirect tidak diikuti)
+	outcome := "http_error"
 	if sendErr != nil {
 		reason = sendErr.Error()
+		outcome = "timeout"
+		if errors.Is(sendErr, egress.ErrBlockedAddress) || errors.Is(sendErr, egress.ErrScheme) || errors.Is(sendErr, egress.ErrRedirect) {
+			outcome = "blocked"
+			metrics.WebhookDeliveryBlocked.WithLabelValues().Inc()
+		}
 	}
+	metrics.WebhookDeliveries.WithLabelValues(outcome).Inc()
 	log.Warn("webhook.attempt_failed", "reason", reason)
 	if err := db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
 		qt := store.New(tx)

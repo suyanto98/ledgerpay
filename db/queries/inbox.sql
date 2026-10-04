@@ -44,3 +44,6 @@ SET attempts = attempts + 1,
     status = CASE WHEN attempts + 1 >= sqlc.arg(max_attempts)::int THEN 'DEAD' ELSE 'RECEIVED' END,
     locked_by = NULL, locked_until = NULL
 WHERE id = sqlc.arg(id) AND locked_by = sqlc.arg(worker) AND status = 'RECEIVED';
+
+-- name: PendingCount :one
+SELECT count(*)::bigint FROM webhook_inbox WHERE status = 'RECEIVED';

@@ -21,7 +21,7 @@ WHERE id IN (
   ORDER BY run_at
   LIMIT $4
   FOR UPDATE SKIP LOCKED)
-RETURNING id, kind, payload, attempts, max_attempts, correlation_id
+RETURNING id, kind, payload, attempts, max_attempts, correlation_id, trace_parent
 `
 
 type ClaimJobsParams struct {
@@ -38,6 +38,7 @@ type ClaimJobsRow struct {
 	Attempts      int32
 	MaxAttempts   int32
 	CorrelationID *string
+	TraceParent   *string
 }
 
 // Klaim dengan lease. Job 'running' yang lease-nya habis (worker mati) ikut diklaim ulang.
@@ -62,6 +63,7 @@ func (q *Queries) ClaimJobs(ctx context.Context, arg ClaimJobsParams) ([]ClaimJo
 			&i.Attempts,
 			&i.MaxAttempts,
 			&i.CorrelationID,
+			&i.TraceParent,
 		); err != nil {
 			return nil, err
 		}
@@ -111,9 +113,9 @@ func (q *Queries) DeleteFinishedJobs(ctx context.Context) (int64, error) {
 }
 
 const enqueueJob = `-- name: EnqueueJob :execrows
-INSERT INTO jobs (id, kind, payload, max_attempts, run_at, dedupe_key, correlation_id)
+INSERT INTO jobs (id, kind, payload, max_attempts, run_at, dedupe_key, correlation_id, trace_parent)
 VALUES ($1, $2, $3, $4,
-        now() + make_interval(secs => $5::float8), $6, $7)
+        now() + make_interval(secs => $5::float8), $6, $7, $8)
 ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL AND status IN ('queued', 'running') DO NOTHING
 `
 
@@ -125,6 +127,7 @@ type EnqueueJobParams struct {
 	DelaySecs     float64
 	DedupeKey     *string
 	CorrelationID *string
+	TraceParent   *string
 }
 
 // Outbox: dipanggil DI DALAM transaksi bisnis. Dedupe selama job masih hidup (queued/running).
@@ -138,6 +141,7 @@ func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (int64, 
 		arg.DelaySecs,
 		arg.DedupeKey,
 		arg.CorrelationID,
+		arg.TraceParent,
 	)
 	if err != nil {
 		return 0, err
@@ -223,6 +227,49 @@ func (q *Queries) HeartbeatJob(ctx context.Context, arg HeartbeatJobParams) (int
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const jobStats = `-- name: JobStats :many
+SELECT kind, status, count(*)::bigint AS n,
+       coalesce(extract(epoch FROM now() - min(run_at) FILTER (WHERE status = 'queued' AND run_at <= now())), 0)::float8 AS oldest_due_secs,
+       coalesce(extract(epoch FROM now() - min(run_at) FILTER (WHERE status = 'queued' AND run_at <= now() AND attempts = 0)), 0)::float8 AS lag_secs
+FROM jobs WHERE status IN ('queued', 'running', 'dead')
+GROUP BY kind, status
+`
+
+type JobStatsRow struct {
+	Kind          string
+	Status        string
+	N             int64
+	OldestDueSecs float64
+	LagSecs       float64
+}
+
+// Gauge periodik (15 dtk): kedalaman antrean, umur job jatuh tempo tertua, outbox lag.
+func (q *Queries) JobStats(ctx context.Context) ([]JobStatsRow, error) {
+	rows, err := q.db.Query(ctx, jobStats)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []JobStatsRow
+	for rows.Next() {
+		var i JobStatsRow
+		if err := rows.Scan(
+			&i.Kind,
+			&i.Status,
+			&i.N,
+			&i.OldestDueSecs,
+			&i.LagSecs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const releaseJob = `-- name: ReleaseJob :exec

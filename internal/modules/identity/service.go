@@ -25,6 +25,7 @@ import (
 	"ledgerpay/internal/platform/clock"
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/idgen"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/observability"
 )
 
@@ -176,6 +177,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput, meta RequestMeta) (L
 			if _, err := s.hasher.Verify(ctx, in.Password, s.dummyHash); err != nil {
 				return LoginResult{}, err
 			}
+			metrics.AuthnFailures.WithLabelValues("invalid_credentials").Inc()
 			observability.Logger(ctx).Info("auth.login_failed", "reason", "unknown_email")
 			return LoginResult{}, apperr.ErrInvalidCredentials
 		}
@@ -195,6 +197,11 @@ func (s *Service) Login(ctx context.Context, in LoginInput, meta RequestMeta) (L
 		case user.Status != "ACTIVE":
 			reason = "inactive"
 		}
+		metricReason := "invalid_credentials"
+		if locked {
+			metricReason = "locked"
+		}
+		metrics.AuthnFailures.WithLabelValues(metricReason).Inc()
 		if err := s.recordFailure(ctx, user.ID, reason, !locked && !ok, now, meta); err != nil {
 			return LoginResult{}, err
 		}
@@ -324,6 +331,7 @@ func (s *Service) Refresh(ctx context.Context, raw string, meta RequestMeta) (Lo
 		return LoginResult{}, db.MapError(err)
 	}
 	if reused {
+		metrics.RefreshReuse.WithLabelValues().Inc()
 		return LoginResult{}, apperr.ErrRefreshReused
 	}
 	var accessExp time.Time

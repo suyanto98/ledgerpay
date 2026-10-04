@@ -1,0 +1,36 @@
+# promtool test rules: alert juga kode, dan harus diuji (make test-alerts).
+rule_files: [../rules/ledgerpay.yml]
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: ledgerpay_ledger_balance_drift_accounts
+        values: "0 0 1 1 0"          # drift muncul di menit ke-2, hilang di menit ke-4
+      - series: ledgerpay_ledger_unbalanced_journals
+        values: "0 0 0 0 0"
+      - series: ledgerpay_ledger_global_imbalance_minor
+        values: "0 0 0 0 0"
+    alert_rule_test:
+      - { eval_time: 1m, alertname: LedgerInvariantViolated, exp_alerts: [] }
+      - eval_time: 2m
+        alertname: LedgerInvariantViolated
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: "Ledger invariant violated (drift / unbalanced journal / global imbalance)"
+              runbook: "docs/design/21-observability.md §8.1 — freeze payouts, run ledger-verify, compare journals"
+      - { eval_time: 4m, alertname: LedgerInvariantViolated, exp_alerts: [] }
+
+  - interval: 1m
+    input_series:
+      - series: ledgerpay_payout_unknown_oldest_age_seconds
+        values: "0+60x80"            # umur payout UNKNOWN naik 60 dtk per menit
+    alert_rule_test:
+      - { eval_time: 60m, alertname: PayoutUnknownTooOld, exp_alerts: [] }      # tepat 1 jam: belum (> 3600)
+      - eval_time: 67m                                                           # > 1 jam selama ≥ 5 menit
+        alertname: PayoutUnknownTooOld
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "A payout has been UNKNOWN for more than 1 hour"
+              runbook: "docs/design/21-observability.md §8.2 — check bank status query, resolve via ops"

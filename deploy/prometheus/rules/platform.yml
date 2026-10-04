@@ -1,0 +1,30 @@
+groups:
+  - name: platform
+    rules:
+      - alert: High5xxRatio
+        expr: |
+          sum by (service) (rate(app_http_requests_total{status=~"5.."}[5m]))
+            / sum by (service) (rate(app_http_requests_total[5m])) > 0.02
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "More than 2% of requests fail with 5xx" }
+      - alert: TransferLatencySLO
+        expr: histogram_quantile(0.95, sum by (le) (rate(app_http_request_duration_seconds_bucket{route="/v1/transfers",method="POST"}[10m]))) > 0.2
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "p95 POST /v1/transfers above 200 ms" }
+      - alert: DBPoolSaturated
+        expr: max by (service) (app_db_pool_acquired_conns / app_db_pool_max_conns) > 0.9
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "DB pool above 90% for 5 minutes" }
+      - alert: ServiceNotReady
+        expr: min by (service) (app_ready) == 0 or up{job=~"ledgerpay-.*"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "{{ $labels.job }} is not ready or not scraped" }
+      - alert: OutboxLagHigh
+        expr: max(app_outbox_lag_seconds) > 30
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Side effects delayed more than 30s after commit" }

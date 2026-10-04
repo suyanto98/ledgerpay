@@ -12,14 +12,21 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"regexp"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/attribute"
 
+	"github.com/exaring/otelpgx"
+
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/testhook"
+	"ledgerpay/internal/platform/tracing"
 )
 
 // Options adalah pengaturan pool dan timeout per sesi.
@@ -52,6 +59,9 @@ func NewPool(ctx context.Context, dsn string, o Options) (*pgxpool.Pool, error) 
 	if o.IdleInTxTimeout > 0 {
 		rp["idle_in_transaction_session_timeout"] = fmt.Sprint(o.IdleInTxTimeout.Milliseconds())
 	}
+	// Span per query, dinamai dengan nama query sqlc ("-- name: LockWalletAccounts :many"): bebas PII
+	// dan bermakna. Teks SQL dan nilai parameter TIDAK ikut ke span. No-op kalau tracing nonaktif.
+	cfg.ConnConfig.Tracer = otelpgx.NewTracer(otelpgx.WithSpanNameFunc(QueryName), otelpgx.WithDisableSQLStatementInAttributes())
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("db: new pool: %w", err)
@@ -90,10 +100,16 @@ func WithTxOptions(ctx context.Context, b Beginner, opts pgx.TxOptions, fn func(
 		err = runTx(ctx, b, opts, fn)
 		if isDeadlock(err) {
 			deadlocks.Add(1)
+			metrics.DBDeadlocks.WithLabelValues().Inc()
 		}
 		if err == nil || !retryable(err) || attempt == maxTxAttempts {
 			return err
 		}
+		reason := "serialization"
+		if isDeadlock(err) {
+			reason = "deadlock"
+		}
+		metrics.DBTxRetries.WithLabelValues(reason).Inc()
 		// Backoff 10 ms · 2^n ± 50% jitter, supaya dua transaksi yang bertabrakan tidak
 		// bertabrakan lagi di waktu yang persis sama.
 		base := 10 * time.Millisecond << (attempt - 1)
@@ -108,6 +124,15 @@ func WithTxOptions(ctx context.Context, b Beginner, opts pgx.TxOptions, fn func(
 }
 
 func runTx(ctx context.Context, b Beginner, opts pgx.TxOptions, fn func(tx pgx.Tx) error) (err error) {
+	ctx, span := tracing.Start(ctx, "db.tx")
+	defer func() {
+		outcome := "commit"
+		if err != nil {
+			outcome = "rollback"
+		}
+		span.SetAttributes(attribute.String("db.tx.outcome", outcome))
+		span.End()
+	}()
 	tx, err := b.BeginTx(ctx, opts)
 	if err != nil {
 		return err
@@ -156,4 +181,19 @@ func Deadlocks() int64 { return deadlocks.Load() }
 func isDeadlock(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "40P01"
+}
+
+var sqlcName = regexp.MustCompile(`^--\s*name:\s*(\w+)`)
+
+// QueryName mengambil nama query sqlc dari komentar pertama SQL; query tanpa nama (BEGIN, COMMIT,
+// query tangan di test) diberi nama kata kunci pertamanya.
+func QueryName(stmt string) string {
+	stmt = strings.TrimSpace(stmt)
+	if m := sqlcName.FindStringSubmatch(stmt); m != nil {
+		return m[1]
+	}
+	if i := strings.IndexAny(stmt, " \n\t;"); i > 0 {
+		return strings.ToUpper(stmt[:i])
+	}
+	return strings.ToUpper(stmt)
 }

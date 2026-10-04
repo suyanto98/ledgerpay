@@ -67,6 +67,8 @@ type Config struct {
 	WebhookEgressAllowCIDRs []string `env:"WEBHOOK_EGRESS_ALLOW_CIDRS" envSeparator:","`
 	// Safe window kontrak bank (ADR-L06): NOT_FOUND baru boleh berarti "tidak pernah diterima" setelah ini.
 	PayoutSafeWindow time.Duration `env:"PAYOUT_SAFE_WINDOW" envDefault:"5m"`
+	// OpenTelemetry: contoh http://jaeger:4318/v1/traces. Kosong = tracing nonaktif.
+	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
 
 	WorkerID           string        `env:"WORKER_ID"` // default: hostname
 	WorkerPollInterval time.Duration `env:"WORKER_POLL_INTERVAL" envDefault:"500ms"`

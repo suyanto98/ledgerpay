@@ -18,6 +18,7 @@ import (
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/httpx"
 	"ledgerpay/internal/platform/idempotency"
+	"ledgerpay/internal/platform/metrics"
 )
 
 var orderIDPattern = regexp.MustCompile(`^[A-Za-z0-9_\-.:/]{1,64}$`)
@@ -259,8 +260,19 @@ func (h *Handler) confirm(w http.ResponseWriter, r *http.Request) {
 	}, func(ctx context.Context, tx pgx.Tx, _ uuid.UUID) (idempotency.Outcome, error) {
 		pi, err := h.svc.Confirm(ctx, tx, p.UserID, id, httpx.RequestIDFrom(ctx))
 		if err != nil {
+			outcome := "error"
+			switch apperr.As(err).Code {
+			case apperr.ErrInsufficientBalance.Code:
+				outcome = "insufficient_balance"
+			case apperr.ErrPaymentExpired.Code:
+				outcome = "expired"
+			case apperr.ErrInvalidState.Code:
+				outcome = "double_confirm_rejected"
+			}
+			metrics.Payments.WithLabelValues(outcome).Inc()
 			return idempotency.Outcome{}, err
 		}
+		metrics.Payments.WithLabelValues("succeeded").Inc()
 		return idempotency.Outcome{Status: http.StatusOK, Body: userView(pi), ResourceType: "payment_intent", ResourceID: &pi.ID}, nil
 	})
 	if err != nil {

@@ -37,6 +37,7 @@ import (
 	"ledgerpay/internal/platform/httpx"
 	"ledgerpay/internal/platform/idempotency/store"
 	"ledgerpay/internal/platform/idgen"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/testhook"
 )
 
@@ -164,6 +165,7 @@ func (s *Service) Execute(r *http.Request, req Request, fn Func) (Response, erro
 			return err
 		case isLockTimeout(err):
 			// Transaksi lain dengan key yang sama masih berjalan > lock_timeout.
+			metrics.DBLockTimeouts.WithLabelValues("idempotency").Inc()
 			return apperr.ErrRequestInProgress.WithCause(err)
 		case err != nil:
 			return db.MapError(err)
@@ -256,9 +258,11 @@ func (s *Service) Reserve(r *http.Request, req Request, resourceType string, cre
 				return db.MapError(err)
 			}
 			if !bytes.Equal(row.RequestHash, req.Hash) {
+				metrics.IdemKeyReused.WithLabelValues(req.Endpoint).Inc()
 				return apperr.ErrIdempotencyKeyReused
 			}
 			if row.ResponseStatus != nil {
+				metrics.IdemReplays.WithLabelValues(req.Endpoint).Inc()
 				res.Done = &Response{Status: int(*row.ResponseStatus), Body: row.ResponseBody, Replayed: true}
 				return nil
 			}
@@ -308,12 +312,14 @@ func replay(ctx context.Context, q *store.Queries, req Request) (Response, error
 		return Response{}, db.MapError(err)
 	}
 	if !bytes.Equal(row.RequestHash, req.Hash) {
+		metrics.IdemKeyReused.WithLabelValues(req.Endpoint).Inc()
 		return Response{}, apperr.ErrIdempotencyKeyReused
 	}
 	if row.ResponseStatus == nil {
 		// Hanya mungkin di pola (b) (Sprint 5): tx1 sudah commit, respons belum diisi.
 		return Response{}, apperr.ErrRequestInProgress
 	}
+	metrics.IdemReplays.WithLabelValues(req.Endpoint).Inc()
 	return Response{Status: int(*row.ResponseStatus), Body: row.ResponseBody, Replayed: true}, nil
 }
 

@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test'
 // kembali ke LedgerPay → saldo bertambah SEKALI setelah webhook diproses worker → transfer →
 // keluar → masuk lagi → saldo tetap benar. Juga menguji pemulihan sesi dari cookie refresh
 // (redirect dari provider memuat ulang SPA; access token yang hanya di memori ikut hilang).
-test('register → top-up via checkout → transfer → login again', async ({ page, request }) => {
+test('register → top-up via checkout → transfer → payout → login again', async ({ page, request }) => {
   const run = Date.now()
   const rina = `rina-e2e-${run}@example.com`
   const andi = `andi-e2e-${run}@example.com`
@@ -39,11 +39,20 @@ test('register → top-up via checkout → transfer → login again', async ({ p
   await page.getByRole('button', { name: 'Kirim' }).click()
   await expect(page.getByTestId('transfer-done')).toHaveText('Terkirim Rp30.000 ke Andi S.')
 
+  // Tarik saldo: 202 → diproses worker + bank (mock) → Berhasil.
+  await page.getByRole('link', { name: 'Tarik saldo', exact: true }).click()
+  await page.getByLabel(/Nominal/).fill('20000')
+  await page.getByLabel('Nomor rekening').fill('1234567890')
+  await page.getByLabel('Nama pemilik rekening').fill('Rina Wulandari')
+  await page.getByRole('button', { name: 'Tarik' }).click()
+  await expect(page.getByTestId('payout-status')).toHaveText('Berhasil dikirim', { timeout: 20_000 })
+  await expect(page.getByText('MOCKBANK ******7890')).toBeVisible()
+
   // Keluar → masuk lagi (login → wallet).
   await page.getByTestId('logout').click()
   await expect(page).toHaveURL(/\/login/)
   await page.getByLabel('Email').fill(rina)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Masuk' }).click()
-  await expect(page.getByTestId('balance')).toHaveText('Rp70.000')
+  await expect(page.getByTestId('balance')).toHaveText('Rp50.000')
 })

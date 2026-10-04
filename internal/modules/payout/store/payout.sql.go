@@ -258,3 +258,21 @@ func (q *Queries) RecordStatusCheck(ctx context.Context, arg RecordStatusCheckPa
 	_, err := q.db.Exec(ctx, recordStatusCheck, arg.ProviderStatus, arg.NeedsReconciliation, arg.ID)
 	return err
 }
+
+const unknownStats = `-- name: UnknownStats :one
+SELECT count(*)::bigint AS n, coalesce(extract(epoch FROM now() - min(updated_at)), 0)::float8 AS oldest_secs
+FROM payouts WHERE status = 'UNKNOWN'
+`
+
+type UnknownStatsRow struct {
+	N          int64
+	OldestSecs float64
+}
+
+// Gauge periodik: payout UNKNOWN saat ini + umur yang tertua (alert > 1 jam).
+func (q *Queries) UnknownStats(ctx context.Context) (UnknownStatsRow, error) {
+	row := q.db.QueryRow(ctx, unknownStats)
+	var i UnknownStatsRow
+	err := row.Scan(&i.N, &i.OldestSecs)
+	return i, err
+}

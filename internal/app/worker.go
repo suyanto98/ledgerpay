@@ -2,11 +2,19 @@ package app
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
+	"ledgerpay/db/migrations"
+	"ledgerpay/internal/platform/httpx"
+	"ledgerpay/internal/platform/metrics"
+
 	"ledgerpay/internal/modules/inbox"
 	"ledgerpay/internal/modules/ledger"
+	"ledgerpay/internal/modules/payout"
 	"ledgerpay/internal/platform/idempotency"
 	"ledgerpay/internal/platform/jobs"
 	"ledgerpay/internal/platform/observability"
@@ -64,9 +72,10 @@ func NewWorker(d Deps, cfg WorkerConfig) *Worker {
 			Handler: func(ctx context.Context, _ *jobs.Job) error {
 				rep, err := ledger.Verify(ctx, d.Pool)
 				if err != nil {
-					return err
+					return err // gauge tidak diperbarui → alert IntegrityVerificationStale
 				}
-				if !rep.OK() { // metrik invariant + alert menyusul di Sprint 7
+				rep.Publish(float64(d.Clock.Now().Unix())) // gauge INVARIANT (alert A-01 kalau ≠ 0)
+				if !rep.OK() {
 					observability.Logger(ctx).Error("ledger.invariant_violated", "report", rep.String())
 				}
 				return nil
@@ -91,6 +100,28 @@ func NewWorker(d Deps, cfg WorkerConfig) *Worker {
 	return w
 }
 
+// Stats mengisi gauge periodik (antrean job, payout UNKNOWN, inbox pending).
+func (w *Worker) Stats(ctx context.Context) error {
+	if err := jobs.Stats(ctx, w.deps.Pool); err != nil {
+		return err
+	}
+	if err := payout.Stats(ctx, w.deps.Pool); err != nil {
+		return err
+	}
+	return inbox.Stats(ctx, w.deps.Pool)
+}
+
+// Ready: setiap lane mengulang loop klaim baru-baru ini (< 3× interval polling, minimal 5 dtk).
+// Worker yang macet (deadlock goroutine, pool habis) menjadi not-ready walaupun prosesnya hidup.
+func (w *Worker) Ready(now time.Time, poll time.Duration) map[string]bool {
+	limit := max(3*poll, 5*time.Second)
+	ok := func(t time.Time) bool { return !t.IsZero() && now.Sub(t) < limit }
+	return map[string]bool{
+		"money": ok(w.Money.LastLoop()), "webhook-out": ok(w.WebhookOut.LastLoop()),
+		"maintenance": ok(w.Maintenance.LastLoop()), "inbox": ok(w.Inbox.LastLoop()),
+	}
+}
+
 // Run menjalankan semua lane sampai ctx selesai. Saat shutdown: berhenti mengklaim, job in-flight
 // diberi waktu menyelesaikan diri (deadline per kind), lalu kembali.
 func (w *Worker) Run(ctx context.Context, poll time.Duration) {
@@ -101,6 +132,18 @@ func (w *Worker) Run(ctx context.Context, poll time.Duration) {
 	run(func() { w.Maintenance.Run(ctx, poll) })
 	run(func() { w.Inbox.Run(ctx, poll) })
 	run(func() { w.Maintenance.RunScheduler(ctx, w.deps.Clock.Now, 15*time.Second) })
+	run(func() {
+		for {
+			if err := w.Stats(ctx); err != nil && ctx.Err() == nil {
+				observability.Logger(ctx).Warn("worker.stats_failed", "err", err.Error())
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(15 * time.Second):
+			}
+		}
+	})
 	wg.Wait()
 }
 
@@ -119,4 +162,44 @@ func (w *Worker) RunOnce(ctx context.Context) error {
 func FastForwardJobs(ctx context.Context, d Deps) error {
 	_, err := d.Pool.Exec(ctx, `UPDATE jobs SET run_at = now() - interval '1 second' WHERE status = 'queued'`)
 	return err
+}
+
+// WorkerOpsRouter: /healthz (proses hidup), /readyz (DB + skema + heartbeat setiap lane), /metrics.
+// Port internal; tidak diekspos Caddy.
+func WorkerOpsRouter(w *Worker, poll time.Duration) http.Handler {
+	r := chi.NewRouter()
+	r.Get("/healthz", func(rw http.ResponseWriter, _ *http.Request) {
+		httpx.WriteJSON(rw, http.StatusOK, map[string]string{"status": "ok"})
+	})
+	r.Get("/readyz", func(rw http.ResponseWriter, req *http.Request) {
+		ctx, cancel := context.WithTimeout(req.Context(), time.Second)
+		defer cancel()
+		checks := map[string]string{}
+		ready := true
+		if v, err := migrations.SchemaVersion(ctx, w.deps.Pool); err != nil {
+			checks["database"], ready = "unreachable", false
+		} else if v < migrations.MinSchemaVersion {
+			checks["schema"], ready = "too old", false
+		}
+		for lane, ok := range w.Ready(time.Now(), poll) { //nolint:forbidigo // heartbeat teknis
+			if !ok {
+				checks["lane:"+lane], ready = "stalled", false
+			}
+		}
+		status, state := http.StatusOK, "ready"
+		if !ready {
+			status, state = http.StatusServiceUnavailable, "not_ready"
+		}
+		metrics.Ready.WithLabelValues("worker").Set(boolFloat(ready))
+		httpx.WriteJSON(rw, status, map[string]any{"status": state, "checks": checks})
+	})
+	r.Handle("/metrics", metrics.Handler())
+	return r
+}
+
+func boolFloat(b bool) float64 {
+	if b {
+		return 1
+	}
+	return 0
 }

@@ -176,3 +176,14 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (uuid.
 	err := row.Scan(&id)
 	return id, err
 }
+
+const pendingCount = `-- name: PendingCount :one
+SELECT count(*)::bigint FROM webhook_inbox WHERE status = 'RECEIVED'
+`
+
+func (q *Queries) PendingCount(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, pendingCount)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}

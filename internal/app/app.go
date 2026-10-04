@@ -34,7 +34,9 @@ import (
 	"ledgerpay/internal/platform/httpx"
 	"ledgerpay/internal/platform/idempotency"
 	"ledgerpay/internal/platform/idgen"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/ratelimit"
+	"ledgerpay/internal/platform/tracing"
 )
 
 // Deps adalah dependency yang dibuat oleh main (atau test).
@@ -141,8 +143,8 @@ func APIRouter(d Deps) http.Handler {
 	inboxH := inbox.NewHandler(d.Pool, d.WebhookSecrets, d.Clock, d.IDs)
 
 	r := chi.NewRouter()
-	r.Use(httpx.RequestID(d.Logger), httpx.Recover, httpx.SecurityHeaders, httpx.ClientIP(d.TrustedProxies),
-		httpx.AccessLog, httpx.BodyLimit(httpx.MaxBodyBytes))
+	r.Use(httpx.RequestID(d.Logger), httpx.Recover, tracing.Middleware, httpx.Metrics, httpx.SecurityHeaders,
+		httpx.ClientIP(d.TrustedProxies), httpx.AccessLog, httpx.BodyLimit(httpx.MaxBodyBytes))
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) { httpx.WriteError(w, r, apperr.ErrNotFound) })
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) { httpx.WriteError(w, r, apperr.ErrNotFound) })
 
@@ -200,7 +202,9 @@ func OpsRouter(pool *pgxpool.Pool) http.Handler {
 		if !ready {
 			status, state = http.StatusServiceUnavailable, "not_ready"
 		}
+		metrics.Ready.WithLabelValues("api").Set(boolFloat(ready))
 		httpx.WriteJSON(w, status, map[string]any{"status": state, "checks": checks, "schema_version": v, "min_schema_version": migrations.MinSchemaVersion})
 	})
+	r.Handle("/metrics", metrics.Handler())
 	return r
 }

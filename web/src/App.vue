@@ -17,6 +17,7 @@ async function logout() {
       <RouterLink to="/">Wallet</RouterLink>
       <RouterLink to="/transfer">Transfer</RouterLink>
       <RouterLink to="/topup">Top-up</RouterLink>
+      <RouterLink to="/payout">Tarik saldo</RouterLink>
       <span class="spacer" />
       <button class="link" data-test="logout" @click="logout">Keluar</button>
     </template>

@@ -1,3 +1,5 @@
+# shellcheck shell=bash
+# shellcheck disable=SC2034  # variabel dipakai skrip yang men-source file ini
 # Helper bersama Demo A/B. Butuh: curl, jq, docker compose (stack `make up` sudah jalan).
 API=${API:-http://localhost:${LP_HTTP_PORT:-8080}/api/v1}
 COMPOSE=${COMPOSE:-docker compose -f deploy/compose.yml}

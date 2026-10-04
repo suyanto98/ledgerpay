@@ -88,12 +88,12 @@
 - [ ] Endpoint mock payout (`/v1/payouts`) dan settlement CSV belum ada (Sprint 6 dan 9)
 - [ ] Job `topup.recover` (top-up macet di `CREATED` tanpa retry client) dan `topup.expire_sweep` (cek provider dulu) — Sprint 6 job runner
 - [ ] Event `CONFLICT` hanya dicatat log; `recon_items` di tx yang sama menunggu tabel recon (Sprint 9)
-- [ ] Metrik `webhook_late_total`, `webhook_inbox_dead_total`, alert DEAD — Sprint 7 observability
+- [x] Metrik `webhook_late_total`, `webhook_inbox_dead_total`, alert DEAD — selesai Sprint 7
 - [ ] Replay event `DEAD` dari ops console (`DEAD → RECEIVED`) — Sprint 8
 - [ ] Retensi inbox (hapus > 90 hari, bukan `RECEIVED`) — job cleanup Sprint 6
 - [ ] SPA memakai fetch wrapper tangan; desain: client typed dari `openapi-typescript` (Sprint 8, bersama UI checkout)
 - [ ] Job CI `frontend`/`e2e` belum pernah berjalan di GitHub (repo lokal)
-- [ ] Worker belum punya endpoint health/metrics (compose: healthcheck dimatikan) — Sprint 6/7
+- [x] Worker belum punya endpoint health/metrics (compose: healthcheck dimatikan) — selesai Sprint 7
 
 ## Sprint 6 — Background Processing ✅
 - [x] Job runner `internal/platform/jobs`: claim SKIP LOCKED + lease, heartbeat, backoff + jitter, dead + `OnDead` di tx yang sama, `CompleteInTx` dengan fencing, `Permanent`, panic recovery, lane (bulkhead), scheduler tanpa leader election
@@ -106,11 +106,34 @@
 ## Catatan dari Sprint 6 (dibawa ke sprint berikutnya)
 - [ ] Endpoint ops: `POST /ops/payouts/{id}/resolve`, `GET /ops/jobs`, `POST /ops/jobs/{id}/retry`, `POST /ops/webhook-deliveries/{id}/replay` (Sprint 8, ops console)
 - [ ] `GET /payouts` (list + cursor) untuk UI (Sprint 8)
-- [ ] Metrik `job_dead_total`, `payout_unknown_current`, `payout_unknown_oldest_age_seconds`, `db_deadlock_total`, invariant ledger + alert (Sprint 7)
-- [ ] Worker belum punya endpoint health/metrics; compose healthcheck dimatikan (Sprint 7)
+- [x] Metrik `job_dead_total`, `payout_unknown_current`, `payout_unknown_oldest_age_seconds`, `db_deadlock_total`, invariant ledger + alert — selesai Sprint 7
+- [x] Worker belum punya endpoint health/metrics; compose healthcheck dimatikan — selesai Sprint 7
 - [ ] `maintenance.refresh_token_cleanup` dan `maintenance.inbox_cleanup` belum dijadwalkan
 - [ ] Job `pii.reencrypt` (dibutuhkan saat rotasi kunci keyring pertama kali)
 - [ ] `EXPLAIN (ANALYZE, BUFFERS)` query claim jobs (amandemen ADR-006) — bersama load test Sprint 9
 - [ ] Mock bank tidak pernah menjawab `202 PROCESSING`; cabang `OutcomeProcessing` belum teruji end-to-end
 - [ ] `needs_reconciliation` baru ditandai; dikonsumsi rekonsiliasi Sprint 9
 - [ ] Konfigurasi webhook merchant hanya lewat CLI (belum ada rotasi secret dual-window, §6.2)
+
+## Sprint 7 — Observability · M3 ✅
+- [x] Metrik Prometheus (`internal/platform/metrics`, registry sendiri): HTTP per route template, error per kode, rate limit, retry/deadlock/lock timeout DB, pool collector, job queue (depth, oldest, lag outbox, dead, fenced, lease lost), outbound per target, auth, idempotency, hasil bisnis (transfer/payment/topup/payout), inbox, webhook keluar
+- [x] Gauge invarian ledger dari `ledger.verify` (drift akun, journal tidak seimbang, imbalance global, timestamp sukses); gauge payout `UNKNOWN` + umur tertua dari query DB (bukan counter per proses)
+- [x] Tracing OpenTelemetry → Jaeger: span HTTP bernama route template, span DB dengan nama query sqlc (tanpa SQL/parameter), outbound; `jobs.trace_parent` (migrasi 00007) → span job root baru dengan link ke request
+- [x] Worker ops server (`/healthz`, `/readyz` berbasis heartbeat lane, `/metrics`); healthcheck compose worker aktif lagi
+- [x] Rule alert + `promtool test rules` (`make test-alerts`); dashboard Grafana *Money & Integrity* dan *Platform* digenerate dari Python (`make dashboards`); profil compose `obs` (`make up-obs`)
+- [x] SPA: halaman tarik saldo + status payout; E2E diperluas dengan langkah payout
+- [x] Deploy produksi (`deploy/prod/`): image edge Caddy (SPA dipanggang), `compose.prod.yml`, `init-env.sh`, `deploy.sh` (git archive, mode `local`), `remote-deploy.sh` (migrate → worker → api, health gate, smoke, rollback otomatis), `bootstrap.sh`, `cloud-init.yaml`; shellcheck di `make lint`
+- [x] README draft (bahasa Inggris) dengan placeholder `[LINK]`, `[SCREENSHOT]`, `[MEASURE]`
+
+## Catatan dari Sprint 7 (dibawa ke sprint berikutnya)
+- [ ] **Deploy sungguhan ke VM + domain** (dijalankan user: `cloud-init.yaml` / `bootstrap.sh`, `init-env.sh`, `deploy.sh <host> <sha>`); isi link live di README
+- [ ] **Video demo ~5 menit** (direkam user) + screenshot Grafana/Jaeger untuk README
+- [ ] Sisa katalog metrik: histogram durasi transaksi DB per nama, `app_http_request_size`, metrik scheduler per job terjadwal
+- [ ] Loki/agregasi log belum ada (log JSON hanya di `docker logs`)
+- [ ] Alertmanager belum dipasang: rule alert dievaluasi Prometheus tetapi tidak ada notifikasi (email/Telegram)
+- [ ] Image dibangun di VM (`docker build` saat deploy). Desain: build di CI → GHCR → deploy dengan digest (Sprint 8, bersama CD)
+- [ ] Secret produksi: file `env/` dibuat `init-env.sh` di mesin user, bukan sops. Desain final: GitHub environment secrets saat CD
+- [ ] Konfigurasi deploy ada di repo aplikasi (`deploy/prod/`), bukan repo infra terpisah seperti di desain: cukup untuk satu VM, dicatat sebagai deviasi
+- [ ] Rollback = deploy ulang SHA sebelumnya (downtime API beberapa detik saat recreate); blue/green tidak dikerjakan
+- [ ] Toolbar demo / `DEMO_TOKEN` untuk demo publik (skenario mock dari UI) — Sprint 8
+- [ ] Metrik counter (mis. `payouts_total{submitted}`) hilang saat proses restart; dashboard memakai `increase()`/gauge dari DB, jangan membaca nilai mentah counter

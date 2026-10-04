@@ -1,0 +1,14 @@
+#cloud-config
+# Dipakai saat membuat VM (Ubuntu 24.04, 4 vCPU / 8 GB). Ganti DEPLOY_PUBKEY dengan public key Anda.
+# bootstrap.sh ditulis langsung di sini (repo belum publik), lalu dijalankan sekali.
+package_update: true
+packages: [git, curl]
+write_files:
+  - path: /root/bootstrap.sh
+    permissions: "0700"
+    # Isi file ini = deploy/prod/bootstrap.sh (salin ulang kalau skripnya berubah).
+    content: |
+      #!/usr/bin/env bash
+      echo "replace this content with deploy/prod/bootstrap.sh"; exit 1
+runcmd:
+  - [bash, -c, "DEPLOY_PUBKEY='ssh-ed25519 AAAA...replace-me' /root/bootstrap.sh"]

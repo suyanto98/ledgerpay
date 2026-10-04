@@ -23,6 +23,8 @@ import (
 
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/jobs/store"
+	"ledgerpay/internal/platform/metrics"
+	"ledgerpay/internal/platform/tracing"
 )
 
 // ErrLeaseLost: lease job ini sudah diambil worker lain. Kerja bisnis di tx yang sama harus rollback.
@@ -51,6 +53,7 @@ type Job struct {
 	Attempts      int
 	MaxAttempts   int
 	CorrelationID string
+	TraceParent   string
 
 	worker    string
 	completed bool
@@ -90,7 +93,11 @@ func Enqueue(ctx context.Context, q db.DBTX, s Spec) (bool, error) {
 	n, err := store.New(q).EnqueueJob(ctx, store.EnqueueJobParams{
 		ID: uuid.Must(uuid.NewV7()), Kind: s.Kind, Payload: payload, MaxAttempts: int32(maxAttempts), //nolint:gosec // G115: max_attempts kecil
 		DelaySecs: s.Delay.Seconds(), DedupeKey: nonEmpty(s.Dedupe), CorrelationID: nonEmpty(s.CorrelationID),
+		TraceParent: nonEmpty(tracing.TraceParent(ctx)), // ditulis di tx bisnis yang sama dari span aktif
 	})
+	if n == 1 {
+		metrics.JobsEnqueued.WithLabelValues(s.Kind).Inc()
+	}
 	return n == 1, db.MapError(err)
 }
 
@@ -136,4 +143,24 @@ func nonEmpty(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// Stats mengisi gauge antrean (dipanggil loop periodik worker).
+func Stats(ctx context.Context, q db.DBTX) error {
+	rows, err := store.New(q).JobStats(ctx)
+	if err != nil {
+		return db.MapError(err)
+	}
+	metrics.JobQueueDepth.Reset()
+	metrics.JobOldestAge.Reset()
+	var lag float64
+	for _, r := range rows {
+		metrics.JobQueueDepth.WithLabelValues(r.Kind, r.Status).Set(float64(r.N))
+		if r.Status == "queued" {
+			metrics.JobOldestAge.WithLabelValues(r.Kind).Set(r.OldestDueSecs)
+			lag = max(lag, r.LagSecs)
+		}
+	}
+	metrics.OutboxLag.WithLabelValues().Set(lag)
+	return nil
 }

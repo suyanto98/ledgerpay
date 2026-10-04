@@ -22,6 +22,9 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+
+	"ledgerpay/internal/platform/metrics"
+	"ledgerpay/internal/platform/tracing"
 )
 
 var (
@@ -118,7 +121,7 @@ func NewClient(p Policy) *Client {
 		IdleConnTimeout:     30 * time.Second,
 	}
 	return &Client{policy: p, http: &http.Client{
-		Transport:     tr,
+		Transport:     metrics.OutboundTransport("merchant_webhook", tracing.Transport(tr)),
 		Timeout:       p.Timeout,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return ErrRedirect },
 	}}

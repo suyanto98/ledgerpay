@@ -41,8 +41,10 @@ import (
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/egress"
 	"ledgerpay/internal/platform/idgen"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/observability"
 	"ledgerpay/internal/platform/ratelimit"
+	"ledgerpay/internal/platform/tracing"
 )
 
 func main() {
@@ -105,6 +107,12 @@ func runAPI() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	shutdownTracing, err := tracing.Setup(ctx, "ledgerpay-api", cfg.Version, cfg.OTLPEndpoint)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = shutdownTracing(context.Background()) }()
+	metrics.SetBuildInfo("api", cfg.Version)
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL, db.Options{
 		MaxConns: cfg.DBMaxConns, StatementTimeout: cfg.DBStatementTimeout,
 		LockTimeout: cfg.DBLockTimeout, IdleInTxTimeout: cfg.DBIdleInTxTimeout,
@@ -113,6 +121,7 @@ func runAPI() error {
 		return err
 	}
 	defer pool.Close()
+	metrics.RegisterPool("api", pool)
 
 	clk, ids := clock.System{}, idgen.V7{}
 	tokens, err := auth.NewTokens(cfg.JWTKeys, cfg.JWTActiveKID, cfg.JWTIssuer, cfg.JWTAccessTTL, clk, ids)
@@ -251,9 +260,10 @@ func runDemoCredit(args []string) error {
 		return err
 	}
 	defer pool.Close()
-	// Pagar: uang "dari udara" hanya boleh di environment dev/test.
-	if cfg.AppEnv != "dev" && cfg.AppEnv != "test" {
-		return fmt.Errorf("demo-credit refused: APP_ENV=%q (only dev/test)", cfg.AppEnv)
+	// Pagar: uang "dari udara" hanya boleh di dev/test dan VM demo publik (APP_ENV=demo, tanpa uang
+	// sungguhan). Environment lain (production) menolak.
+	if cfg.AppEnv != "dev" && cfg.AppEnv != "test" && cfg.AppEnv != "demo" {
+		return fmt.Errorf("demo-credit refused: APP_ENV=%q (only dev/test/demo)", cfg.AppEnv)
 	}
 	if err := app.DemoCredit(ctx, pool, idgen.V7{}, args[0], amount); err != nil {
 		return err
@@ -313,7 +323,17 @@ func runWorker() error {
 	// ID unik per START (hostname:pid:uuid): worker yang restart tidak pernah dianggap pemilik lease lamanya.
 	id := fmt.Sprintf("%s:%d:%s", workerID, os.Getpid(), uuid.NewString()[:8])
 	w := app.NewWorker(deps, app.WorkerConfig{ID: id})
-	logger.Info("worker.started", "worker_id", id)
+	shutdownTracing, err := tracing.Setup(ctx, "ledgerpay-worker", cfg.Version, cfg.OTLPEndpoint)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = shutdownTracing(context.Background()) }()
+	metrics.SetBuildInfo("worker", cfg.Version)
+	metrics.RegisterPool("worker", pool)
+	ops := &http.Server{Addr: cfg.OpsAddr, Handler: app.WorkerOpsRouter(w, cfg.WorkerPollInterval), ReadHeaderTimeout: 5 * time.Second}
+	go func() { _ = serve(ops) }()
+	defer func() { _ = ops.Shutdown(context.Background()) }()
+	logger.Info("worker.started", "worker_id", id, "ops_addr", cfg.OpsAddr)
 	w.Run(observability.WithLogger(ctx, logger), cfg.WorkerPollInterval)
 	logger.Info("worker.stopped")
 	return nil

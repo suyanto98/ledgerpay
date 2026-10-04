@@ -6,6 +6,8 @@ import WalletView from './pages/WalletView.vue'
 import TransferView from './pages/TransferView.vue'
 import TopupView from './pages/TopupView.vue'
 import TopupStatusView from './pages/TopupStatusView.vue'
+import PayoutView from './pages/PayoutView.vue'
+import PayoutStatusView from './pages/PayoutStatusView.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -16,6 +18,8 @@ export const router = createRouter({
     { path: '/transfer', component: TransferView },
     { path: '/topup', component: TopupView },
     { path: '/topups/:id', component: TopupStatusView }, // return_url dari halaman checkout provider
+    { path: '/payout', component: PayoutView },
+    { path: '/payouts/:id', component: PayoutStatusView },
   ],
 })
 

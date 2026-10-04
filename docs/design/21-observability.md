@@ -414,6 +414,11 @@ Email, nama, NIK/NPWP, nomor rekening, nominal gaji, isi body, token, API key, q
 - Job turunan menyalin `trace_parent` dari span job induk.
 - **Delta skema:** tambahkan `trace_parent text NULL` ke `jobs` (Step 4 `01-shared-tables.md`). Dicatat sebagai open item di `00-index.md`.
 
+### 5.3a Catatan implementasi (Sprint 7, LedgerPay)
+- Sesuai desain: span HTTP dinamai ulang ke template rute setelah chi me-routing (tanpa ID konkret), `db.tx`, span query bernama nama sqlc (`QueryName` membaca komentar `-- name:`; teks SQL **tidak** dimasukkan atribut), `job <kind>` sebagai root baru dengan link, HTTP keluar per target. Kolom `jobs.trace_parent` ditambahkan di migrasi `00007`.
+- Belum: span use case manual (`transfer.execute`, `payout.submit`). Span HTTP + `db.tx` + job sudah cukup untuk demo; ditambah kalau trace terasa kurang jelas.
+- Belum: helper `SafeAttrs` dengan allowlist. Saat ini atribut hanya diset di tiga tempat (middleware, runner, transport) dan semuanya ID/teknis; helper dibuat ketika span manual pertama ditambahkan.
+
 ### 5.4 Sampling
 - **V1 (demo/staging):** 100% (`AlwaysSample`). Volumenya kecil, dan saat demo setiap trace harus ada.
 - **V2:** `ParentBased(TraceIDRatioBased(0.1))`, ditambah *tail sampling* di collector: selalu simpan trace dengan error, latency > p99, atau span `payout.*`/`payroll_run.*`.

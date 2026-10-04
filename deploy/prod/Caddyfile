@@ -1,0 +1,76 @@
+# Caddy (image edge): TLS otomatis, SPA statis, reverse proxy /api, halaman checkout mock, Grafana.
+# docs/design/24-docker-compose.md §6. Variabel {$...} diisi dari env container edge.
+{
+	admin off
+	email {$LP_ACME_EMAIL}
+	{$LP_CADDY_GLOBAL}
+	servers {
+		timeouts {
+			read_header 5s
+			read_body 15s
+			write 30s
+			idle 60s
+		}
+	}
+}
+
+(spa_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		X-Frame-Options "DENY"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+}
+
+(json_log) {
+	log {
+		output stdout
+		format json
+	}
+}
+
+{$LP_DOMAIN} {
+	import spa_headers
+	import json_log
+	handle /api/* {
+		request_body {
+			max_size 64KB
+		}
+		# Header API (CSP 'none', no-store) dipasang middleware API (C-10).
+		reverse_proxy api:8080 {
+			health_uri /readyz
+			health_port 9090
+			health_interval 5s
+			health_timeout 2s
+			lb_try_duration 10s # tahan request selama api di-recreate → latensi, bukan 502
+			lb_try_interval 250ms
+		}
+	}
+	handle {
+		root * /srv/ledgerpay
+		try_files {path} /index.html # history fallback SPA
+		file_server
+	}
+}
+
+# mock-provider: HANYA halaman checkout. /v1/* dan /admin/* tidak pernah lewat internet.
+pay.{$LP_DOMAIN} {
+	import json_log
+	handle /checkout/* {
+		reverse_proxy mock-provider:9090
+	}
+	handle {
+		respond 404
+	}
+}
+
+# Grafana dengan login (anonymous dimatikan). Jaeger & Prometheus TIDAK publik: pakai SSH tunnel.
+obs.{$LP_DOMAIN} {
+	import json_log
+	reverse_proxy grafana:3000
+}

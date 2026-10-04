@@ -18,6 +18,7 @@ import (
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/clock"
 	"ledgerpay/internal/platform/httpx"
+	"ledgerpay/internal/platform/metrics"
 )
 
 // Rule: Events per Per, dengan burst = Events (boleh menghabiskan kuota sekaligus, lalu mengisi ulang rata).
@@ -119,7 +120,8 @@ func (l *Limiter) gc(now time.Time) {
 }
 
 // Reject menulis 429 RATE_LIMITED + Retry-After.
-func Reject(w http.ResponseWriter, r *http.Request, retryAfter time.Duration) {
+func Reject(w http.ResponseWriter, r *http.Request, tier string, retryAfter time.Duration) {
+	metrics.RateLimited.WithLabelValues(tier).Inc()
 	httpx.WriteError(w, r, apperr.ErrRateLimited.WithRetryAfter(int(math.Ceil(retryAfter.Seconds()))))
 }
 
@@ -128,7 +130,7 @@ func (l *Limiter) Middleware(t Tier, keyFn func(*http.Request) string) func(http
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if ok, wait := l.Allow(t, keyFn(r)); !ok {
-				Reject(w, r, wait)
+				Reject(w, r, t.Name, wait)
 				return
 			}
 			next.ServeHTTP(w, r)

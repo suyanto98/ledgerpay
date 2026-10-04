@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"ledgerpay/internal/platform/apperr"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/observability"
 )
 
@@ -30,6 +31,7 @@ const problemTypeBase = "https://ledgerpay.dev/errors/"
 // Error tak dikenal → 500 INTERNAL_ERROR dengan penyebab hanya di log (tidak bocor ke client).
 func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	p := NewProblem(r, err)
+	metrics.Errors.WithLabelValues(p.Code).Inc()
 	if p.Status >= 500 {
 		observability.Logger(r.Context()).Error("request.failed", "code", p.Code, "err", err.Error())
 	}

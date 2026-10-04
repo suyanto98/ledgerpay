@@ -24,6 +24,7 @@ import (
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/idgen"
 	"ledgerpay/internal/platform/jobs"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/observability"
 	"ledgerpay/internal/platform/testhook"
 )
@@ -129,6 +130,7 @@ func (s *Service) Create(ctx context.Context, tx pgx.Tx, c Command) (Payout, err
 	if err != nil {
 		return Payout{}, db.MapError(err)
 	}
+	metrics.Payouts.WithLabelValues("requested").Inc()
 	if _, err := jobs.Enqueue(ctx, tx, jobs.Spec{Kind: KindSubmit, Payload: jobPayload{PayoutID: id}, Dedupe: KindSubmit + ":" + id.String(),
 		MaxAttempts: 5, CorrelationID: c.CorrelationID}); err != nil {
 		return Payout{}, err
@@ -202,6 +204,7 @@ func (s *Service) handleSubmit(ctx context.Context, j *jobs.Job) error {
 		return db.WithTx(ctx, s.pool, func(tx pgx.Tx) error { return jobs.CompleteInTx(ctx, tx, j) }) // sudah diproses: no-op
 	}
 
+	metrics.Payouts.WithLabelValues("submitted").Inc()
 	cur, err := q.GetPayout(ctx, p.PayoutID)
 	if err != nil {
 		return db.MapError(err)
@@ -225,6 +228,7 @@ func (s *Service) handleSubmit(ctx context.Context, j *jobs.Job) error {
 		return s.reverse(ctx, j, cur, "BANK_RESPONSE", []string{"SUBMITTED"}, nil)
 	default: // Unknown / Processing: tanyakan lewat status query
 		if res.Mismatch {
+			metrics.PayoutMismatch.WithLabelValues().Inc()
 			log.Error("payout.bank_response_mismatch", "detail", res.Detail) // indikasi bug / provider dikompromikan
 		}
 		return s.markUnknown(ctx, j, cur.ID, res.Detail, res.Mismatch)
@@ -233,6 +237,7 @@ func (s *Service) handleSubmit(ctx context.Context, j *jobs.Job) error {
 
 // markUnknown: SUBMITTED → UNKNOWN + status check #1 (30 dtk), satu tx dengan CompleteInTx.
 func (s *Service) markUnknown(ctx context.Context, j *jobs.Job, id uuid.UUID, detail string, needsRecon bool) error {
+	metrics.Payouts.WithLabelValues("unknown").Inc()
 	return db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
 		if _, err := store.New(tx).MarkPayoutUnknown(ctx, store.MarkPayoutUnknownParams{ID: id, LastError: &detail, NeedsReconciliation: needsRecon}); err != nil {
 			return err
@@ -268,8 +273,14 @@ func (s *Service) handleStatusCheck(ctx context.Context, j *jobs.Job) error {
 	}
 	answer, err := s.bank.Status(ctx, cur.ID.String())
 	if err != nil {
+		metrics.PayoutStatusChecks.WithLabelValues("error").Inc()
 		return err // infra: retry kind (3×), lalu OnDead → needs_reconciliation
 	}
+	checkResult := map[StatusAnswer]string{StatusSucceeded: "succeeded", StatusFailed: "failed", StatusNotFound: "not_found"}[answer]
+	if checkResult == "" {
+		checkResult = "still_unknown"
+	}
+	metrics.PayoutStatusChecks.WithLabelValues(checkResult).Inc()
 	if answer == StatusNotFound && time.Duration(cur.AgeSinceSubmitSecs*float64(time.Second)) >= s.cfg.SafeWindow {
 		// Bank menjamin: payout yang diterima selalu terlihat setelah safe window. NOT_FOUND sekarang
 		// berarti bank TIDAK PERNAH menerimanya → aman submit ulang, dengan key yang SAMA (lapis kedua).
@@ -305,6 +316,7 @@ func (s *Service) handleStatusCheck(ctx context.Context, j *jobs.Job) error {
 			return err
 		}
 		if exhausted {
+			metrics.Payouts.WithLabelValues("needs_reconciliation").Inc()
 			observability.Logger(ctx).Error("payout.needs_reconciliation", "payout_id", cur.ID.String(), "checks", p.CheckNo)
 		} else if err := s.enqueueCheck(ctx, tx, cur.ID, p.CheckNo+1, j.CorrelationID); err != nil {
 			return err
@@ -346,6 +358,7 @@ func (s *Service) settle(ctx context.Context, j *jobs.Job, cur store.GetPayoutRo
 			ResolutionSource: &source, ProviderStatus: providerStatus}); err != nil {
 			return err
 		}
+		metrics.Payouts.WithLabelValues("succeeded").Inc()
 		return jobs.CompleteInTx(ctx, tx, j)
 	})
 }
@@ -378,6 +391,18 @@ func (s *Service) reverse(ctx context.Context, j *jobs.Job, cur store.GetPayoutR
 			ResolutionSource: &source, ProviderStatus: providerStatus}); err != nil {
 			return err
 		}
+		metrics.Payouts.WithLabelValues("failed").Inc()
 		return jobs.CompleteInTx(ctx, tx, j)
 	})
+}
+
+// Stats mengisi gauge payout UNKNOWN (loop periodik worker; alert umur tertua > 1 jam).
+func Stats(ctx context.Context, q db.DBTX) error {
+	r, err := store.New(q).UnknownStats(ctx)
+	if err != nil {
+		return db.MapError(err)
+	}
+	metrics.PayoutUnknown.WithLabelValues().Set(float64(r.N))
+	metrics.PayoutUnknownOldest.WithLabelValues().Set(r.OldestSecs)
+	return nil
 }

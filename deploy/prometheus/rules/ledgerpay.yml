@@ -1,0 +1,46 @@
+# Alert LedgerPay (docs/design/21-observability.md §7). Runbook: §8.
+groups:
+  - name: ledgerpay
+    rules:
+      # A-01: invariant ledger dilanggar. Normalnya SELALU 0 → setiap nilai lain adalah insiden.
+      - alert: LedgerInvariantViolated
+        expr: |
+          max(ledgerpay_ledger_balance_drift_accounts) > 0
+          or max(ledgerpay_ledger_unbalanced_journals) > 0
+          or abs(max(ledgerpay_ledger_global_imbalance_minor)) > 0
+        for: 0m
+        labels: { severity: critical }
+        annotations:
+          summary: "Ledger invariant violated (drift / unbalanced journal / global imbalance)"
+          runbook: "docs/design/21-observability.md §8.1 — freeze payouts, run ledger-verify, compare journals"
+      # A-01b: verifikasi tidak berjalan → gauge INV basi (buta, bukan sehat).
+      - alert: IntegrityVerificationStale
+        expr: time() - max(ledgerpay_ledger_verification_last_success_timestamp_seconds) > 2 * 3600
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "ledger.verify has not succeeded for more than 2 hours"
+      # A-02: payout menggantung di UNKNOWN > 1 jam (SLO resolusi).
+      - alert: PayoutUnknownTooOld
+        expr: max(ledgerpay_payout_unknown_oldest_age_seconds) > 3600
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "A payout has been UNKNOWN for more than 1 hour"
+          runbook: "docs/design/21-observability.md §8.2 — check bank status query, resolve via ops"
+      # A-04: job / inbox / webhook keluar masuk dead letter.
+      - alert: JobsDeadLettered
+        expr: |
+          sum by (kind) (increase(app_job_dead_total[10m])) > 0
+          or increase(ledgerpay_webhook_inbox_dead_total[10m]) > 0
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: "Jobs moved to dead ({{ $labels.kind }})"
+          runbook: "docs/design/21-observability.md §8.3 — inspect last_error, fix cause, retry via ops"
+      - alert: WebhookSignatureFailures
+        expr: increase(ledgerpay_webhook_signature_failures_total[10m]) > 10
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: "Many inbound webhooks with invalid signatures (attack or secret rotation issue)"

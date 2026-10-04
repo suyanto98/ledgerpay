@@ -60,7 +60,7 @@ func (h *Handler) Routes(public, authed chi.Router) {
 func (h *Handler) strict(w http.ResponseWriter, r *http.Request, subject string) bool {
 	ok, wait := h.cfg.Limiter.Allow(h.cfg.Tiers.AuthStrict, httpx.ClientIPFrom(r).String()+"|"+strings.ToLower(subject))
 	if !ok {
-		ratelimit.Reject(w, r, wait)
+		ratelimit.Reject(w, r, h.cfg.Tiers.AuthStrict.Name, wait)
 	}
 	return ok
 }

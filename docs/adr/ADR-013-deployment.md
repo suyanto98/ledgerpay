@@ -45,6 +45,18 @@ Contoh expand/contract (rename `wallets.name` → `wallets.label`):
 3. Rilis B: kode membaca `label`.
 4. Rilis C: hapus `name`.
 
+### Catatan implementasi (Sprint 7, LedgerPay)
+
+Skrip deploy disiapkan dan diuji lokal (`deploy/prod/`, mode `DEPLOY_HOST=local`); deploy ke VM sungguhan dijalankan pemilik project. Deviasi dari tabel di atas, sengaja untuk tahap ini:
+
+| Aspek | Desain | Implementasi S7 | Kapan disamakan |
+|---|---|---|---|
+| Registry | GHCR, image dari CI | `deploy.sh` mengirim `git archive <sha>`, image dibangun di VM dengan tag SHA | CD Sprint 8 |
+| Secrets | `.env` 600 + CI secrets | `init-env.sh` membuat satu file env **per service** (600) di mesin pemilik; tiap service hanya menerima secret miliknya | CD Sprint 8 (GitHub environment secrets) |
+| Urutan | migrate → api + worker | migrate → **worker dulu** (health gate `/readyz` worker) → api → smoke test. Rilis rusak gagal di worker sebelum menyentuh API | — |
+| Rollback | deploy ulang SHA sebelumnya | Sama, otomatis di `remote-deploy.sh`. Uji lokal: rilis rusak ditolak health gate, rollback 6 detik, API tidak tersentuh | — |
+| Proxy | Caddy + SPA | Image `edge` (Caddy + build SPA dipanggang); `pay.<domain>` hanya checkout, `obs.<domain>` Grafana (login wajib) | — |
+
 ## Reason
 
 - Satu VM + Compose cukup untuk demo dan membuat environment lokal = environment deploy (`make up`).
