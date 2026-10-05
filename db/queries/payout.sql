@@ -27,12 +27,14 @@ SELECT id FROM payouts WHERE id = @id AND status = ANY(@statuses::text[]) FOR UP
 
 -- name: MarkPayoutSucceeded :execrows
 UPDATE payouts SET status = 'SUCCEEDED', settle_journal_id = @settle_journal_id, resolved_at = now(),
-       resolution_source = @resolution_source, last_provider_status = sqlc.narg(provider_status)
+       resolution_source = @resolution_source, resolved_by = sqlc.narg(resolved_by),
+       last_provider_status = coalesce(sqlc.narg(provider_status), last_provider_status)
 WHERE id = @id AND status IN ('SUBMITTED', 'UNKNOWN');
 
 -- name: MarkPayoutFailed :execrows
 UPDATE payouts SET status = 'FAILED', reversal_journal_id = @reversal_journal_id, resolved_at = now(),
-       resolution_source = @resolution_source, last_provider_status = sqlc.narg(provider_status)
+       resolution_source = @resolution_source, resolved_by = sqlc.narg(resolved_by),
+       last_provider_status = coalesce(sqlc.narg(provider_status), last_provider_status)
 WHERE id = @id AND status IN ('SUBMITTED', 'UNKNOWN');
 
 -- name: MarkPayoutUnknown :execrows

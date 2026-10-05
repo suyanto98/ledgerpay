@@ -8,7 +8,7 @@ type Tx = { id: string; type: string; direction: 'IN' | 'OUT'; amount: string; c
 
 const wallet = ref<Wallet | null>(null)
 const txs = ref<Tx[]>([])
-const labels: Record<string, string> = { TOPUP: 'Top-up', TRANSFER: 'Transfer', PAYMENT: 'Pembayaran', PAYOUT: 'Tarik saldo', ADJUSTMENT: 'Penyesuaian' }
+const labels: Record<string, string> = { TOPUP: 'Top-up', TRANSFER: 'Transfer', PAYMENT: 'Pembayaran', REFUND: 'Refund', PAYOUT: 'Tarik saldo', ADJUSTMENT: 'Penyesuaian' }
 
 onMounted(async () => {
   wallet.value = await api<Wallet>('/wallet')

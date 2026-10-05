@@ -28,7 +28,7 @@ services:
 
   migrate:
     build: { context: ../.., dockerfile: deploy/Dockerfile, target: ledgerpay, args: { VERSION: "${LP_VERSION:?}" } }
-    image: ledgerpay-app:${LP_VERSION:?}
+    image: ${LP_IMAGE_PREFIX:-}ledgerpay-app:${LP_VERSION:?}
     command: ["migrate", "up"]
     env_file: ${LP_ENV_DIR:?}/migrate.env
     depends_on: { postgres: { condition: service_healthy } }
@@ -36,7 +36,7 @@ services:
     profiles: [migrate]
 
   api:
-    image: ledgerpay-app:${LP_VERSION:?}
+    image: ${LP_IMAGE_PREFIX:-}ledgerpay-app:${LP_VERSION:?}
     command: ["api"]
     env_file: ${LP_ENV_DIR:?}/api.env
     environment: { APP_VERSION: "${LP_VERSION:?}" }
@@ -45,7 +45,7 @@ services:
     deploy: { resources: { limits: { memory: 512m } } }
 
   worker:
-    image: ledgerpay-app:${LP_VERSION:?}
+    image: ${LP_IMAGE_PREFIX:-}ledgerpay-app:${LP_VERSION:?}
     command: ["worker"]
     env_file: ${LP_ENV_DIR:?}/worker.env
     environment: { APP_VERSION: "${LP_VERSION:?}" }
@@ -56,7 +56,7 @@ services:
 
   mock-provider:
     build: { context: ../.., dockerfile: deploy/Dockerfile, target: mock-provider }
-    image: ledgerpay-mock:${LP_VERSION:?}
+    image: ${LP_IMAGE_PREFIX:-}ledgerpay-mock:${LP_VERSION:?}
     env_file: ${LP_ENV_DIR:?}/mock.env
     ports: ["127.0.0.1:${LP_MOCK_ADMIN_PORT:-9091}:9090"]   # /admin/* hanya dari VM itu sendiri (skrip demo)
     <<: *hardening
@@ -64,7 +64,7 @@ services:
 
   edge:
     build: { context: ../.., dockerfile: deploy/prod/edge.Dockerfile }
-    image: ledgerpay-edge:${LP_VERSION:?}
+    image: ${LP_IMAGE_PREFIX:-}ledgerpay-edge:${LP_VERSION:?}
     env_file: ${LP_ENV_DIR:?}/edge.env
     ports:
       - "${LP_HTTP_PUBLIC_PORT:-80}:80"
@@ -78,6 +78,27 @@ services:
     restart: unless-stopped
     depends_on: [api, mock-provider]
     deploy: { resources: { limits: { memory: 128m } } }
+
+  # Backup harian (cron host 02:00 UTC → run-backup.sh → `run --rm backup`). Role read-only, output
+  # terenkripsi age, disimpan di host (bertahan dari `compose down -v`) + offsite kalau dikonfigurasi.
+  backup:
+    build: { context: ../.., dockerfile: deploy/backup/Dockerfile }
+    image: ${LP_IMAGE_PREFIX:-}ledgerpay-backup:${LP_VERSION:?}
+    env_file: ${LP_ENV_DIR:?}/backup.env
+    volumes: ["${LP_BACKUP_HOST_DIR:-/srv/ledgerpay/backups}:/backups"]
+    depends_on: { postgres: { condition: service_healthy } }
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    restart: "no"
+    profiles: [backup]
+
+  # Batch job (backup) tidak bisa di-scrape: ia mendorong metrik ke sini, Prometheus men-scrape-nya.
+  pushgateway:
+    image: prom/pushgateway:v1.11.1
+    <<: *hardening
+    deploy: { resources: { limits: { memory: 64m } } }
 
   prometheus:
     image: prom/prometheus:v3.5.0

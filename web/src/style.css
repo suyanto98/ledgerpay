@@ -17,3 +17,6 @@ button.link { background: none; color: #e5e7eb; margin: 0; padding: 0; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 td, th { padding: 8px 4px; border-bottom: 1px solid #eee; text-align: left; }
 .in { color: #047857; } .out { color: #b91c1c; }
+
+.amount { font-size: 1.75rem; font-weight: 600; margin: 0.25rem 0; }
+.muted { color: #6b7280; font-size: 0.9rem; }

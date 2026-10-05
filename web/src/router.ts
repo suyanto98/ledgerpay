@@ -8,6 +8,7 @@ import TopupView from './pages/TopupView.vue'
 import TopupStatusView from './pages/TopupStatusView.vue'
 import PayoutView from './pages/PayoutView.vue'
 import PayoutStatusView from './pages/PayoutStatusView.vue'
+import CheckoutView from './pages/CheckoutView.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -20,6 +21,7 @@ export const router = createRouter({
     { path: '/topups/:id', component: TopupStatusView }, // return_url dari halaman checkout provider
     { path: '/payout', component: PayoutView },
     { path: '/payouts/:id', component: PayoutStatusView },
+    { path: '/checkout/:id', component: CheckoutView }, // checkout_url dari merchant (login dulu, lalu kembali ke sini)
   ],
 })
 

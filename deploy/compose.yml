@@ -11,6 +11,7 @@ services:
       POSTGRES_PASSWORD: postgres-dev
       LEDGERPAY_OWNER_PASSWORD: owner-dev
       LEDGERPAY_APP_PASSWORD: app-dev
+      LEDGERPAY_BACKUP_PASSWORD: backup-dev
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -113,6 +114,11 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/rules:/etc/prometheus/rules:ro
     ports: ["127.0.0.1:${LP_PROM_PORT:-9095}:9090"]
+
+  pushgateway:
+    image: prom/pushgateway:v1.11.1
+    profiles: [obs]
+    ports: ["127.0.0.1:${LP_PUSHGATEWAY_PORT:-9097}:9091"]
 
   grafana:
     image: grafana/grafana:12.1.1

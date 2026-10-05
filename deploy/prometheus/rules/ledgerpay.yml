@@ -8,10 +8,11 @@ groups:
           max(ledgerpay_ledger_balance_drift_accounts) > 0
           or max(ledgerpay_ledger_unbalanced_journals) > 0
           or abs(max(ledgerpay_ledger_global_imbalance_minor)) > 0
+          or max(ledgerpay_payment_refund_drift_intents) > 0
         for: 0m
         labels: { severity: critical }
         annotations:
-          summary: "Ledger invariant violated (drift / unbalanced journal / global imbalance)"
+          summary: "Ledger invariant violated (drift / unbalanced journal / global imbalance / refund drift)"
           runbook: "docs/design/21-observability.md §8.1 — freeze payouts, run ledger-verify, compare journals"
       # A-01b: verifikasi tidak berjalan → gauge INV basi (buta, bukan sehat).
       - alert: IntegrityVerificationStale

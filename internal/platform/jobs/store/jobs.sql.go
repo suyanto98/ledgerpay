@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -229,6 +230,17 @@ func (q *Queries) HeartbeatJob(ctx context.Context, arg HeartbeatJobParams) (int
 	return result.RowsAffected(), nil
 }
 
+const jobExists = `-- name: JobExists :one
+SELECT EXISTS (SELECT 1 FROM jobs WHERE id = $1)
+`
+
+func (q *Queries) JobExists(ctx context.Context, id uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, jobExists, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const jobStats = `-- name: JobStats :many
 SELECT kind, status, count(*)::bigint AS n,
        coalesce(extract(epoch FROM now() - min(run_at) FILTER (WHERE status = 'queued' AND run_at <= now())), 0)::float8 AS oldest_due_secs,
@@ -272,6 +284,73 @@ func (q *Queries) JobStats(ctx context.Context) ([]JobStatsRow, error) {
 	return items, nil
 }
 
+const listJobs = `-- name: ListJobs :many
+SELECT id, kind, status, attempts, max_attempts, last_error, run_at, correlation_id, created_at
+FROM jobs
+WHERE status = $1
+  AND ($2::text IS NULL OR kind = $2::text)
+  AND ($3::timestamptz IS NULL OR (created_at, id) < ($3::timestamptz, $4::uuid))
+ORDER BY created_at DESC, id DESC
+LIMIT $5
+`
+
+type ListJobsParams struct {
+	Status   string
+	Kind     *string
+	CursorAt *time.Time
+	CursorID *uuid.UUID
+	Lim      int32
+}
+
+type ListJobsRow struct {
+	ID            uuid.UUID
+	Kind          string
+	Status        string
+	Attempts      int32
+	MaxAttempts   int32
+	LastError     *string
+	RunAt         time.Time
+	CorrelationID *string
+	CreatedAt     time.Time
+}
+
+// Ops console: ringkasan TANPA payload (payload bisa memuat data sensitif). Terbaru dulu.
+func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]ListJobsRow, error) {
+	rows, err := q.db.Query(ctx, listJobs,
+		arg.Status,
+		arg.Kind,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListJobsRow
+	for rows.Next() {
+		var i ListJobsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Status,
+			&i.Attempts,
+			&i.MaxAttempts,
+			&i.LastError,
+			&i.RunAt,
+			&i.CorrelationID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const releaseJob = `-- name: ReleaseJob :exec
 UPDATE jobs SET status = 'queued', run_at = now(), locked_by = NULL, locked_until = NULL,
        attempts = greatest(attempts - 1, 0)
@@ -287,4 +366,31 @@ type ReleaseJobParams struct {
 func (q *Queries) ReleaseJob(ctx context.Context, arg ReleaseJobParams) error {
 	_, err := q.db.Exec(ctx, releaseJob, arg.ID, arg.Worker)
 	return err
+}
+
+const retryDeadJob = `-- name: RetryDeadJob :one
+UPDATE jobs SET status = 'queued', attempts = 0, run_at = now(), completed_at = NULL, locked_by = NULL, locked_until = NULL
+WHERE id = $1 AND status = 'dead'
+RETURNING id, status, attempts, run_at
+`
+
+type RetryDeadJobRow struct {
+	ID       uuid.UUID
+	Status   string
+	Attempts int32
+	RunAt    time.Time
+}
+
+// Ops retry: natural idempotent lewat guard status. Percobaan direset; dedupe key yang sama sedang
+// hidup (job pengganti sudah ada) → unique violation uq_jobs_dedupe_key → 409.
+func (q *Queries) RetryDeadJob(ctx context.Context, id uuid.UUID) (RetryDeadJobRow, error) {
+	row := q.db.QueryRow(ctx, retryDeadJob, id)
+	var i RetryDeadJobRow
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.Attempts,
+		&i.RunAt,
+	)
+	return i, err
 }

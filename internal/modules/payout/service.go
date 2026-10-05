@@ -325,75 +325,153 @@ func (s *Service) handleStatusCheck(ctx context.Context, j *jobs.Job) error {
 	})
 }
 
-// settle: lock payout di status yang diharapkan (guard) → journal PAYOUT_SETTLE (akun sistem saja)
-// → SUCCEEDED → CompleteInTx. Kalah balapan (ops sudah resolve) → 0 baris → selesai tanpa journal.
+// errStatusChanged: UPDATE status mengenai 0 baris SETELAH journal diposting. Tidak mungkin selama
+// lockInStatus memegang lock baris; kalau terjadi (bug), seluruh tx rollback alih-alih menyisakan
+// journal tanpa perubahan status.
+var errStatusChanged = errors.New("payout: status changed under lock (journal rolled back)")
+
+// resolution adalah siapa/apa yang menetapkan hasil akhir payout.
+type resolution struct {
+	source         string     // BANK_RESPONSE, STATUS_QUERY, OPS
+	providerStatus *string    // jawaban bank terakhir (nil untuk OPS)
+	by             *uuid.UUID // user OPS (wajib untuk source OPS, ck_payouts_ops_resolution)
+	actor          ledger.Actor
+	correlationID  string
+}
+
+// settle (job): settleTx + CompleteInTx dalam satu tx. Kalah balapan → selesai tanpa journal.
 func (s *Service) settle(ctx context.Context, j *jobs.Job, cur store.GetPayoutRow, source string, from []string, providerStatus *string) error {
 	return db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
-		q := store.New(tx)
-		if _, err := q.LockPayoutInStatus(ctx, store.LockPayoutInStatusParams{ID: cur.ID, Statuses: from}); errors.Is(err, pgx.ErrNoRows) {
-			return jobs.CompleteInTx(ctx, tx, j)
-		} else if err != nil {
+		res := resolution{source: source, providerStatus: providerStatus, actor: ledger.Actor{Type: "SYSTEM"}, correlationID: j.CorrelationID}
+		if _, err := s.settleTx(ctx, tx, cur, from, res); err != nil {
 			return err
 		}
-		inTransit, err := s.ledger.SystemAccountID(ctx, tx, "PAYOUT_IN_TRANSIT")
-		if err != nil {
-			return err
-		}
-		bank, err := s.ledger.SystemAccountID(ctx, tx, "BANK_CLEARING")
-		if err != nil {
-			return err
-		}
-		journalID := s.ids.New()
-		if err := s.ledger.PostJournal(ctx, tx, ledger.Journal{
-			ID: journalID, Purpose: ledger.PurposePayoutSettle, SourceType: "payout", SourceID: cur.ID, Currency: cur.Currency,
-			CorrelationID: j.CorrelationID, Actor: ledger.Actor{Type: "SYSTEM"},
-			Entries: []ledger.Entry{
-				{AccountID: inTransit, Direction: ledger.Debit, Amount: cur.Amount}, // tidak lagi "sedang dikirim"
-				{AccountID: bank, Direction: ledger.Credit, Amount: cur.Amount},     // uang keluar dari rekening penampung
-			},
-		}); err != nil {
-			return err
-		}
-		if _, err := q.MarkPayoutSucceeded(ctx, store.MarkPayoutSucceededParams{ID: cur.ID, SettleJournalID: &journalID,
-			ResolutionSource: &source, ProviderStatus: providerStatus}); err != nil {
-			return err
-		}
-		metrics.Payouts.WithLabelValues("succeeded").Inc()
 		return jobs.CompleteInTx(ctx, tx, j)
 	})
 }
 
-// reverse: penolakan DEFINITIF → journal PAYOUT_REVERSAL (reversal_of = hold) mengembalikan dana ke wallet.
+// reverse (job): reverseTx + CompleteInTx dalam satu tx.
 func (s *Service) reverse(ctx context.Context, j *jobs.Job, cur store.GetPayoutRow, source string, from []string, providerStatus *string) error {
 	return db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
-		q := store.New(tx)
-		if _, err := q.LockPayoutInStatus(ctx, store.LockPayoutInStatusParams{ID: cur.ID, Statuses: from}); errors.Is(err, pgx.ErrNoRows) {
-			return jobs.CompleteInTx(ctx, tx, j)
-		} else if err != nil {
+		res := resolution{source: source, providerStatus: providerStatus, actor: ledger.Actor{Type: "SYSTEM"}, correlationID: j.CorrelationID}
+		if _, err := s.reverseTx(ctx, tx, cur, from, res); err != nil {
 			return err
 		}
-		inTransit, err := s.ledger.SystemAccountID(ctx, tx, "PAYOUT_IN_TRANSIT")
-		if err != nil {
-			return err
-		}
-		journalID, hold := s.ids.New(), cur.HoldJournalID
-		if err := s.ledger.PostJournal(ctx, tx, ledger.Journal{ // lock wallet (posisi 3) setelah payout (2c) ✓
-			ID: journalID, Purpose: ledger.PurposePayoutReversal, SourceType: "payout", SourceID: cur.ID, Currency: cur.Currency,
-			ReversalOf: &hold, CorrelationID: j.CorrelationID, Actor: ledger.Actor{Type: "SYSTEM"},
-			Entries: []ledger.Entry{
-				{AccountID: inTransit, Direction: ledger.Debit, Amount: cur.Amount},
-				{AccountID: cur.AccountID, Direction: ledger.Credit, Amount: cur.Amount}, // dana kembali ke wallet
-			},
-		}); err != nil {
-			return err
-		}
-		if _, err := q.MarkPayoutFailed(ctx, store.MarkPayoutFailedParams{ID: cur.ID, ReversalJournalID: &journalID,
-			ResolutionSource: &source, ProviderStatus: providerStatus}); err != nil {
-			return err
-		}
-		metrics.Payouts.WithLabelValues("failed").Inc()
 		return jobs.CompleteInTx(ctx, tx, j)
 	})
+}
+
+// lockInStatus: guard + lock baris payout (posisi 2c) SEBELUM journal. Pihak yang kalah balapan
+// (worker vs ops, race g) menunggu di sini, lalu mendapat false: tidak pernah sempat memposting.
+func lockInStatus(ctx context.Context, q *store.Queries, id uuid.UUID, from []string) (bool, error) {
+	if _, err := q.LockPayoutInStatus(ctx, store.LockPayoutInStatusParams{ID: id, Statuses: from}); errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	// Titik hook: pemenang memegang lock payout; pihak lain (ops / status check) harus menunggu.
+	return true, testhook.Pause(ctx, "payout.resolve.after_lock")
+}
+
+// settleTx: journal PAYOUT_SETTLE (akun sistem saja) → SUCCEEDED. false = payout tidak lagi di
+// status yang diharapkan (sudah diselesaikan pihak lain).
+func (s *Service) settleTx(ctx context.Context, tx pgx.Tx, cur store.GetPayoutRow, from []string, res resolution) (bool, error) {
+	q := store.New(tx)
+	if ok, err := lockInStatus(ctx, q, cur.ID, from); !ok || err != nil {
+		return false, err
+	}
+	inTransit, err := s.ledger.SystemAccountID(ctx, tx, "PAYOUT_IN_TRANSIT")
+	if err != nil {
+		return false, err
+	}
+	bank, err := s.ledger.SystemAccountID(ctx, tx, "BANK_CLEARING")
+	if err != nil {
+		return false, err
+	}
+	journalID := s.ids.New()
+	if err := s.ledger.PostJournal(ctx, tx, ledger.Journal{
+		ID: journalID, Purpose: ledger.PurposePayoutSettle, SourceType: "payout", SourceID: cur.ID, Currency: cur.Currency,
+		CorrelationID: res.correlationID, Actor: res.actor,
+		Entries: []ledger.Entry{
+			{AccountID: inTransit, Direction: ledger.Debit, Amount: cur.Amount}, // tidak lagi "sedang dikirim"
+			{AccountID: bank, Direction: ledger.Credit, Amount: cur.Amount},     // uang keluar dari rekening penampung
+		},
+	}); err != nil {
+		return false, err
+	}
+	n, err := q.MarkPayoutSucceeded(ctx, store.MarkPayoutSucceededParams{ID: cur.ID, SettleJournalID: &journalID,
+		ResolutionSource: &res.source, ResolvedBy: res.by, ProviderStatus: res.providerStatus})
+	if err != nil {
+		return false, err
+	}
+	if n != 1 { // mustahil selama baris terkunci; kalau terjadi, journal di atas ikut rollback
+		return false, errStatusChanged
+	}
+	metrics.Payouts.WithLabelValues("succeeded").Inc()
+	return true, nil
+}
+
+// reverseTx: penolakan DEFINITIF → journal PAYOUT_REVERSAL (reversal_of = hold) mengembalikan dana ke wallet.
+func (s *Service) reverseTx(ctx context.Context, tx pgx.Tx, cur store.GetPayoutRow, from []string, res resolution) (bool, error) {
+	q := store.New(tx)
+	if ok, err := lockInStatus(ctx, q, cur.ID, from); !ok || err != nil {
+		return false, err
+	}
+	inTransit, err := s.ledger.SystemAccountID(ctx, tx, "PAYOUT_IN_TRANSIT")
+	if err != nil {
+		return false, err
+	}
+	journalID, hold := s.ids.New(), cur.HoldJournalID
+	if err := s.ledger.PostJournal(ctx, tx, ledger.Journal{ // lock wallet (posisi 3) setelah payout (2c) ✓
+		ID: journalID, Purpose: ledger.PurposePayoutReversal, SourceType: "payout", SourceID: cur.ID, Currency: cur.Currency,
+		ReversalOf: &hold, CorrelationID: res.correlationID, Actor: res.actor,
+		Entries: []ledger.Entry{
+			{AccountID: inTransit, Direction: ledger.Debit, Amount: cur.Amount},
+			{AccountID: cur.AccountID, Direction: ledger.Credit, Amount: cur.Amount}, // dana kembali ke wallet
+		},
+	}); err != nil {
+		return false, err
+	}
+	n, err := q.MarkPayoutFailed(ctx, store.MarkPayoutFailedParams{ID: cur.ID, ReversalJournalID: &journalID,
+		ResolutionSource: &res.source, ResolvedBy: res.by, ProviderStatus: res.providerStatus})
+	if err != nil {
+		return false, err
+	}
+	if n != 1 {
+		return false, errStatusChanged
+	}
+	metrics.Payouts.WithLabelValues("failed").Inc()
+	return true, nil
+}
+
+// ResolveByOps menetapkan hasil payout secara manual (ADR-L06, LF-18), di tx pemanggil (yang juga
+// menulis audit + bukti). Hanya dari UNKNOWN atau SUBMITTED; sudah final / masih PENDING → 409.
+// Tidak ada "edit saldo": hasilnya journal PAYOUT_SETTLE atau PAYOUT_REVERSAL yang sama dengan
+// jalur otomatis, sehingga ledger tetap satu-satunya sumber kebenaran.
+func (s *Service) ResolveByOps(ctx context.Context, tx pgx.Tx, id uuid.UUID, succeeded bool, opsUserID uuid.UUID, correlationID string) error {
+	cur, err := store.New(tx).GetPayout(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return apperr.ErrNotFound
+	}
+	if err != nil {
+		return db.MapError(err)
+	}
+	res := resolution{source: "OPS", by: &opsUserID, actor: ledger.Actor{Type: "OPS", ID: &opsUserID}, correlationID: correlationID}
+	from := []string{"UNKNOWN", "SUBMITTED"}
+	var applied bool
+	if succeeded {
+		applied, err = s.settleTx(ctx, tx, cur, from, res)
+	} else {
+		applied, err = s.reverseTx(ctx, tx, cur, from, res)
+	}
+	if err != nil {
+		return db.MapError(err)
+	}
+	if !applied { // sudah diselesaikan (status query / ops lain) atau belum pernah dikirim ke bank
+		return apperr.ErrInvalidState
+	}
+	metrics.Payouts.WithLabelValues("ops_resolved").Inc()
+	return nil
 }
 
 // Stats mengisi gauge payout UNKNOWN (loop periodik worker; alert umur tertua > 1 jam).

@@ -14,6 +14,7 @@ import (
 
 	"ledgerpay/internal/modules/inbox"
 	"ledgerpay/internal/modules/ledger"
+	"ledgerpay/internal/modules/payment"
 	"ledgerpay/internal/modules/payout"
 	"ledgerpay/internal/platform/idempotency"
 	"ledgerpay/internal/platform/jobs"
@@ -74,9 +75,14 @@ func NewWorker(d Deps, cfg WorkerConfig) *Worker {
 				if err != nil {
 					return err // gauge tidak diperbarui → alert IntegrityVerificationStale
 				}
+				drift, err := payment.RefundDrift(ctx, d.Pool) // LI-08
+				if err != nil {
+					return err
+				}
+				metrics.RefundDriftIntents.WithLabelValues().Set(float64(len(drift)))
 				rep.Publish(float64(d.Clock.Now().Unix())) // gauge INVARIANT (alert A-01 kalau ≠ 0)
-				if !rep.OK() {
-					observability.Logger(ctx).Error("ledger.invariant_violated", "report", rep.String())
+				if !rep.OK() || len(drift) > 0 {
+					observability.Logger(ctx).Error("ledger.invariant_violated", "report", rep.String(), "refund_drift", drift)
 				}
 				return nil
 			}},

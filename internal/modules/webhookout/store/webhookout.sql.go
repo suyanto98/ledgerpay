@@ -11,6 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const deliveryExists = `-- name: DeliveryExists :one
+SELECT EXISTS (SELECT 1 FROM webhook_deliveries WHERE id = $1)
+`
+
+func (q *Queries) DeliveryExists(ctx context.Context, id uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, deliveryExists, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const getDelivery = `-- name: GetDelivery :one
 SELECT id, merchant_id, event_id, event_type, payload, status, attempts FROM webhook_deliveries WHERE id = $1
 `
@@ -135,4 +146,24 @@ type RecordFailedAttemptParams struct {
 func (q *Queries) RecordFailedAttempt(ctx context.Context, arg RecordFailedAttemptParams) error {
 	_, err := q.db.Exec(ctx, recordFailedAttempt, arg.StatusCode, arg.LastError, arg.ID)
 	return err
+}
+
+const replayDelivery = `-- name: ReplayDelivery :one
+UPDATE webhook_deliveries SET status = 'PENDING', last_error = NULL
+WHERE id = $1 AND status = 'DEAD'
+RETURNING id, event_id, status
+`
+
+type ReplayDeliveryRow struct {
+	ID      uuid.UUID
+	EventID uuid.UUID
+	Status  string
+}
+
+// DEAD → PENDING. event_id TIDAK berubah: merchant yang sudah menerima versi lama bisa dedupe.
+func (q *Queries) ReplayDelivery(ctx context.Context, id uuid.UUID) (ReplayDeliveryRow, error) {
+	row := q.db.QueryRow(ctx, replayDelivery, id)
+	var i ReplayDeliveryRow
+	err := row.Scan(&i.ID, &i.EventID, &i.Status)
+	return i, err
 }

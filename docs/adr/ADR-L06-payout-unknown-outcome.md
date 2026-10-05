@@ -89,6 +89,13 @@ Respons sukses yang `payout_id`, amount, atau rekening tujuannya tidak cocok den
 - **Safe window** dihitung dengan jam DB (`now() - submitted_at`), dikonfigurasi `PAYOUT_SAFE_WINDOW` (default 5 menit).
 - Demo C (`make demo-c`): worker di-`docker kill` saat menunggu bank → lease 30 dtk → UNKNOWN → status query 30 dtk → SUCCEEDED; bank: 1 request, 1 transfer.
 
+### Catatan implementasi (Sprint 8): resolusi manual oleh ops
+
+- `POST /ops/payouts/{id}/resolve` memakai jalur yang SAMA dengan status check (`settleTx`/`reverseTx`): guard + lock baris payout → journal → update status. Ops tidak pernah "mengedit saldo".
+- Bukti (`evidence_ref`) + alasan wajib; tanpa itu 422 `RESOLUTION_EVIDENCE_REQUIRED`. Bukti dan hasil disimpan di `audit_log.diff`, di transaksi yang sama.
+- Race status check vs ops (19-tx-concurrency §3g) diuji dua arah dengan test hook (`TestPayoutStatusCheck_VsOpsResolve`, `TestOpsResolve_VsStatusCheck`). Mutasi "hapus `FOR UPDATE`" membuat keduanya gagal.
+- Tambahan: `UPDATE` status yang mengenai 0 baris SETELAH journal diposting sekarang me-rollback seluruh tx (`errStatusChanged`). Sebelumnya hasilnya diabaikan; aman selama lock ada, tetapi tanpa lapis ini satu bug lock bisa menyisakan journal tanpa perubahan status.
+
 ## Reason
 
 - Satu-satunya pendekatan yang benar untuk ketiga hasil tanpa pernah menebak.

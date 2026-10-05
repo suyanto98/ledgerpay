@@ -194,6 +194,18 @@ type RefreshToken struct {
 	Ip              *netip.Addr
 }
 
+type Refund struct {
+	ID               uuid.UUID
+	PaymentIntentID  uuid.UUID
+	MerchantID       uuid.UUID
+	Amount           int64
+	Currency         string
+	Reason           *string
+	JournalID        uuid.UUID
+	IdempotencyKeyID *uuid.UUID
+	CreatedAt        time.Time
+}
+
 type Topup struct {
 	ID            uuid.UUID
 	UserID        uuid.UUID

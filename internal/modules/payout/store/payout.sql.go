@@ -148,13 +148,15 @@ func (q *Queries) LockPayoutInStatus(ctx context.Context, arg LockPayoutInStatus
 
 const markPayoutFailed = `-- name: MarkPayoutFailed :execrows
 UPDATE payouts SET status = 'FAILED', reversal_journal_id = $1, resolved_at = now(),
-       resolution_source = $2, last_provider_status = $3
-WHERE id = $4 AND status IN ('SUBMITTED', 'UNKNOWN')
+       resolution_source = $2, resolved_by = $3,
+       last_provider_status = coalesce($4, last_provider_status)
+WHERE id = $5 AND status IN ('SUBMITTED', 'UNKNOWN')
 `
 
 type MarkPayoutFailedParams struct {
 	ReversalJournalID *uuid.UUID
 	ResolutionSource  *string
+	ResolvedBy        *uuid.UUID
 	ProviderStatus    *string
 	ID                uuid.UUID
 }
@@ -163,6 +165,7 @@ func (q *Queries) MarkPayoutFailed(ctx context.Context, arg MarkPayoutFailedPara
 	result, err := q.db.Exec(ctx, markPayoutFailed,
 		arg.ReversalJournalID,
 		arg.ResolutionSource,
+		arg.ResolvedBy,
 		arg.ProviderStatus,
 		arg.ID,
 	)
@@ -174,13 +177,15 @@ func (q *Queries) MarkPayoutFailed(ctx context.Context, arg MarkPayoutFailedPara
 
 const markPayoutSucceeded = `-- name: MarkPayoutSucceeded :execrows
 UPDATE payouts SET status = 'SUCCEEDED', settle_journal_id = $1, resolved_at = now(),
-       resolution_source = $2, last_provider_status = $3
-WHERE id = $4 AND status IN ('SUBMITTED', 'UNKNOWN')
+       resolution_source = $2, resolved_by = $3,
+       last_provider_status = coalesce($4, last_provider_status)
+WHERE id = $5 AND status IN ('SUBMITTED', 'UNKNOWN')
 `
 
 type MarkPayoutSucceededParams struct {
 	SettleJournalID  *uuid.UUID
 	ResolutionSource *string
+	ResolvedBy       *uuid.UUID
 	ProviderStatus   *string
 	ID               uuid.UUID
 }
@@ -189,6 +194,7 @@ func (q *Queries) MarkPayoutSucceeded(ctx context.Context, arg MarkPayoutSucceed
 	result, err := q.db.Exec(ctx, markPayoutSucceeded,
 		arg.SettleJournalID,
 		arg.ResolutionSource,
+		arg.ResolvedBy,
 		arg.ProviderStatus,
 		arg.ID,
 	)

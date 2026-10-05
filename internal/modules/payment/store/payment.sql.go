@@ -12,6 +12,27 @@ import (
 	"github.com/google/uuid"
 )
 
+const applyRefund = `-- name: ApplyRefund :execrows
+UPDATE payment_intents
+SET refunded_amount = refunded_amount + $1,
+    status = CASE WHEN refunded_amount + $1 = amount THEN 'REFUNDED' ELSE 'PARTIALLY_REFUNDED' END
+WHERE id = $2 AND status IN ('SUCCEEDED', 'PARTIALLY_REFUNDED') AND refunded_amount + $1 <= amount
+`
+
+type ApplyRefundParams struct {
+	Amount int64
+	ID     uuid.UUID
+}
+
+// Guard di WHERE + CHECK constraint sebagai jaring terakhir (ck_payment_intents_refund_bound).
+func (q *Queries) ApplyRefund(ctx context.Context, arg ApplyRefundParams) (int64, error) {
+	result, err := q.db.Exec(ctx, applyRefund, arg.Amount, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const expireDueIntents = `-- name: ExpireDueIntents :many
 UPDATE payment_intents SET status = 'EXPIRED', expired_at = now()
 WHERE id IN (
@@ -154,6 +175,84 @@ func (q *Queries) InsertIntent(ctx context.Context, arg InsertIntentParams) (Ins
 	return i, err
 }
 
+const insertRefund = `-- name: InsertRefund :one
+INSERT INTO refunds (id, payment_intent_id, merchant_id, amount, currency, reason, journal_id, idempotency_key_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING created_at
+`
+
+type InsertRefundParams struct {
+	ID               uuid.UUID
+	PaymentIntentID  uuid.UUID
+	MerchantID       uuid.UUID
+	Amount           int64
+	Currency         string
+	Reason           *string
+	JournalID        uuid.UUID
+	IdempotencyKeyID *uuid.UUID
+}
+
+func (q *Queries) InsertRefund(ctx context.Context, arg InsertRefundParams) (time.Time, error) {
+	row := q.db.QueryRow(ctx, insertRefund,
+		arg.ID,
+		arg.PaymentIntentID,
+		arg.MerchantID,
+		arg.Amount,
+		arg.Currency,
+		arg.Reason,
+		arg.JournalID,
+		arg.IdempotencyKeyID,
+	)
+	var created_at time.Time
+	err := row.Scan(&created_at)
+	return created_at, err
+}
+
+const listRefunds = `-- name: ListRefunds :many
+SELECT id, payment_intent_id, amount, currency, reason, journal_id, created_at
+FROM refunds
+WHERE payment_intent_id = $1
+ORDER BY created_at, id
+`
+
+type ListRefundsRow struct {
+	ID              uuid.UUID
+	PaymentIntentID uuid.UUID
+	Amount          int64
+	Currency        string
+	Reason          *string
+	JournalID       uuid.UUID
+	CreatedAt       time.Time
+}
+
+func (q *Queries) ListRefunds(ctx context.Context, paymentIntentID uuid.UUID) ([]ListRefundsRow, error) {
+	rows, err := q.db.Query(ctx, listRefunds, paymentIntentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRefundsRow
+	for rows.Next() {
+		var i ListRefundsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PaymentIntentID,
+			&i.Amount,
+			&i.Currency,
+			&i.Reason,
+			&i.JournalID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockIntent = `-- name: LockIntent :one
 SELECT id, merchant_id, merchant_account_id, amount, currency, status,
        (expires_at <= now()) AS expired
@@ -188,6 +287,42 @@ func (q *Queries) LockIntent(ctx context.Context, id uuid.UUID) (LockIntentRow, 
 	return i, err
 }
 
+const lockPaidIntent = `-- name: LockPaidIntent :one
+SELECT id, merchant_id, merchant_account_id, payer_account_id, amount, refunded_amount, currency, status
+FROM payment_intents
+WHERE id = $1
+FOR UPDATE
+`
+
+type LockPaidIntentRow struct {
+	ID                uuid.UUID
+	MerchantID        uuid.UUID
+	MerchantAccountID uuid.UUID
+	PayerAccountID    *uuid.UUID
+	Amount            int64
+	RefundedAmount    int64
+	Currency          string
+	Status            string
+}
+
+// Refund: intent dikunci SEBELUM wallet (urutan lock §0). Refund paralel diserialkan di sini, dan
+// yang menunggu membaca refunded_amount terbaru setelah yang pertama commit (LI-08).
+func (q *Queries) LockPaidIntent(ctx context.Context, id uuid.UUID) (LockPaidIntentRow, error) {
+	row := q.db.QueryRow(ctx, lockPaidIntent, id)
+	var i LockPaidIntentRow
+	err := row.Scan(
+		&i.ID,
+		&i.MerchantID,
+		&i.MerchantAccountID,
+		&i.PayerAccountID,
+		&i.Amount,
+		&i.RefundedAmount,
+		&i.Currency,
+		&i.Status,
+	)
+	return i, err
+}
+
 const markIntentSucceeded = `-- name: MarkIntentSucceeded :execrows
 UPDATE payment_intents
 SET status = 'SUCCEEDED', payer_user_id = $1, payer_account_id = $2,
@@ -214,4 +349,33 @@ func (q *Queries) MarkIntentSucceeded(ctx context.Context, arg MarkIntentSucceed
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const refundDrift = `-- name: RefundDrift :many
+SELECT i.id
+FROM payment_intents i
+LEFT JOIN (SELECT payment_intent_id, sum(amount) AS total FROM refunds GROUP BY payment_intent_id) r
+       ON r.payment_intent_id = i.id
+WHERE i.refunded_amount <> coalesce(r.total, 0)
+`
+
+// LI-08 (deteksi): refunded_amount materialized harus sama dengan Σ refunds. Normalnya kosong.
+func (q *Queries) RefundDrift(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, refundDrift)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -23,6 +23,8 @@ type Problem struct {
 	Errors    []apperr.FieldError `json:"errors,omitempty"`
 	// Hanya untuk DUPLICATE_MERCHANT_ORDER: ID intent yang sudah ada.
 	ExistingResourceID string `json:"existing_resource_id,omitempty"`
+	// Hanya untuk REFUND_EXCEEDS_PAYMENT: sisa yang masih bisa di-refund.
+	RefundableAmount string `json:"refundable_amount,omitempty"`
 }
 
 const problemTypeBase = "https://ledgerpay.dev/errors/"
@@ -62,6 +64,7 @@ func NewProblem(r *http.Request, err error) Problem {
 		Errors:    e.Fields,
 
 		ExistingResourceID: e.ExistingResourceID,
+		RefundableAmount:   e.RefundableAmount,
 	}
 }
 

@@ -24,6 +24,7 @@ var constraintErrors = map[string]*apperr.Error{
 	// Jalur normal menangani duplikat order di modul payment (agar existing_resource_id ikut);
 	// pemetaan ini jaring terakhir.
 	"uq_payment_intents_merchant_order": apperr.ErrDuplicateMerchantOrder, // LI-13
+	"ck_payment_intents_refund_bound":   apperr.ErrRefundExceedsPayment,   // LI-08 (guard aplikasi lebih dulu)
 	// Sengaja TIDAK dipetakan (bug → 500 + alert): ck_journals_balanced, uq_journals_source,
 	// trigger append-only. Pelanggaran ini berarti kode aplikasi salah, bukan input user salah.
 }
@@ -68,4 +69,10 @@ func MapError(err error) error {
 		return apperr.ErrNotFound.WithCause(err)
 	}
 	return err
+}
+
+// IsUniqueViolation melaporkan apakah err adalah unique violation pada constraint/index bernama itu.
+func IsUniqueViolation(err error, constraint string) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == constraint
 }

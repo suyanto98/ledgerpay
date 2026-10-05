@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ledgerpay/internal/modules/webhookout/store"
+	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/clock"
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/egress"
@@ -180,4 +181,30 @@ func (s *Service) deliver(ctx context.Context, j *jobs.Job) error {
 		return err
 	}
 	return fmt.Errorf("webhook delivery failed: %s", reason) // runner menjadwalkan retry sesuai RetrySchedule
+}
+
+// Replay (ops, di tx pemanggil yang juga menulis audit): DEAD → PENDING + job webhook.deliver baru.
+// event_id TETAP sama, jadi merchant yang ternyata sudah menerima versi lama bisa dedupe.
+// Tidak ada → 404; bukan DEAD → 409.
+func (s *Service) Replay(ctx context.Context, tx pgx.Tx, deliveryID uuid.UUID) (eventID uuid.UUID, err error) {
+	q := store.New(tx)
+	r, err := q.ReplayDelivery(ctx, deliveryID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		exists, xerr := q.DeliveryExists(ctx, deliveryID)
+		if xerr != nil {
+			return uuid.Nil, db.MapError(xerr)
+		}
+		if !exists {
+			return uuid.Nil, apperr.ErrNotFound
+		}
+		return uuid.Nil, apperr.ErrInvalidState
+	}
+	if err != nil {
+		return uuid.Nil, db.MapError(err)
+	}
+	if _, err := jobs.Enqueue(ctx, tx, jobs.Spec{Kind: KindDeliver, Payload: map[string]any{"delivery_id": deliveryID},
+		Dedupe: KindDeliver + ":" + deliveryID.String(), MaxAttempts: len(RetrySchedule) + 1}); err != nil {
+		return uuid.Nil, err
+	}
+	return r.EventID, nil
 }

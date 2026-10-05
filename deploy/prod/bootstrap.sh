@@ -39,4 +39,14 @@ dpkg-reconfigure -f noninteractive unattended-upgrades
 
 install -d -m 755 -o deploy -g deploy /srv/ledgerpay /srv/ledgerpay/releases
 install -d -m 700 -o deploy -g deploy /srv/ledgerpay/env
+install -d -m 755 -o deploy -g deploy /srv/ledgerpay/logs
+# Backup ditulis container (user postgres, uid 70). Isinya terenkripsi age; private key tidak di VM.
+install -d -m 750 -o 70 -g 70 /srv/ledgerpay/backups
+
+# Backup harian 02:00 UTC (§5.2). Cron host, bukan container cron: satu komponen lebih sedikit.
+cat > /etc/cron.d/ledgerpay-backup <<C
+CRON_TZ=UTC
+0 2 * * * deploy /srv/ledgerpay/current/deploy/prod/run-backup.sh >> /srv/ledgerpay/logs/backup.log 2>&1
+C
+chmod 644 /etc/cron.d/ledgerpay-backup
 echo "bootstrap done. Next (from your laptop): deploy/prod/deploy.sh <host> <sha>"

@@ -1,0 +1,49 @@
+# promtool test rules untuk alert backup (make test-alerts).
+rule_files: [../rules/platform.yml]
+evaluation_interval: 1m
+tests:
+  # Backup sukses terakhir pada t=0 (timestamp 0) lalu berhenti: alert setelah > 26 jam.
+  - interval: 1h
+    input_series:
+      - series: 'app_backup_last_success_timestamp_seconds{db="ledgerpay",job="backup"}'
+        values: "0x30"
+    alert_rule_test:
+      - { eval_time: 26h, alertname: BackupStale, exp_alerts: [] }
+      - eval_time: 27h
+        alertname: BackupStale
+        exp_alerts:
+          - exp_labels: { severity: warning, db: ledgerpay }
+            exp_annotations:
+              summary: "No successful backup of ledgerpay for more than 26 hours"
+              runbook: "docs/design/26-deploy-migrations-backup.md §5 — check /var/log/ledgerpay-backup.log on the VM"
+      - { eval_time: 27h, alertname: BackupMissing, exp_alerts: [] }
+
+  # Tidak ada metrik sama sekali → BackupMissing setelah 1 jam.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="pushgateway"}'
+        values: "1x90"
+    alert_rule_test:
+      - { eval_time: 30m, alertname: BackupMissing, exp_alerts: [] }
+      - eval_time: 61m
+        alertname: BackupMissing
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "No backup metric at all (backup never ran, or Pushgateway lost its state)"
+              runbook: "docs/design/26-deploy-migrations-backup.md §5 — run deploy/prod/run-backup.sh manually"
+
+  # Ukuran dump turun dari 10 MB ke 1 MB → BackupSizeDrop.
+  - interval: 6h
+    input_series:
+      - series: 'app_backup_size_bytes{db="ledgerpay",job="backup"}'
+        values: "10000000x12 1000000x4"
+    alert_rule_test:
+      - { eval_time: 66h, alertname: BackupSizeDrop, exp_alerts: [] }
+      - eval_time: 78h
+        alertname: BackupSizeDrop
+        exp_alerts:
+          - exp_labels: { severity: warning, db: ledgerpay }
+            exp_annotations:
+              summary: "Backup of ledgerpay shrank by more than 50% (possible empty or partial dump)"
+              runbook: "docs/design/26-deploy-migrations-backup.md §5 — run scripts/restore-drill.sh on the latest file"

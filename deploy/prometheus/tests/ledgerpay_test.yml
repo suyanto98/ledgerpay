@@ -17,9 +17,27 @@ tests:
         exp_alerts:
           - exp_labels: { severity: critical }
             exp_annotations:
-              summary: "Ledger invariant violated (drift / unbalanced journal / global imbalance)"
+              summary: "Ledger invariant violated (drift / unbalanced journal / global imbalance / refund drift)"
               runbook: "docs/design/21-observability.md §8.1 — freeze payouts, run ledger-verify, compare journals"
       - { eval_time: 4m, alertname: LedgerInvariantViolated, exp_alerts: [] }
+
+  # LI-08: refund drift sendirian (gauge ledger lain 0) tetap memicu alert yang sama.
+  - interval: 1m
+    input_series:
+      - series: ledgerpay_ledger_balance_drift_accounts
+        values: "0 0 0"
+      - series: ledgerpay_payment_refund_drift_intents
+        values: "0 1 0"
+    alert_rule_test:
+      - { eval_time: 0m, alertname: LedgerInvariantViolated, exp_alerts: [] }
+      - eval_time: 1m
+        alertname: LedgerInvariantViolated
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: "Ledger invariant violated (drift / unbalanced journal / global imbalance / refund drift)"
+              runbook: "docs/design/21-observability.md §8.1 — freeze payouts, run ledger-verify, compare journals"
+      - { eval_time: 2m, alertname: LedgerInvariantViolated, exp_alerts: [] }
 
   - interval: 1m
     input_series:

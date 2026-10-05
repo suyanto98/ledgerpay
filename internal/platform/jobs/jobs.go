@@ -21,6 +21,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/jobs/store"
 	"ledgerpay/internal/platform/metrics"
@@ -163,4 +164,65 @@ func Stats(ctx context.Context, q db.DBTX) error {
 	}
 	metrics.OutboxLag.WithLabelValues().Set(lag)
 	return nil
+}
+
+// Summary adalah ringkasan job untuk ops console: TANPA payload (bisa memuat data sensitif).
+type Summary struct {
+	ID            uuid.UUID
+	Kind          string
+	Status        string
+	Attempts      int32
+	MaxAttempts   int32
+	LastError     *string
+	RunAt         time.Time
+	CorrelationID *string
+	CreatedAt     time.Time
+}
+
+// List mengembalikan job per status (terbaru dulu), dengan keyset cursor (createdAt, id).
+func List(ctx context.Context, q db.DBTX, status string, kind *string, afterAt *time.Time, afterID *uuid.UUID, limit int32) ([]Summary, error) {
+	rows, err := store.New(q).ListJobs(ctx, store.ListJobsParams{Status: status, Kind: kind, CursorAt: afterAt, CursorID: afterID, Lim: limit})
+	if err != nil {
+		return nil, db.MapError(err)
+	}
+	out := make([]Summary, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, Summary{ID: r.ID, Kind: r.Kind, Status: r.Status, Attempts: r.Attempts, MaxAttempts: r.MaxAttempts,
+			LastError: r.LastError, RunAt: r.RunAt, CorrelationID: r.CorrelationID, CreatedAt: r.CreatedAt})
+	}
+	return out, nil
+}
+
+// RetryDead mengembalikan job dead ke antrean (ops, di tx pemanggil yang juga menulis audit).
+// Tidak ada → 404; bukan dead → 409; job pengganti dengan dedupe key yang sama sedang hidup → 409.
+func RetryDead(ctx context.Context, tx pgx.Tx, id uuid.UUID) (Summary, error) {
+	q := store.New(tx)
+	sp, err := tx.Begin(ctx) // savepoint: unique violation tidak boleh meng-abort tx pemanggil
+	if err != nil {
+		return Summary{}, err
+	}
+	r, err := store.New(sp).RetryDeadJob(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		_ = sp.Rollback(ctx)
+		exists, xerr := q.JobExists(ctx, id)
+		if xerr != nil {
+			return Summary{}, db.MapError(xerr)
+		}
+		if !exists {
+			return Summary{}, apperr.ErrNotFound
+		}
+		return Summary{}, apperr.ErrInvalidState
+	}
+	if db.IsUniqueViolation(err, "uq_jobs_dedupe_key") {
+		_ = sp.Rollback(ctx)
+		return Summary{}, apperr.ErrInvalidState.WithDetail("a live job with the same dedupe key already exists")
+	}
+	if err != nil {
+		_ = sp.Rollback(ctx)
+		return Summary{}, db.MapError(err)
+	}
+	if err := sp.Commit(ctx); err != nil {
+		return Summary{}, err
+	}
+	return Summary{ID: r.ID, Status: r.Status, Attempts: r.Attempts, RunAt: r.RunAt}, nil
 }

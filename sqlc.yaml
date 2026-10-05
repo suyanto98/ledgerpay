@@ -127,3 +127,12 @@ sql:
         out: internal/modules/webhookout/store
         sql_package: pgx/v5
         emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/ops.sql
+    gen:
+      go:
+        package: store
+        out: internal/modules/ops/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true

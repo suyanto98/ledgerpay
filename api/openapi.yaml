@@ -385,6 +385,359 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /merchant/payment-intents/{id}/refunds:
+    post:
+      tags: [merchant]
+      operationId: refundPaymentIntent
+      summary: Refund a paid intent, partially or fully (LF-16)
+      description: |
+        One transaction: key → intent FOR UPDATE → wallets (ORDER BY id) → journal REFUND →
+        refunded_amount/status → outbox `payment.refunded`. Parallel refunds are serialized by the
+        intent lock, so Σ refunds can never exceed the payment (LI-08). Stored for replay: 201 and
+        domain 422s (REFUND_EXCEEDS_PAYMENT with `refundable_amount`, INSUFFICIENT_BALANCE of the merchant).
+      security:
+        - merchantApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [amount]
+              properties:
+                amount: { $ref: '#/components/schemas/Money' }
+                reason: { type: string, maxLength: 200 }
+      responses:
+        '201':
+          description: Refund created (or replayed).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Refund'
+                  - type: object
+                    required: [payment_intent]
+                    properties:
+                      payment_intent:
+                        type: object
+                        required: [id, status, refunded_amount]
+                        properties:
+                          id: { type: string, format: uuid }
+                          status: { type: string, enum: [PARTIALLY_REFUNDED, REFUNDED] }
+                          refunded_amount: { $ref: '#/components/schemas/Money' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /merchant/balance:
+    get:
+      tags: [merchant]
+      operationId: getMerchantBalance
+      summary: Balance of the caller's merchant wallet (read from the primary)
+      security:
+        - merchantApiKey: []
+      responses:
+        '200':
+          description: Balance.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [account_id, balance, currency, as_of]
+                properties:
+                  account_id: { type: string, format: uuid }
+                  balance: { $ref: '#/components/schemas/Money' }
+                  currency: { $ref: '#/components/schemas/Currency' }
+                  as_of: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /ops/transactions/search:
+    get:
+      tags: [ops]
+      operationId: opsSearch
+      summary: Precise search by object/journal id, email, provider_ref or merchant_order_id (max 50)
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      responses:
+        '200':
+          description: Matching business objects (newest first).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [object_type, id, status, amount, currency, journal_ids, created_at]
+                      properties:
+                        object_type: { type: string, enum: [transfer, topup, payout, payment_intent, refund] }
+                        id: { type: string, format: uuid }
+                        status: { type: string }
+                        amount: { $ref: '#/components/schemas/Money' }
+                        currency: { $ref: '#/components/schemas/Currency' }
+                        user:
+                          type: [object, 'null']
+                          properties:
+                            id: { type: string, format: uuid }
+                            email: { type: string }
+                        journal_ids: { type: array, items: { type: string, format: uuid } }
+                        correlation_id: { type: [string, 'null'] }
+                        created_at: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /ops/journals/{id}:
+    get:
+      tags: [ops]
+      operationId: opsGetJournal
+      summary: Journal with entries and account owners
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Journal.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, purpose, source_type, source_id, actor_type, correlation_id, created_at, entries]
+                properties:
+                  id: { type: string, format: uuid }
+                  purpose: { type: string }
+                  source_type: { type: string }
+                  source_id: { type: string, format: uuid }
+                  reversal_of: { type: [string, 'null'], format: uuid }
+                  reversed_by: { type: [string, 'null'], format: uuid }
+                  actor_type: { type: string, enum: [USER, MERCHANT, OPS, SYSTEM] }
+                  actor_id: { type: [string, 'null'], format: uuid }
+                  correlation_id: { type: string }
+                  description: { type: [string, 'null'] }
+                  currency: { $ref: '#/components/schemas/Currency' }
+                  created_at: { type: string, format: date-time }
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      required: [account_id, owner, direction, amount, currency]
+                      properties:
+                        account_id: { type: string, format: uuid }
+                        owner: { type: string, examples: ['USER:rina@example.com', 'MERCHANT:Kopi Budi', 'PAYOUT_IN_TRANSIT'] }
+                        direction: { type: string, enum: [D, C] }
+                        amount: { $ref: '#/components/schemas/Money' }
+                        currency: { $ref: '#/components/schemas/Currency' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /ops/payouts:
+    get:
+      tags: [ops]
+      operationId: opsListPayouts
+      summary: Payout queue for ops (oldest first), e.g. ?status=UNKNOWN&needs_reconciliation=true
+      parameters:
+        - { name: status, in: query, required: false, explode: true, schema: { type: array, items: { type: string, enum: [PENDING, SUBMITTED, UNKNOWN, SUCCEEDED, FAILED] } } }
+        - { name: needs_reconciliation, in: query, required: false, schema: { type: boolean } }
+        - { name: older_than_minutes, in: query, required: false, schema: { type: integer, minimum: 0, maximum: 129600 } }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of payouts with ops fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/OpsPayout' } }
+                  page: { $ref: '#/components/schemas/Page' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /ops/payouts/{id}:
+    get:
+      tags: [ops]
+      operationId: opsGetPayout
+      summary: One payout with ops fields
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Payout.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpsPayout' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /ops/payouts/{id}/resolve:
+    post:
+      tags: [ops]
+      operationId: opsResolvePayout
+      summary: Manually resolve an UNKNOWN/SUBMITTED payout with evidence (ADR-L06)
+      description: |
+        One transaction: guard + lock payout → journal PAYOUT_SETTLE or PAYOUT_REVERSAL (never a
+        balance edit) → audit `payout.manual_resolve` with the evidence. Losing a race against an
+        automatic status check → 409 INVALID_STATE_TRANSITION, nothing posted.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [outcome, evidence_ref, reason]
+              properties:
+                outcome: { type: string, enum: [SUCCEEDED, FAILED] }
+                evidence_ref: { type: string, minLength: 3, maxLength: 200, examples: ['MOCKBANK-STMT-2026-10-04#L42'] }
+                reason: { type: string, minLength: 10 }
+      responses:
+        '200':
+          description: Resolved payout (resolution_source = OPS).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpsPayout' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /ops/jobs:
+    get:
+      tags: [ops]
+      operationId: opsListJobs
+      summary: Jobs by status (default dead), without payloads
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [queued, running, succeeded, dead], default: dead } }
+        - { name: kind, in: query, required: false, schema: { type: string } }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of jobs (newest first).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/OpsJob' } }
+                  page: { $ref: '#/components/schemas/Page' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /ops/jobs/{id}/retry:
+    post:
+      tags: [ops]
+      operationId: opsRetryJob
+      summary: Put a dead job back in the queue (attempts reset; audited)
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OpsReason' }
+      responses:
+        '200':
+          description: Job queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpsJob' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /ops/webhook-deliveries:
+    get:
+      tags: [ops]
+      operationId: opsListWebhookDeliveries
+      summary: Outbound webhook deliveries by status (default DEAD), without payloads
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [PENDING, DELIVERED, DEAD], default: DEAD } }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of deliveries (newest first).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, merchant, event_id, event_type, status, attempts, created_at]
+                      properties:
+                        id: { type: string, format: uuid }
+                        merchant: { type: object, properties: { id: { type: string, format: uuid }, name: { type: string } } }
+                        event_id: { type: string, format: uuid }
+                        event_type: { type: string, enum: [payment.succeeded, payment.refunded, payment.expired] }
+                        status: { type: string, enum: [PENDING, DELIVERED, DEAD] }
+                        attempts: { type: integer }
+                        last_status_code: { type: [integer, 'null'] }
+                        last_error: { type: [string, 'null'] }
+                        last_attempt_at: { type: [string, 'null'], format: date-time }
+                        created_at: { type: string, format: date-time }
+                  page: { $ref: '#/components/schemas/Page' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /ops/webhook-deliveries/{id}/replay:
+    post:
+      tags: [ops]
+      operationId: opsReplayWebhookDelivery
+      summary: Replay a DEAD delivery (same event_id so the merchant can dedupe; audited)
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OpsReason' }
+      responses:
+        '202':
+          description: Delivery queued again.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, event_id, status]
+                properties:
+                  id: { type: string, format: uuid }
+                  event_id: { type: string, format: uuid }
+                  status: { type: string, enum: [PENDING] }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /ops/merchants/{id}/api-keys:
     post:
       tags: [ops]
@@ -705,6 +1058,9 @@ components:
           type: string
           format: uuid
           description: Only for DUPLICATE_MERCHANT_ORDER — the live intent for that order.
+        refundable_amount:
+          $ref: '#/components/schemas/Money'
+          description: Only for REFUND_EXCEEDS_PAYMENT — what can still be refunded.
     RegisterRequest:
       type: object
       required: [email, password, display_name]
@@ -825,6 +1181,7 @@ components:
         refunded_amount: { $ref: '#/components/schemas/Money' }
         checkout_url: { type: string, format: uri }
         payer: { $ref: '#/components/schemas/Party' }
+        refunds: { type: array, items: { $ref: '#/components/schemas/Refund' }, description: Paid intents only (merchant and payer views). }
         expires_at: { type: string, format: date-time }
         confirmed_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
@@ -837,6 +1194,63 @@ components:
         slot: { type: integer, enum: [1, 2] }
         api_key: { type: [string, 'null'], description: Shown once; null on replay. }
         note: { type: string }
+        created_at: { type: string, format: date-time }
+    Refund:
+      type: object
+      required: [id, payment_intent_id, amount, currency, reason, journal_id, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        payment_intent_id: { type: string, format: uuid }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        reason: { type: [string, 'null'] }
+        journal_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+    OpsReason:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 10 }
+    OpsJob:
+      type: object
+      required: [id, status, attempts, run_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        status: { type: string, enum: [queued, running, succeeded, dead] }
+        attempts: { type: integer }
+        max_attempts: { type: integer }
+        last_error: { type: string }
+        run_at: { type: string, format: date-time }
+        correlation_id: { type: string }
+        created_at: { type: string, format: date-time }
+    OpsPayout:
+      type: object
+      required: [id, user, amount, currency, status, destination, hold_journal_id, needs_reconciliation, status_check_attempts, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        user: { type: object, required: [id, email], properties: { id: { type: string, format: uuid }, email: { type: string } } }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        status: { type: string, enum: [PENDING, SUBMITTED, UNKNOWN, SUCCEEDED, FAILED] }
+        destination:
+          type: object
+          properties:
+            bank_code: { type: string }
+            account_number_masked: { type: string }
+            holder_name: { type: string }
+        hold_journal_id: { type: string, format: uuid }
+        settle_journal_id: { type: [string, 'null'], format: uuid }
+        reversal_journal_id: { type: [string, 'null'], format: uuid }
+        needs_reconciliation: { type: boolean }
+        status_check_attempts: { type: integer }
+        last_provider_status: { type: [string, 'null'] }
+        last_error: { type: [string, 'null'] }
+        resolution_source: { type: [string, 'null'], enum: [BANK_RESPONSE, STATUS_QUERY, RECON, OPS, null] }
+        resolved_by: { type: [string, 'null'], format: uuid }
+        submitted_at: { type: [string, 'null'], format: date-time }
+        resolved_at: { type: [string, 'null'], format: date-time }
         created_at: { type: string, format: date-time }
     CreatePayoutRequest:
       type: object
@@ -934,7 +1348,7 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
     UnprocessableEntity:
-      description: INSUFFICIENT_BALANCE, SELF_TRANSFER, INVALID_RECIPIENT, ACCOUNT_FROZEN, CURRENCY_NOT_SUPPORTED, PAYMENT_EXPIRED, or IDEMPOTENCY_KEY_REUSED.
+      description: INSUFFICIENT_BALANCE, SELF_TRANSFER, INVALID_RECIPIENT, ACCOUNT_FROZEN, CURRENCY_NOT_SUPPORTED, PAYMENT_EXPIRED, REFUND_EXCEEDS_PAYMENT (with refundable_amount), RESOLUTION_EVIDENCE_REQUIRED, or IDEMPOTENCY_KEY_REUSED.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }

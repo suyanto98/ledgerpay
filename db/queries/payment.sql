@@ -45,3 +45,37 @@ WHERE id IN (
   LIMIT @batch
   FOR UPDATE SKIP LOCKED)
 RETURNING id;
+
+-- name: LockPaidIntent :one
+-- Refund: intent dikunci SEBELUM wallet (urutan lock §0). Refund paralel diserialkan di sini, dan
+-- yang menunggu membaca refunded_amount terbaru setelah yang pertama commit (LI-08).
+SELECT id, merchant_id, merchant_account_id, payer_account_id, amount, refunded_amount, currency, status
+FROM payment_intents
+WHERE id = @id
+FOR UPDATE;
+
+-- name: ApplyRefund :execrows
+-- Guard di WHERE + CHECK constraint sebagai jaring terakhir (ck_payment_intents_refund_bound).
+UPDATE payment_intents
+SET refunded_amount = refunded_amount + @amount,
+    status = CASE WHEN refunded_amount + @amount = amount THEN 'REFUNDED' ELSE 'PARTIALLY_REFUNDED' END
+WHERE id = @id AND status IN ('SUCCEEDED', 'PARTIALLY_REFUNDED') AND refunded_amount + @amount <= amount;
+
+-- name: InsertRefund :one
+INSERT INTO refunds (id, payment_intent_id, merchant_id, amount, currency, reason, journal_id, idempotency_key_id)
+VALUES (@id, @payment_intent_id, @merchant_id, @amount, @currency, @reason, @journal_id, @idempotency_key_id)
+RETURNING created_at;
+
+-- name: ListRefunds :many
+SELECT id, payment_intent_id, amount, currency, reason, journal_id, created_at
+FROM refunds
+WHERE payment_intent_id = @payment_intent_id
+ORDER BY created_at, id;
+
+-- name: RefundDrift :many
+-- LI-08 (deteksi): refunded_amount materialized harus sama dengan Σ refunds. Normalnya kosong.
+SELECT i.id
+FROM payment_intents i
+LEFT JOIN (SELECT payment_intent_id, sum(amount) AS total FROM refunds GROUP BY payment_intent_id) r
+       ON r.payment_intent_id = i.id
+WHERE i.refunded_amount <> coalesce(r.total, 0);

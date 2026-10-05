@@ -248,6 +248,14 @@ Prinsipnya: **jeda di sisi konsumer, bukan buang di sisi produser**. Pekerjaan y
 - Offsite: bucket S3-compatible (Cloudflare R2 atau Backblaze B2; pilihan di `04`) dengan **lifecycle rule**: `daily/` dihapus setelah 7 hari, `weekly/` setelah 28 hari. Kredensial VM write-only (§2.3).
 - `pg_dump` mengambil snapshot konsisten per database (satu transaksi `REPEATABLE READ`). Antar database tidak konsisten secara atomik. Konsekuensinya: setelah restore, recon LedgerPay ↔ mockprovider bisa menemukan selisih di sekitar waktu dump, dan itu justru tugas recon.
 
+### 5.2a Catatan implementasi (Sprint 8, LedgerPay)
+- Yang di-backup: DB `ledgerpay` (`pg_dump -Fc --schema=ledgerpay`). `mockprovider` masih in-memory (backlog S5), jadi belum ada yang di-backup darinya.
+- Role `ledgerpay_backup` dengan `pg_read_all_data` (PG14+): bisa membaca semua, tidak bisa menulis (diuji: `UPDATE` → permission denied).
+- Penjadwal: **cron host** (`/etc/cron.d/ledgerpay-backup` → `deploy/prod/run-backup.sh` → `compose run --rm backup`), bukan `supercronic` di container. Satu komponen lebih sedikit.
+- Metrik: **Pushgateway** (`backup.sh` mendorong `app_backup_*`), bukan node_exporter textfile (node_exporter belum ada di stack). Alert `BackupStale`/`BackupMissing`/`BackupSizeDrop` punya unit test promtool.
+- Integritas: file `.sha256` di sebelah setiap backup, diverifikasi `restore.sh` sebelum menyentuh DB. Dump < 1 KB dianggap gagal.
+- Restore drill: `scripts/restore-drill.sh` (Postgres sekali pakai → restore → `migrate up` binary sekarang → `ledger-verify` + refund drift). Uji lokal: PASS dalam 5 dtk; **gagal** dengan benar untuk file yang diubah 1 byte, key yang salah, dan backup dari DB yang saldonya dirusak +1. Workflow `nightly.yml` menjalankannya mingguan kalau `BACKUP_REMOTE` di-set.
+
 ### 5.3 Monitoring
 | Alert | Ekspresi | Severity |
 |---|---|---|

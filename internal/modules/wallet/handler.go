@@ -3,8 +3,6 @@
 package wallet
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -79,11 +77,6 @@ func directionLabel(d ledger.Direction) string {
 	return "OUT"
 }
 
-type page struct {
-	NextCursor *string `json:"next_cursor"`
-	HasMore    bool    `json:"has_more"`
-}
-
 func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 	p, _ := auth.PrincipalFrom(r.Context())
 	f, err := parseFilter(r)
@@ -106,9 +99,9 @@ func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 		out = append(out, transaction{ID: m.JournalID, Type: m.Purpose.TransactionType(), Direction: directionLabel(m.Direction),
 			Amount: ledger.FormatAmount(m.Amount), Currency: m.Currency, Status: "POSTED", JournalID: m.JournalID, CreatedAt: m.CreatedAt})
 	}
-	pg := page{HasMore: next != nil}
+	pg := httpx.Page{HasMore: next != nil}
 	if next != nil {
-		c := encodeCursor(*next)
+		c := httpx.EncodeCursor(httpx.Cursor(*next))
 		pg.NextCursor = &c
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"data": out, "page": pg})
@@ -204,11 +197,12 @@ func parseFilter(r *http.Request) (ledger.HistoryFilter, error) {
 		return f, apperr.Validation(fe...)
 	}
 	if s := q.Get("cursor"); s != "" {
-		c, err := decodeCursor(s)
+		c, err := httpx.DecodeCursor(s)
 		if err != nil {
-			return f, apperr.ErrInvalidCursor
+			return f, err
 		}
-		f.Cursor = &c
+		lc := ledger.Cursor(c)
+		f.Cursor = &lc
 	}
 	return f, nil
 }
@@ -223,27 +217,4 @@ func parseDate(s string, fe *[]apperr.FieldError, field string) (time.Time, bool
 		return time.Time{}, false
 	}
 	return t, true
-}
-
-// Cursor opaque: base64url(JSON). Client tidak boleh (dan tidak perlu) merakitnya sendiri.
-type cursorJSON struct {
-	At time.Time `json:"t"`
-	ID uuid.UUID `json:"i"`
-}
-
-func encodeCursor(c ledger.Cursor) string {
-	b, _ := json.Marshal(cursorJSON{At: c.At, ID: c.ID})
-	return base64.RawURLEncoding.EncodeToString(b)
-}
-
-func decodeCursor(s string) (ledger.Cursor, error) {
-	b, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return ledger.Cursor{}, err
-	}
-	var c cursorJSON
-	if err := json.Unmarshal(b, &c); err != nil || c.ID == uuid.Nil || c.At.IsZero() {
-		return ledger.Cursor{}, apperr.ErrInvalidCursor
-	}
-	return ledger.Cursor{At: c.At, ID: c.ID}, nil
 }

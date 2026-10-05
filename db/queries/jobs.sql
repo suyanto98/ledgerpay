@@ -68,3 +68,23 @@ SELECT kind, status, count(*)::bigint AS n,
        coalesce(extract(epoch FROM now() - min(run_at) FILTER (WHERE status = 'queued' AND run_at <= now() AND attempts = 0)), 0)::float8 AS lag_secs
 FROM jobs WHERE status IN ('queued', 'running', 'dead')
 GROUP BY kind, status;
+
+-- name: ListJobs :many
+-- Ops console: ringkasan TANPA payload (payload bisa memuat data sensitif). Terbaru dulu.
+SELECT id, kind, status, attempts, max_attempts, last_error, run_at, correlation_id, created_at
+FROM jobs
+WHERE status = sqlc.arg(status)
+  AND (sqlc.narg(kind)::text IS NULL OR kind = sqlc.narg(kind)::text)
+  AND (sqlc.narg(cursor_at)::timestamptz IS NULL OR (created_at, id) < (sqlc.narg(cursor_at)::timestamptz, sqlc.narg(cursor_id)::uuid))
+ORDER BY created_at DESC, id DESC
+LIMIT sqlc.arg(lim);
+
+-- name: RetryDeadJob :one
+-- Ops retry: natural idempotent lewat guard status. Percobaan direset; dedupe key yang sama sedang
+-- hidup (job pengganti sudah ada) → unique violation uq_jobs_dedupe_key → 409.
+UPDATE jobs SET status = 'queued', attempts = 0, run_at = now(), completed_at = NULL, locked_by = NULL, locked_until = NULL
+WHERE id = sqlc.arg(id) AND status = 'dead'
+RETURNING id, status, attempts, run_at;
+
+-- name: JobExists :one
+SELECT EXISTS (SELECT 1 FROM jobs WHERE id = sqlc.arg(id));

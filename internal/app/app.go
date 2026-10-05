@@ -20,6 +20,7 @@ import (
 	"ledgerpay/internal/modules/inbox"
 	"ledgerpay/internal/modules/ledger"
 	"ledgerpay/internal/modules/merchant"
+	"ledgerpay/internal/modules/ops"
 	"ledgerpay/internal/modules/payment"
 	"ledgerpay/internal/modules/payout"
 	"ledgerpay/internal/modules/topup"
@@ -137,10 +138,11 @@ func APIRouter(d Deps) http.Handler {
 	walletH := wallet.NewHandler(d.Pool, ledgerSvc, d.Clock)
 	transferH := transfer.NewHandler(d.Pool, transfer.NewService(ledgerSvc, users, d.IDs), idem)
 	merchantH := merchant.NewHandler(sv.merchant, idem)
-	paymentH := payment.NewHandler(d.Pool, sv.payment, idem, d.PublicBaseURL)
+	paymentH := payment.NewHandler(d.Pool, sv.payment, idem, d.PublicBaseURL, d.Clock)
 	topupH := topup.NewHandler(d.Pool, sv.topup, idem)
 	payoutH := payout.NewHandler(d.Pool, sv.payout, idem)
 	inboxH := inbox.NewHandler(d.Pool, d.WebhookSecrets, d.Clock, d.IDs)
+	opsH := ops.NewHandler(d.Pool, idem, d.IDs, sv.payout, sv.webhooks)
 
 	r := chi.NewRouter()
 	r.Use(httpx.RequestID(d.Logger), httpx.Recover, tracing.Middleware, httpx.Metrics, httpx.SecurityHeaders,
@@ -155,7 +157,9 @@ func APIRouter(d Deps) http.Handler {
 		authed := v1.With(auth.RequireUser(d.Tokens))
 		read := authed.With(limiter.Middleware(tiers.Read, byUser))        // GET user: 300/menit
 		money := authed.With(limiter.Middleware(tiers.MoneyWrite, byUser)) // pindah uang: 30/menit
-		ops := authed.With(auth.RequireRole("OPS"))                        // /ops/*: role OPS
+		opsAll := authed.With(auth.RequireRole("OPS"))                     // /ops/*: role OPS
+		opsRead := opsAll.With(limiter.Middleware(tiers.Read, byUser))
+		opsWrite := opsAll.With(limiter.Middleware(tiers.MoneyWrite, byUser)) // aksi ops bisa memindahkan uang
 		merchantAPI := v1.With(merchantH.RequireMerchant, limiter.Middleware(tiers.MerchantAPI, byMerchant))
 
 		idH.Routes(v1, read)
@@ -163,7 +167,8 @@ func APIRouter(d Deps) http.Handler {
 		transferH.Routes(read, money)
 		paymentH.UserRoutes(read, money)
 		paymentH.MerchantRoutes(merchantAPI)
-		merchantH.OpsRoutes(ops)
+		merchantH.OpsRoutes(opsAll)
+		opsH.Routes(opsRead, opsWrite)
 		topupH.Routes(read, money)
 		payoutH.Routes(read, money)
 		inboxH.Routes(v1) // publik: autentikasi = tanda tangan HMAC provider

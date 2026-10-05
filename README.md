@@ -2,7 +2,7 @@
 
 > A mini payment platform where money stays correct even when requests are duplicated, concurrent, or interrupted by failures.
 
-**Status:** M3 (Sprint 7 of 10) — core money flows, background processing, observability, and a scripted deploy are done. Reconciliation, ops console, load test, and backup drills are next ([backlog](docs/backlog.md)).
+**Status:** Sprint 8 of 10 — money flows (incl. refunds), background processing, observability, an ops console API, encrypted backups with a restore drill, and a CD pipeline are done. Reconciliation, load testing and the final demo pass are next ([backlog](docs/backlog.md)).
 **Live demo:** `[LINK: https://<domain> after the first deploy]` · **Demo video (~5 min):** `[LINK: video]`
 
 Production-oriented, small in scope, strict about correctness. Built for learning and as a portfolio project.
@@ -24,6 +24,8 @@ Production-oriented, small in scope, strict about correctness. Built for learnin
 | Money created or lost by a bug | Every journal balances; the ledger is append-only | Double-entry ledger, deferred constraint trigger, grants + triggers forbid UPDATE/DELETE ([ADR-L01](docs/adr/ADR-L01-double-entry-ledger.md)) | `TestProperty_RandomTransfersConserveTotal`, `TestJournal_UnbalancedRejectedAtCommit`, invariant gauges = 0 |
 | The bank times out ("did the money leave?") | Never pay twice, never lose money | `SUBMITTED` committed before the bank call; unknown outcomes become `UNKNOWN` and are resolved by status queries, resubmit only after the bank's safe window with the same key ([ADR-L06](docs/adr/ADR-L06-payout-unknown-outcome.md)) | `TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend`, `TestPayout_TimeoutAfterProcess_ResolvesViaStatusQuery`, Demo C |
 | Side effects lost on a crash | At-least-once with idempotent consumers; no event without a commit | Transactional outbox + PostgreSQL job queue with leases and **fencing** ([ADR-006](docs/adr/ADR-006-background-processing-postgres-queue.md)) | `TestJobRunner_FencedCompletion_ZombieRollsBack`, `TestJobRunner_LeaseExpiry_Reclaims` |
+| Parallel refunds on one payment | Σ refunds never exceeds the payment | Intent row locked before the wallets; guard in the `UPDATE` + `CHECK (refunded_amount <= amount)`; drift check `refunded_amount = Σ refunds` in the hourly verifier | `TestRefund_ParallelExceedingAmount`, `TestRefund_ParallelWaitOnIntentLock`, Demo ops |
+| An operator "fixes" a stuck payout | No balance edits; every manual action is evidenced and audited | Ops resolution goes through the same guarded journal path as the automatic status check, in one transaction with an `audit_log` row holding the evidence | `TestOps_ResolutionRequiresEvidence`, `TestPayoutStatusCheck_VsOpsResolve` |
 | Forged or duplicated provider webhooks | A webhook can never create money on its own | HMAC + timestamp, inbox dedupe, monotonic transitions, **verify-by-fetch** with the provider ([ADR-L08](docs/adr/ADR-L08-inbound-webhook-inbox.md)) | `TestInbox_VerifyByFetch_ForgedWebhookNoCredit`, `TestTopup_DuplicateWebhook_OneJournal` |
 
 ## Architecture
@@ -90,11 +92,14 @@ make demo-b             # 100 concurrent transfers
 make demo-c             # payout timeout + docker kill worker (~60 s)
 make demo-topup         # top-up through the mock provider, duplicate + forged webhooks
 make demo-payment       # merchant API key → payment intent → two tabs confirm
+make demo-ops           # 5 parallel refunds (3 succeed) + ops resolves an UNKNOWN payout with evidence
 make web                # SPA on http://localhost:5173
 make up-obs             # + Grafana (http://localhost:3000), Jaeger (http://localhost:16686), Prometheus
 ```
 
-Deploy to a VM: `deploy/prod/` (cloud-init + `bootstrap.sh` hardening, `init-env.sh` generates secrets, `deploy.sh <host> <sha>` uploads a git archive, migrates, health-gates, smoke-tests, and rolls back automatically on failure).
+Deploy to a VM: `deploy/prod/` (cloud-init + `bootstrap.sh` hardening, `init-env.sh` generates secrets and backup keys, `deploy.sh <host> <sha>` migrates, health-gates, smoke-tests, and rolls back automatically on failure). With CI, `main.yml` builds and scans the images, the VM pulls them, and `rollback.yml` returns to any previously successful SHA without touching the schema.
+
+Backups: nightly `pg_dump` with a read-only role, encrypted with [age](https://age-encryption.org) for two recipients (offline operator key + restore-drill key), checksummed, optionally shipped offsite. `scripts/restore-drill.sh <file> <key>` restores into a throwaway Postgres, migrates with the current binary and runs the ledger verifier; it was checked to fail on a tampered file, a wrong key, and a backup of a corrupted database.
 
 ## Tech stack
 
@@ -104,11 +109,11 @@ Deploy to a VM: `deploy/prod/` (cloud-init + `bootstrap.sh` hardening, `init-env
 | Database | PostgreSQL 17 | Constraints, deferred triggers, `SKIP LOCKED` ([ADR-004](docs/adr/ADR-004-postgresql.md)) |
 | Frontend | Vue 3 + TypeScript + Vite | Access token in memory only, session restored from an HttpOnly cookie |
 | Ops | Docker Compose, Caddy, Prometheus, Grafana, OpenTelemetry/Jaeger | Single VM, everything provisioned from the repo |
-| CI | GitHub Actions | lint (golangci-lint incl. gosec/depguard), unit, integration (testcontainers), migration, E2E (Playwright) |
+| CI/CD | GitHub Actions | PR: lint (golangci-lint incl. gosec/depguard, shellcheck, promtool), unit, integration (testcontainers), migration, E2E (Playwright). main: build → GHCR → Trivy → deploy → smoke → auto-rollback. Nightly: demo verification, weekly restore drill |
 
 ## Testing
 
-- **128 Go tests** against a real PostgreSQL (testcontainers, one cloned template DB per test, app role — not superuser), plus Vitest and a Playwright journey (register → top-up via checkout → transfer → payout → login again).
+- **144 Go tests** against a real PostgreSQL (testcontainers, one cloned template DB per test, app role — not superuser), plus Vitest and two Playwright journeys (register → top-up via checkout → transfer → payout → login again; merchant checkout link → login → pay → refund).
 - **Concurrency tests** with barriers and named test hooks (`-tags testhooks`) for deterministic interleavings; repeated `-count=20` before merging.
 - **Property tests** (`rapid`): random transfer sequences conserve money.
 - **"Test the test"**: mutation checks (e.g. removing lock ordering, verify-by-fetch, or the `SUBMITTED` guard must make tests fail) and a naive implementation that is shown to overdraw.
@@ -143,21 +148,21 @@ Threat model: [docs/design/16-security-threat-model.md](docs/design/16-security-
 
 ## Limitations & what's simplified
 
-- Single VM; offsite backups and a restore drill are planned for Sprint 8. Deploys are scripted and roll back automatically, but not yet triggered by CI.
+- Single VM. The CD workflows and offsite backup upload are written and rehearsed locally (local registry, pull-mode deploy, rollback) but have not run on GitHub or against a real bucket yet.
 - The payment provider and the bank are mocks that mimic real APIs, including their failure modes.
 - IDR only; no KYC, no cards, no MFA.
-- Reconciliation (Demo D), refunds, and the ops console are not built yet.
+- Reconciliation (Demo D) and the ops console UI are not built yet (the ops API is).
 
 ## Project structure
 
 ```text
 cmd/ledgerpay        api · worker · migrate · admin CLI (one binary)
 cmd/mock-provider    mock payment gateway + bank
-internal/modules     identity · ledger · wallet · transfer · merchant · payment · topup · inbox · payout · webhookout
+internal/modules     identity · ledger · wallet · transfer · merchant · payment · topup · inbox · payout · webhookout · ops
 internal/platform    db · idempotency · jobs · auth · ratelimit · egress · crypto · metrics · tracing · …
 db/migrations        goose migrations (embedded)
 web/                 Vue SPA + Playwright
-deploy/              compose (dev + prod), Caddy, Prometheus rules, Grafana dashboards, VM scripts
+deploy/              compose (dev + prod), Caddy, backup image, Prometheus rules, Grafana dashboards, VM scripts
 docs/                ADRs, design documents, backlog
 ```
 

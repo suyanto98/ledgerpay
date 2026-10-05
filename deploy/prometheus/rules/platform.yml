@@ -28,3 +28,27 @@ groups:
         for: 5m
         labels: { severity: warning }
         annotations: { summary: "Side effects delayed more than 30s after commit" }
+  # Backup (docs/design/26-deploy-migrations-backup.md §5.3). Metrik didorong backup.sh ke Pushgateway.
+  - name: backup
+    rules:
+      - alert: BackupStale
+        expr: time() - max by (db) (app_backup_last_success_timestamp_seconds) > 26 * 3600
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: "No successful backup of {{ $labels.db }} for more than 26 hours"
+          runbook: "docs/design/26-deploy-migrations-backup.md §5 — check /var/log/ledgerpay-backup.log on the VM"
+      - alert: BackupMissing
+        expr: absent(app_backup_last_success_timestamp_seconds)
+        for: 1h
+        labels: { severity: warning }
+        annotations:
+          summary: "No backup metric at all (backup never ran, or Pushgateway lost its state)"
+          runbook: "docs/design/26-deploy-migrations-backup.md §5 — run deploy/prod/run-backup.sh manually"
+      - alert: BackupSizeDrop
+        expr: max by (db) (app_backup_size_bytes) < 0.5 * max by (db) (max_over_time(app_backup_size_bytes[2d] offset 1d))
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: "Backup of {{ $labels.db }} shrank by more than 50% (possible empty or partial dump)"
+          runbook: "docs/design/26-deploy-migrations-backup.md §5 — run scripts/restore-drill.sh on the latest file"

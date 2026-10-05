@@ -23,3 +23,12 @@ WHERE id = @id AND status = 'PENDING';
 
 -- name: MarkDeliveryDead :exec
 UPDATE webhook_deliveries SET status = 'DEAD' WHERE id = @id AND status = 'PENDING';
+
+-- name: ReplayDelivery :one
+-- DEAD → PENDING. event_id TIDAK berubah: merchant yang sudah menerima versi lama bisa dedupe.
+UPDATE webhook_deliveries SET status = 'PENDING', last_error = NULL
+WHERE id = @id AND status = 'DEAD'
+RETURNING id, event_id, status;
+
+-- name: DeliveryExists :one
+SELECT EXISTS (SELECT 1 FROM webhook_deliveries WHERE id = @id);

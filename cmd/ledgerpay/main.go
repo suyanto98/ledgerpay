@@ -32,6 +32,7 @@ import (
 	"ledgerpay/internal/app"
 	"ledgerpay/internal/modules/identity"
 	"ledgerpay/internal/modules/ledger"
+	"ledgerpay/internal/modules/payment"
 	"ledgerpay/internal/modules/payout"
 	"ledgerpay/internal/modules/topup"
 	"ledgerpay/internal/platform/auth"
@@ -241,7 +242,14 @@ func runLedgerVerify() error {
 	if !rep.OK() {
 		return fmt.Errorf("ledger invariant violated: %s", rep)
 	}
-	fmt.Println("ledger OK: no balance drift, no unbalanced journals")
+	drift, err := payment.RefundDrift(ctx, pool) // LI-08: refunded_amount = Σ refunds
+	if err != nil {
+		return err
+	}
+	if len(drift) > 0 {
+		return fmt.Errorf("refund invariant violated: refunded_amount != sum(refunds) for intents %v", drift)
+	}
+	fmt.Println("ledger OK: no balance drift, no unbalanced journals, no refund drift")
 	return nil
 }
 

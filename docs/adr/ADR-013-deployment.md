@@ -57,6 +57,19 @@ Skrip deploy disiapkan dan diuji lokal (`deploy/prod/`, mode `DEPLOY_HOST=local`
 | Rollback | deploy ulang SHA sebelumnya | Sama, otomatis di `remote-deploy.sh`. Uji lokal: rilis rusak ditolak health gate, rollback 6 detik, API tidak tersentuh | — |
 | Proxy | Caddy + SPA | Image `edge` (Caddy + build SPA dipanggang); `pay.<domain>` hanya checkout, `obs.<domain>` Grafana (login wajib) | — |
 
+### Catatan implementasi (Sprint 8): CD
+
+`main.yml`: `verify` (memanggil `pr.yml`) → `images` (`scripts/build-images.sh`, push GHCR tag SHA) → `scan` (Trivy, CRITICAL/HIGH ber-fix = tidak deploy) → `deploy` (SSH, host key di-pin; VM **pull** image yang dipindai, bukan build) → smoke dari internet → rollback otomatis kalau smoke gagal. `rollback.yml` (manual: SHA + alasan, hanya SHA yang pernah `success` di `releases.log`, migrasi dilewati). Deploy aktif hanya kalau variable `DEPLOY_ENABLED=true`.
+
+| Aspek | Desain | Implementasi S8 | Alasan |
+|---|---|---|---|
+| Secret aplikasi | GitHub environment secrets | Tetap di VM (`/srv/ledgerpay/env`, 0600), diunggah sekali oleh operator; CI memakai `LP_SKIP_ENV=1` | Satu salinan lebih sedikit. GitHub hanya memegang SSH key + host key + token registry berumur pendek |
+| `deploy-gate` (forced command) | Production Enhancement | Tidak dibuat (sesuai amandemen roadmap S8) | Mitigasi saat ini: key khusus, `flock`, validasi SHA di `rollback.yml` |
+| Varian image release vs demo | Dua varian | Satu varian (yang di-deploy) | Belum ada perbedaan build antara keduanya |
+| Signing (cosign) | P2 | Tidak | Sesuai desain |
+
+Uji lokal (registry lokal menggantikan GHCR): deploy pull-mode 19 dtk, rollback B → A dengan `--skip-migrate` 20 dtk. Uji ini menemukan bug: nilai `LP_DEPLOY_ACTOR` berisi spasi (alasan rollback) tidak di-quote di perintah remote dan terpecah menjadi perintah lain. Diperbaiki dengan `printf %q`; percobaan `; echo injected` tercatat sebagai teks biasa.
+
 ## Reason
 
 - Satu VM + Compose cukup untuk demo dan membuat environment lokal = environment deploy (`make up`).

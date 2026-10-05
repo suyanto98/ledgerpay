@@ -12,3 +12,7 @@ scrape_configs:
     static_configs: [{ targets: ["api:9090"], labels: { service: api } }]
   - job_name: ledgerpay-worker
     static_configs: [{ targets: ["worker:9090"], labels: { service: worker } }]
+  # Metrik batch job (backup). honor_labels: label job/db dari pendorong dipertahankan.
+  - job_name: pushgateway
+    honor_labels: true
+    static_configs: [{ targets: ["pushgateway:9091"] }]

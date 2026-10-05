@@ -5,14 +5,15 @@ name: pr
 
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_call: # main.yml memanggil workflow ini sebagai gate "verify" sebelum build + deploy
+
 
 permissions:
   contents: read
 
 concurrency:
-  group: pr-${{ github.ref }}
+  # Saat dipanggil main.yml, github.workflow = "main" → grup berbeda dari grup deploy pemanggil.
+  group: ${{ github.workflow }}-verify-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -81,6 +82,15 @@ jobs:
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           "$(go env GOPATH)/bin/actionlint"
+
+  # Skrip deploy/backup dan alert Prometheus juga kode: shellcheck + promtool (Sprint 7–8).
+  lint-ops:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: shellcheck + promtool (check + unit tests)
+        run: make lint-shell test-alerts
 
   lint-openapi:
     runs-on: ubuntu-latest

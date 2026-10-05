@@ -13,7 +13,7 @@ mkdir -p "$OUT" && chmod 700 "$OUT"
 rand() { head -c "$1" /dev/urandom | base64 | tr -d '\n=+/' | head -c "$2"; }    # password URL-safe
 key32() { local k; k=$(head -c 32 /dev/urandom | base64 | tr -d '\n'); [ "$(printf %s "$k" | base64 -d | wc -c)" = 32 ] || exit 1; printf %s "$k"; }
 
-PG_SUPER=$(rand 48 40); PG_OWNER=$(rand 48 40); PG_APP=$(rand 48 40)
+PG_SUPER=$(rand 48 40); PG_OWNER=$(rand 48 40); PG_APP=$(rand 48 40); PG_BACKUP=$(rand 48 40)
 JWT=$(key32); PII=$(key32)
 MOCK_API=$(rand 48 40); WHSEC=$(rand 48 40); GRAFANA=$(rand 48 32)
 APP_DSN="postgres://ledgerpay_app:${PG_APP}@postgres:5432/ledgerpay?sslmode=disable"
@@ -25,6 +25,7 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=${PG_SUPER}
 LEDGERPAY_OWNER_PASSWORD=${PG_OWNER}
 LEDGERPAY_APP_PASSWORD=${PG_APP}
+LEDGERPAY_BACKUP_PASSWORD=${PG_BACKUP}
 E
 w migrate.env <<E
 MIGRATE_DATABASE_URL=postgres://ledgerpay_owner:${PG_OWNER}@postgres:5432/ledgerpay?sslmode=disable
@@ -75,4 +76,29 @@ LP_DOMAIN=${DOMAIN}
 LP_ACME_EMAIL=${EMAIL}
 LP_CADDY_GLOBAL=${LP_CADDY_GLOBAL:-}
 E
+# Backup dienkripsi untuk DUA recipient (§5.2): operator (key disimpan OFFLINE) dan restore drill
+# (key menjadi secret CI). Private key tidak pernah ada di VM: VM hanya bisa mengenkripsi.
+agekeygen() {
+  if command -v age-keygen >/dev/null; then age-keygen 2>/dev/null
+  else docker run --rm alpine:3.22 sh -c 'apk add -q --no-cache age >/dev/null && age-keygen 2>/dev/null'; fi
+}
+(umask 077; agekeygen > "$OUT/backup-operator.agekey"; agekeygen > "$OUT/backup-drill.agekey")
+pub() { grep -o 'age1[0-9a-z]*' "$1" | head -1; }
+w backup.env <<E
+PGHOST=postgres
+PGUSER=ledgerpay_backup
+PGPASSWORD=${PG_BACKUP}
+PGDATABASE=ledgerpay
+LP_BACKUP_AGE_RECIPIENTS=$(pub "$OUT/backup-operator.agekey") $(pub "$OUT/backup-drill.agekey")
+LP_PUSHGATEWAY_URL=http://pushgateway:9091
+# Offsite (R2/B2, kredensial WRITE-ONLY). Kosong = backup hanya di disk VM.
+LP_BACKUP_REMOTE=
+# RCLONE_CONFIG_OFFSITE_TYPE=s3
+# RCLONE_CONFIG_OFFSITE_PROVIDER=Cloudflare
+# RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID=
+# RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY=
+# RCLONE_CONFIG_OFFSITE_ENDPOINT=https://<account>.r2.cloudflarestorage.com
+E
 echo "env files written to $OUT (mode 0600). Grafana admin password: see grafana.env"
+echo "backup keys: move $OUT/backup-operator.agekey OFFLINE (password manager), then delete it here;"
+echo "             $OUT/backup-drill.agekey → GitHub secret RESTORE_DRILL_AGE_KEY. Neither is copied to the VM."

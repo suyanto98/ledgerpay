@@ -69,7 +69,7 @@
 - [ ] Demo B butuh `RATE_LIMIT_MONEY_WRITE_PER_MIN=600` di compose dev (default 30/menit akan menolak 70 dari 100 request dengan 429). Demo/production memakai default
 - [ ] Job terjadwal `intent.expire_sweep` yang memanggil `payment.ExpireDue` (Sprint 6, job runner). Sampai saat itu intent lewat waktu ditampilkan `EXPIRED` (status efektif) dan confirm-nya ditolak
 - [ ] Outbox webhook `payment.succeeded` di tx confirm (Sprint 6)
-- [ ] `GET /merchant/payment-intents` (list + cursor) dan `GET /merchant/balance` belum dibuat (bukan deliverable S4)
+- [ ] `GET /merchant/payment-intents` (list + cursor) belum dibuat; `GET /merchant/balance` selesai Sprint 8
 - [ ] Respons login belum memuat objek `user` (spesifikasi endpoint §3); SPA bisa memanggil `GET /me` (Sprint 5)
 - [ ] Housekeeping: revoke otomatis API key yang `expires_at`-nya lewat (masih menempati slot) — job Sprint 6
 - [ ] Rate limiter in-memory: batas efektif × jumlah instance; versi Redis bila >1 instance (ADR-007)
@@ -89,7 +89,7 @@
 - [ ] Job `topup.recover` (top-up macet di `CREATED` tanpa retry client) dan `topup.expire_sweep` (cek provider dulu) — Sprint 6 job runner
 - [ ] Event `CONFLICT` hanya dicatat log; `recon_items` di tx yang sama menunggu tabel recon (Sprint 9)
 - [x] Metrik `webhook_late_total`, `webhook_inbox_dead_total`, alert DEAD — selesai Sprint 7
-- [ ] Replay event `DEAD` dari ops console (`DEAD → RECEIVED`) — Sprint 8
+- [ ] Replay event inbox `DEAD` dari ops console (`DEAD → RECEIVED`): belum. Replay webhook KELUAR selesai Sprint 8
 - [ ] Retensi inbox (hapus > 90 hari, bukan `RECEIVED`) — job cleanup Sprint 6
 - [ ] SPA memakai fetch wrapper tangan; desain: client typed dari `openapi-typescript` (Sprint 8, bersama UI checkout)
 - [ ] Job CI `frontend`/`e2e` belum pernah berjalan di GitHub (repo lokal)
@@ -104,7 +104,7 @@
 - [x] Keyring PII (`platform/crypto`), CLI `merchant-webhook`, validasi dependency saat start, Demo C (`make demo-c`)
 
 ## Catatan dari Sprint 6 (dibawa ke sprint berikutnya)
-- [ ] Endpoint ops: `POST /ops/payouts/{id}/resolve`, `GET /ops/jobs`, `POST /ops/jobs/{id}/retry`, `POST /ops/webhook-deliveries/{id}/replay` (Sprint 8, ops console)
+- [x] Endpoint ops: `POST /ops/payouts/{id}/resolve`, `GET /ops/jobs`, `POST /ops/jobs/{id}/retry`, `POST /ops/webhook-deliveries/{id}/replay` — selesai Sprint 8
 - [ ] `GET /payouts` (list + cursor) untuk UI (Sprint 8)
 - [x] Metrik `job_dead_total`, `payout_unknown_current`, `payout_unknown_oldest_age_seconds`, `db_deadlock_total`, invariant ledger + alert — selesai Sprint 7
 - [x] Worker belum punya endpoint health/metrics; compose healthcheck dimatikan — selesai Sprint 7
@@ -131,9 +131,31 @@
 - [ ] Sisa katalog metrik: histogram durasi transaksi DB per nama, `app_http_request_size`, metrik scheduler per job terjadwal
 - [ ] Loki/agregasi log belum ada (log JSON hanya di `docker logs`)
 - [ ] Alertmanager belum dipasang: rule alert dievaluasi Prometheus tetapi tidak ada notifikasi (email/Telegram)
-- [ ] Image dibangun di VM (`docker build` saat deploy). Desain: build di CI → GHCR → deploy dengan digest (Sprint 8, bersama CD)
-- [ ] Secret produksi: file `env/` dibuat `init-env.sh` di mesin user, bukan sops. Desain final: GitHub environment secrets saat CD
+- [x] Image dibangun di VM (`docker build` saat deploy). Desain: build di CI → GHCR → deploy — selesai Sprint 8 (pull mode; tag = SHA, belum digest)
+- [x] Secret produksi: diputuskan Sprint 8 — tetap di VM (diunggah sekali), CI tidak memegang secret aplikasi (ADR-013 catatan S8)
 - [ ] Konfigurasi deploy ada di repo aplikasi (`deploy/prod/`), bukan repo infra terpisah seperti di desain: cukup untuk satu VM, dicatat sebagai deviasi
 - [ ] Rollback = deploy ulang SHA sebelumnya (downtime API beberapa detik saat recreate); blue/green tidak dikerjakan
 - [ ] Toolbar demo / `DEMO_TOKEN` untuk demo publik (skenario mock dari UI) — Sprint 8
 - [ ] Metrik counter (mis. `payouts_total{submitted}`) hilang saat proses restart; dashboard memakai `increase()`/gauge dari DB, jangan membaca nilai mentah counter
+
+## Sprint 8 — DevOps ✅ (deploy sungguhan ditunda sampai aplikasi siap)
+- [x] Refund `POST /merchant/payment-intents/{id}/refunds` (migrasi 00008 `refunds` append-only): lock intent → journal REFUND → `refunded_amount`/status → outbox `payment.refunded`; `refunds[]` di view merchant + payer; `GET /merchant/balance`
+- [x] LI-08: test paralel (barrier + hook dengan lock), mutasi "hapus `FOR UPDATE`" tertangkap; deteksi `refunded_amount ≠ Σ refunds` di `ledger.verify` (gauge + alert) dan CLI `ledger-verify`
+- [x] Ops console API (modul `ops`, read model): search, journal detail, antrean payout, resolve payout dengan bukti + audit, daftar job + retry, daftar delivery + replay; race (g) status check vs ops diuji dua arah
+- [x] UI checkout merchant (`/checkout/:id`) + E2E checkout → refund; label Refund di riwayat
+- [x] `make demo-ops` (refund paralel + ops resolve payout UNKNOWN), `make demo-verify` (semua demo)
+- [x] Backup: image `deploy/backup` (pg_dump 17 + age + rclone), role read-only `ledgerpay_backup`, dua recipient age, `.sha256`, retensi, offsite opsional, metrik via Pushgateway + alert teruji; cron host lewat `bootstrap.sh`
+- [x] Restore drill `scripts/restore-drill.sh` (PASS + tiga kasus gagal yang benar)
+- [x] CD: `pr.yml` reusable, `main.yml` (build → push GHCR → Trivy → deploy pull-mode → smoke internet → auto-rollback), `rollback.yml`, `nightly.yml` (demo-verify, restore drill mingguan); deploy lock, `releases.log`, `--skip-migrate`
+- [x] OpenAPI diperbarui (refund, balance, 9 endpoint ops)
+
+## Catatan dari Sprint 8 (dibawa ke sprint berikutnya)
+- [ ] **Workflow CD belum pernah berjalan di GitHub** (repo masih lokal). Diuji: actionlint + simulasi lokal (registry lokal, deploy pull-mode, rollback). Saat repo di-push: set variable `DEPLOY_ENABLED`, `DEPLOY_HOST`, `PUBLIC_DOMAIN`, secret `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`; untuk drill `BACKUP_REMOTE`, `BACKUP_S3_*`, `BACKUP_READ_*`, `RESTORE_DRILL_AGE_KEY`
+- [ ] Offsite backup belum diuji ke bucket sungguhan (R2/B2); rclone hanya dijalankan kalau `LP_BACKUP_REMOTE` di-set
+- [ ] `demo-verify` masih skeleton: asersi sebagian besar lewat `set -e` + `curl -f` + `ledger-verify`; Demo B belum meng-assert "tepat 10 sukses" secara eksplisit
+- [ ] Ops console **UI** belum ada (API saja); dijadwalkan bersama recon di S10
+- [ ] `GET /payouts` (list user) dan `GET /merchant/payment-intents` (list) masih belum
+- [ ] Notifikasi nightly gagal: hanya email bawaan GitHub (issue otomatis `nightly-failure` belum)
+- [ ] Pencarian ops `merchant_order_id` tanpa `merchant_id` tidak memakai indeks (uq parsial berawalan merchant_id) — cek dengan EXPLAIN di Sprint 9
+- [ ] Rate tier ops write memakai `money-write` (30/menit); desain menyebut tier `write` yang belum didefinisikan
+- [ ] Penyimpanan Pushgateway in-memory: restart Pushgateway → `BackupMissing` sampai backup berikutnya (diterima; alert itu sendiri yang memberi tahu)

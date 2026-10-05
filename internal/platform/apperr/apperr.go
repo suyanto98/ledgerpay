@@ -26,7 +26,9 @@ type Error struct {
 	RetryAfter int
 	// ExistingResourceID membantu client melanjutkan (contoh DUPLICATE_MERCHANT_ORDER).
 	ExistingResourceID string
-	cause              error // tidak pernah dikirim ke client; hanya untuk log
+	// RefundableAmount: sisa yang masih bisa di-refund (REFUND_EXCEEDS_PAYMENT), string minor unit.
+	RefundableAmount string
+	cause            error // tidak pernah dikirim ke client; hanya untuk log
 }
 
 func (e *Error) Error() string {
@@ -62,6 +64,13 @@ func (e *Error) WithRetryAfter(seconds int) *Error {
 func (e *Error) WithExistingResource(id string) *Error {
 	c := *e
 	c.ExistingResourceID = id
+	return &c
+}
+
+// WithRefundable mengembalikan salinan yang menyebut sisa yang masih bisa di-refund.
+func (e *Error) WithRefundable(amount string) *Error {
+	c := *e
+	c.RefundableAmount = amount
 	return &c
 }
 
@@ -119,12 +128,18 @@ var (
 	ErrInvalidRecipient     = def(http.StatusUnprocessableEntity, "INVALID_RECIPIENT", "Recipient cannot receive this transfer")
 	ErrCurrencyNotSupported = def(http.StatusUnprocessableEntity, "CURRENCY_NOT_SUPPORTED", "Currency not supported")
 	ErrPaymentExpired       = def(http.StatusUnprocessableEntity, "PAYMENT_EXPIRED", "Payment intent has expired")
+	ErrRefundExceedsPayment = def(http.StatusUnprocessableEntity, "REFUND_EXCEEDS_PAYMENT", "Refund would exceed the payment amount")
 )
 
 // Merchant (katalog §2).
 var (
 	ErrDuplicateMerchantOrder = def(http.StatusConflict, "DUPLICATE_MERCHANT_ORDER", "merchant_order_id already has a live payment intent")
 	ErrAPIKeyLimitReached     = def(http.StatusConflict, "API_KEY_LIMIT_REACHED", "Merchant already has two active API keys")
+)
+
+// Ops (katalog §2): aksi manual wajib bukti + alasan (LF-18, T-LP-16).
+var (
+	ErrResolutionEvidenceRequired = def(http.StatusUnprocessableEntity, "RESOLUTION_EVIDENCE_REQUIRED", "Evidence reference and reason are required")
 )
 
 // Validation membuat VALIDATION_ERROR dengan daftar field yang salah.
