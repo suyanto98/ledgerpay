@@ -39,6 +39,15 @@ type Tiers struct {
 }
 
 // DefaultTiers: angka awal dari konvensi API §7, ditinjau ulang setelah load test (Sprint 9).
+// Unlimited: semua tier dengan batas yang tidak pernah tercapai (HANYA perf env, lihat config).
+func Unlimited() Tiers {
+	t := DefaultTiers()
+	for _, tier := range []*Tier{&t.AuthStrict, &t.AuthIP, &t.MoneyWrite, &t.Read, &t.MerchantAPI} {
+		tier.Rules = []Rule{{1_000_000_000, time.Minute}}
+	}
+	return t
+}
+
 func DefaultTiers() Tiers {
 	return Tiers{
 		AuthStrict:  Tier{"auth-strict", []Rule{{5, time.Minute}, {20, time.Hour}}},

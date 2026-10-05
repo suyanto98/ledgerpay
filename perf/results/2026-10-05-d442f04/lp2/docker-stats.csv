@@ -1,0 +1,1441 @@
+[Hledgerpay-perf-api-1,0.00%,69.76MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,0.07%,933.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.61%,7.676MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,0.00%,69.76MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,0.07%,933.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.61%,7.676MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,160.82%,265.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,72.36%,1.009GiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.33%,7.246MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,160.82%,265.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,72.36%,1.009GiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.33%,7.246MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,538.13%,651.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,7.73%,960.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.37%,7.246MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,538.13%,651.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,7.73%,960.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.37%,7.246MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,551.72%,650.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,16.05%,962.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.52%,7.496MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,551.72%,650.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,16.05%,962.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.52%,7.496MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,560.59%,650.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,7.22%,963.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.746MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,560.59%,650.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,7.22%,963.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.746MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,533.68%,650.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,18.01%,964MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,8.79%,7.32MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,533.68%,650.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,18.01%,964MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,8.79%,7.32MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,554.90%,650.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.54%,963.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.40%,7.07MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,554.90%,650.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.54%,963.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.40%,7.07MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,536.32%,586.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.89%,964.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.52%,7.566MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,536.32%,586.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.89%,964.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.52%,7.566MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,559.95%,649.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.88%,964.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.47%,7.32MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,559.95%,649.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.88%,964.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.47%,7.32MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,558.05%,573.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.27%,965MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.47%,6.844MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,558.05%,573.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.27%,965MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.47%,6.844MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,554.01%,651MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.78%,965.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,10.60%,7.086MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,554.01%,651MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.78%,965.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,10.60%,7.086MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,524.49%,650.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.23%,964.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,7.836MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,524.49%,650.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.23%,964.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,7.836MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,458.38%,573.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,16.63%,959.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.098MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,458.38%,573.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,16.63%,959.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.098MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,460.49%,571.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.17%,960.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.53%,7.109MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,460.49%,571.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.17%,960.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.53%,7.109MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,484.01%,650.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.71%,959.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.00%,7.359MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,484.01%,650.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.71%,959.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.00%,7.359MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,523.03%,651.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.54%,960.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.19%,7.176MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,523.03%,651.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.54%,960.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.19%,7.176MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,486.56%,619.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.54%,961.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,6.898MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,486.56%,619.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.54%,961.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,6.898MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,506.34%,581.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.69%,961.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.38%,7.156MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,506.34%,581.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.69%,961.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.38%,7.156MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,522.45%,651.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.30%,961.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,6.906MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,522.45%,651.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.30%,961.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,6.906MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,558.22%,651.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.89%,961.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.50%,7.156MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,558.22%,651.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.89%,961.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.50%,7.156MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,528.21%,651.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.45%,961.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.86%,7.402MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,528.21%,651.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.45%,961.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.86%,7.402MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,558.27%,651.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.11%,961.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.45%,7.41MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,558.27%,651.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.11%,961.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.45%,7.41MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,519.65%,573.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.55%,961.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.43%,6.914MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,519.65%,573.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.55%,961.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.43%,6.914MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,553.80%,565.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.51%,962.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.414MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,553.80%,565.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.51%,962.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.414MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,553.57%,587MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.36%,963.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.40%,7.176MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,553.57%,587MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.36%,963.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.40%,7.176MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,475.25%,568.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,17.13%,961.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,10.47%,7.609MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,475.25%,568.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,17.13%,961.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,10.47%,7.609MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,571.41%,650.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.44%,962.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.434MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,571.41%,650.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.44%,962.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.434MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,546.05%,651.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.77%,962.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,7.672MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,546.05%,651.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.77%,962.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,7.672MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,550.24%,587.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.43%,962.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.66%,7.445MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,550.24%,587.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.43%,962.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.66%,7.445MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,550.24%,587.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.43%,962.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.74%,7.23MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,543.11%,638.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,18.55%,962.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.74%,7.23MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,543.11%,638.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,18.55%,962.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.74%,7.23MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,541.05%,651.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.43%,963.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,11.04%,7.562MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,541.05%,651.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.43%,963.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,11.04%,7.562MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,552.09%,616.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.55%,963.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.50%,7.262MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,552.09%,616.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.55%,963.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.50%,7.262MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,564.68%,651MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.48%,963.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.43%,7.023MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,564.68%,651MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.48%,963.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.43%,7.023MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,512.79%,652.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.49%,962.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,7.273MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,512.79%,652.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.49%,962.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,7.273MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,533.49%,651.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.86%,963.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,7.27MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,533.49%,651.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.86%,963.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,7.27MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,556.76%,573.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.47%,963.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.19%,7.719MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,556.76%,573.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.47%,963.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.19%,7.719MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,581.85%,587.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.32%,963.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,7.035MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,581.85%,587.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.32%,963.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,7.035MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,558.33%,651.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.67%,963.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,7.781MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,558.33%,651.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.67%,963.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,7.781MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,571.18%,651.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.44%,963.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.45%,7.285MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,571.18%,651.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.44%,963.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.45%,7.285MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,552.03%,652.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.72%,963.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.52%,7.285MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,552.03%,652.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.72%,963.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.52%,7.285MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,530.80%,574.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.02%,964MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.43%,7.086MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,530.80%,574.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.02%,964MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.43%,7.086MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,524.10%,651.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,12.70%,963.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.84%,7.801MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,524.10%,651.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,12.70%,963.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.84%,7.801MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,497.64%,651.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.10%,964MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,7.309MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,497.64%,651.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.10%,964MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,7.309MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,533.66%,574.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.88%,963.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.49%,7.316MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,533.66%,574.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.88%,963.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.49%,7.316MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,559.94%,630MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,8.97%,964.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.18%,7.832MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,559.94%,630MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,8.97%,964.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.18%,7.832MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,528.68%,574.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.82%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,10.26%,7.781MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,528.68%,574.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.82%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,10.26%,7.781MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,562.98%,573.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.30%,964.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,8.102MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,562.98%,573.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.30%,964.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,8.102MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,567.49%,574.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.75%,964.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.49%,7.629MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,567.49%,574.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.75%,964.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.49%,7.629MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,550.25%,574.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.59%,965.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,7.617MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,550.25%,574.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.59%,965.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,7.617MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,563.57%,652.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.32%,964.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.49%,7.617MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,563.57%,652.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.32%,964.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.49%,7.617MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,511.83%,652MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.89%,964.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.95%,7.805MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,511.83%,652MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.89%,964.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.95%,7.805MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,560.23%,652.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.09%,964.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.49%,7.625MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,560.23%,652.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.09%,964.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.49%,7.625MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,541.45%,652.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.67%,965MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.45%,7.637MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,541.45%,652.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.67%,965MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.45%,7.637MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,551.33%,652MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.15%,965.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,7.398MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,551.33%,652MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.15%,965.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,7.398MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,549.49%,574.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.73%,964.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,7.164MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,549.49%,574.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.73%,964.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,7.164MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,553.09%,652.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.75%,965.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,10.13%,8.312MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,553.09%,652.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.75%,965.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,10.13%,8.312MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,556.57%,651.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,12.96%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.40%,7.445MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,556.57%,651.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,12.96%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.40%,7.445MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,557.17%,590.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.47%,965.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.941MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,557.17%,590.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.47%,965.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.941MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,529.10%,651.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,11.71%,964.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.38%,7.465MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,529.10%,651.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,11.71%,964.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.38%,7.465MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,554.47%,652MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.84%,965.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.93%,7.727MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,554.47%,652MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,6.84%,965.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.93%,7.727MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,556.89%,652.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.06%,964.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,2.97%,9.48MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,556.89%,652.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.06%,964.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,2.97%,9.48MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,531.63%,596.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.39%,965.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,8.15%,7.484MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,531.63%,596.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.39%,965.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,8.15%,7.484MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,544.42%,634.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.39%,965.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,7.73MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,544.42%,634.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,12.09%,965.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,7.73MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,544.42%,634.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,12.09%,965.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,7.73MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,550.25%,651.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.63%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.738MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,550.25%,651.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.63%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,7.738MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,555.34%,651.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.73%,967MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.53%,7.988MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,555.34%,651.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.73%,967MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.53%,7.988MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,557.14%,596.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.61%,965.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.50%,7.746MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,557.14%,596.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.61%,965.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.50%,7.746MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,553.56%,620.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,11.85%,966.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,11.16%,7.266MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,553.56%,620.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,11.85%,966.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,11.16%,7.266MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,560.27%,588.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,8.54%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.32%,8.254MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,560.27%,588.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,8.54%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.32%,8.254MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,560.48%,619.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.50%,965.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.39%,8.309MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,560.48%,619.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.50%,965.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.39%,8.309MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,542.10%,652.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.91%,965.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.51%,8.809MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,542.10%,652.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.91%,965.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.51%,8.809MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,555.76%,651.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.66%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,8.566MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,555.76%,651.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.66%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,8.566MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,516.64%,651.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.61%,966.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.49%,7.844MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,516.64%,651.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.61%,966.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.49%,7.844MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,559.10%,569.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.94%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.49%,8.094MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,559.10%,569.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.94%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.49%,8.094MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,574.90%,652.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.85%,965.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.19%,8.84MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,574.90%,652.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.85%,965.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.19%,8.84MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,532.36%,652.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.90%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.53%,8.84MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,532.36%,652.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.90%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.53%,8.84MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,573.34%,573.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.13%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.47%,8.34MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,573.34%,573.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.13%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.47%,8.34MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,566.58%,652.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.41%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.74%,8.098MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,566.58%,652.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.41%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.74%,8.098MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,551.64%,652.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,12.24%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.51%,8.348MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,551.64%,652.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,12.24%,965.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.51%,8.348MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,558.74%,652.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.44%,965.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.39%,8.102MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,558.74%,652.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,5.44%,965.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.39%,8.102MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,554.63%,574.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,10.62%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,8.348MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,554.63%,574.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,10.62%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.44%,8.348MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,560.18%,651.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.30%,965.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,8.098MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,560.18%,651.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.30%,965.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.48%,8.098MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,535.97%,652.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.06%,965.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,11.08%,8.051MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,535.97%,652.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.06%,965.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,11.08%,8.051MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,566.41%,652MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.73%,966.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.63%,8.172MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,566.41%,652MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.73%,966.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.63%,8.172MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,548.71%,652.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.03%,965.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.54%,7.996MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,548.71%,652.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.03%,965.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.54%,7.996MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,555.67%,651.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,10.99%,964.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.61%,8MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,555.67%,651.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,10.99%,964.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.61%,8MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,474.06%,604.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,17.89%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.52%,7.996MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,474.06%,604.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,17.89%,965.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.52%,7.996MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,501.59%,575.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.83%,966.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,10.02%,8.043MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,501.59%,575.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,4.83%,966.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,10.02%,8.043MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,559.96%,652.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,7.91%,967.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.52%,8.004MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,559.96%,652.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,7.91%,967.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.52%,8.004MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,464.22%,588.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,11.18%,965.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.10%,8.004MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,464.22%,588.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,11.18%,965.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,1.10%,8.004MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,5.64%,589.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.06%,967.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.57%,8.254MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,5.64%,589.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.06%,967.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.57%,8.254MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,5.77%,590.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.18%,967.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.37%,8.262MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,5.77%,590.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.18%,967.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.37%,8.262MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,10.57%,591.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,9.55%,968.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.55%,8.062MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,10.57%,591.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,9.55%,968.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.55%,8.062MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,7.07%,592.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.70%,968.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,8.016MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,7.07%,592.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,15.70%,968.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,8.016MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,7.01%,594.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,10.57%,968.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.34%,8.516MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,7.01%,594.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,10.57%,968.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.34%,8.516MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,7.94%,596.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,16.46%,968.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.32%,8.52MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,7.94%,596.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,16.46%,968.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.32%,8.52MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,9.14%,598.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.59%,968.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,9.016MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,9.14%,598.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,13.59%,968.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.41%,9.016MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,14.68%,600.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,19.06%,969.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,4.92%,8.523MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,14.68%,600.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,19.06%,969.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,4.92%,8.523MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,10.14%,603.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.83%,968.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.26%,8.031MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,10.14%,603.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,14.83%,968.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.26%,8.031MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,11.03%,605.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,21.84%,968.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,8.766MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,11.03%,605.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,21.84%,968.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,8.766MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,13.30%,607.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,19.72%,969.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.33%,8.273MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,13.30%,607.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,19.72%,969.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.33%,8.273MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,14.42%,608.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,25.64%,968.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.34%,8.527MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,14.42%,608.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,25.64%,968.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.34%,8.527MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,20.76%,610.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,23.07%,969.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.20%,9MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,20.76%,610.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,23.07%,969.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.20%,9MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,15.10%,612.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,26.51%,969.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,8.77MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,15.10%,612.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,26.51%,969.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,8.77MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,15.10%,612.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,26.51%,969.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.42%,8.77MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,17.61%,614.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,25.93%,969.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.76%,9.262MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,17.61%,614.4MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,25.93%,969.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.76%,9.262MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,18.13%,616.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,31.77%,970MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,8.773MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,18.13%,616.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,31.77%,970MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,8.773MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,19.04%,619.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,27.03%,970.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,8.527MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,19.04%,619.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,27.03%,970.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,8.527MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,23.29%,621.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,30.42%,969.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.34%,8.855MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,23.29%,621.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,30.42%,969.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.34%,8.855MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,19.77%,624MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,27.33%,970.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.33%,8.777MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,19.77%,624MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,27.33%,970.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.33%,8.777MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,20.09%,626.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,33.87%,970.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.34%,8.523MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,20.09%,626.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,33.87%,970.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.34%,8.523MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,21.35%,629.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,30.55%,970.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.28%,8.531MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,21.35%,629.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,30.55%,970.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.28%,8.531MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,21.20%,631.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,35.76%,970.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.30%,8.777MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,21.20%,631.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,35.76%,970.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.30%,8.777MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,27.10%,634.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,31.81%,970.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.76%,8.355MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,27.10%,634.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,31.81%,970.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.76%,8.355MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,23.02%,637.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,37.38%,970.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.37%,9.121MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,23.02%,637.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,37.38%,970.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.37%,9.121MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,23.33%,641.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,32.63%,971.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,8.875MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,23.33%,641.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,32.63%,971.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,8.875MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,22.82%,644.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,39.02%,970.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.26%,8.812MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,22.82%,644.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,39.02%,970.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.26%,8.812MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,24.30%,647.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,35.06%,971.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,9.051MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,24.30%,647.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,35.06%,971.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.35%,9.051MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,28.93%,651.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,40.89%,971.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.08%,8.828MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,28.93%,651.6MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,40.89%,971.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.08%,8.828MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,24.11%,654.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,37.34%,970.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,9.082MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,24.11%,654.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,37.34%,970.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,9.082MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,23.17%,654.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,42.29%,971.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.45%,8.602MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,23.17%,654.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,42.29%,971.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.45%,8.602MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,24.24%,654MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,38.05%,971.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.22%,9.082MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,24.24%,654MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,38.05%,971.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.22%,9.082MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,25.35%,654.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,46.41%,972.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.27%,8.344MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,25.35%,654.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,46.41%,972.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.27%,8.344MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,31.47%,655MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,41.32%,972MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.28%,8.824MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,31.47%,655MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,41.32%,972MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.28%,8.824MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,25.86%,654.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,42.44%,973.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,8.594MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,25.86%,654.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,42.44%,973.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,8.594MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,28.11%,654.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,52.89%,974MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.26%,8.602MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,28.11%,654.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,52.89%,974MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.26%,8.602MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,25.87%,654.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,43.18%,974MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.27%,8.859MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,25.87%,654.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,43.18%,974MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.27%,8.859MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,25.84%,655MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,48.82%,974.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.29%,8.363MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,25.84%,655MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,48.82%,974.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.29%,8.363MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,28.60%,656.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,43.57%,974.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.64%,8.707MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,28.60%,656.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,43.57%,974.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.64%,8.707MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,29.50%,655.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,48.67%,975.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.27%,8.863MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,29.50%,655.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,48.67%,975.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.27%,8.863MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,27.26%,655.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,45.03%,975.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,8.621MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,27.26%,655.8MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,45.03%,975.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,8.621MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,26.37%,655.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,50.02%,975.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.867MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,26.37%,655.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,50.02%,975.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.867MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,28.08%,656.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,47.27%,975.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.625MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,28.08%,656.1MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,47.27%,975.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.625MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,28.25%,655.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,53.66%,975.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.31%,9.145MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,28.25%,655.7MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,53.66%,975.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.31%,9.145MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,40.37%,400.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,48.51%,976.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.883MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,40.37%,400.9MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,48.51%,976.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.883MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,40.77%,39.14MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,55.86%,977.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.50%,8.902MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,40.77%,39.14MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,55.86%,977.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.50%,8.902MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,30.49%,39.47MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,49.18%,976.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.387MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,30.49%,39.47MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,49.18%,976.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.387MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,32.17%,39.91MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,56.12%,977.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.391MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,32.17%,39.91MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,56.12%,977.4MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.391MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,32.48%,39.44MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,51.92%,977.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,4.98%,9.195MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,32.48%,39.44MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,51.92%,977.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,4.98%,9.195MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,39.96%,40.86MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,57.54%,977.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.895MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,39.96%,40.86MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,57.54%,977.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.895MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,32.30%,41.02MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,52.86%,978.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.22%,8.398MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,32.30%,41.02MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,52.86%,978.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.22%,8.398MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,33.65%,41.33MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,57.68%,978.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.902MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,33.65%,41.33MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,57.68%,978.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.902MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,32.47%,41.83MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,53.35%,978.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.20%,8.91MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,32.47%,41.83MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,53.35%,978.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.20%,8.91MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,38.93%,41.56MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,77.04%,985.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.406MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,38.93%,41.56MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,77.04%,985.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.406MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,51.11%,42.41MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,93.09%,992.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.60%,8.891MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,51.11%,42.41MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,93.09%,992.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.60%,8.891MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,34.39%,42.43MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,61.93%,993.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.20%,8.652MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,34.39%,42.43MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,61.93%,993.6MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.20%,8.652MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,35.68%,40.25MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,66.90%,994.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.43MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,35.68%,40.25MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,66.90%,994.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.43MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,35.88%,41.27MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,65.15%,994.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.426MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,35.88%,41.27MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,65.15%,994.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.426MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,35.28%,40.95MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,59.05%,994.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,9.168MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,35.28%,40.95MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,59.05%,994.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,9.168MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,42.90%,40.59MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,68.77%,995.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.00%,8.434MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,42.90%,40.59MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,68.77%,995.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.00%,8.434MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,37.13%,41.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,61.60%,995.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.58%,8.992MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,37.13%,41.2MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,61.60%,995.9MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.58%,8.992MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,36.34%,40.76MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,64.73%,996.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.22%,8.5MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,36.34%,40.76MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,64.73%,996.5MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.22%,8.5MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,37.65%,41.22MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,61.80%,996.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.24%,8.258MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,37.65%,41.22MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,61.80%,996.7MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.24%,8.258MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,37.11%,41.07MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,67.23%,997.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.20%,8.527MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,37.11%,41.07MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,67.23%,997.2MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.20%,8.527MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,46.00%,41.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,67.48%,997.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,6.57%,8.305MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,46.00%,41.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,67.48%,997.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,6.57%,8.305MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,38.46%,41.05MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,68.59%,998.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.22%,8.801MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,38.46%,41.05MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,68.59%,998.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.22%,8.801MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,39.16%,41.34MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,65.46%,998.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.20%,8.559MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,39.16%,41.34MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,65.46%,998.3MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.20%,8.559MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,39.06%,41.35MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,67.02%,999.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.20%,8.555MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,39.06%,41.35MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,67.02%,999.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.20%,8.555MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,39.87%,41.34MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,69.50%,999.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,8.801MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,39.87%,41.34MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,69.50%,999.1MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,8.801MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,45.34%,41.43MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,68.13%,999.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.15%,8.566MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,45.34%,41.43MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,68.13%,999.8MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.15%,8.566MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,41.25%,41.87MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,75.56%,1000MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.801MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,41.25%,41.87MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,75.56%,1000MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.801MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,40.45%,40.94MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,69.70%,1000MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.24%,8.809MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,40.45%,40.94MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,69.70%,1000MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.24%,8.809MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,57.32%,41.26MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,117.82%,1004MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,8.32MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,57.32%,41.26MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,117.82%,1004MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.25%,8.32MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,68.06%,41.34MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,120.40%,1006MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.31%,9.062MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,68.06%,41.34MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,120.40%,1006MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.31%,9.062MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,83.48%,41.33MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,139.44%,1007MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.16%,8.832MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,83.48%,41.33MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,139.44%,1007MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,9.16%,8.832MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,44.04%,41.77MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,77.60%,1007MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.40%,8.832MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,44.04%,41.77MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,77.60%,1007MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.40%,8.832MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,42.95%,41.94MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,80.48%,1008MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.19%,9.09MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,42.95%,41.94MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,80.48%,1008MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.19%,9.09MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,43.82%,42.32MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,77.13%,1008MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.594MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,43.82%,42.32MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,77.13%,1008MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.594MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,45.45%,41.82MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,82.89%,1009MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,9.348MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,45.45%,41.82MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,82.89%,1009MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,9.348MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,53.34%,41.95MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,81.57%,1009MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.90%,8.859MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,53.34%,41.95MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,81.57%,1009MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,5.90%,8.859MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,45.99%,42.29MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,86.20%,1010MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.863MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,45.99%,42.29MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,86.20%,1010MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.863MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,47.66%,41.89MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,79.92%,1010MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,9.105MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,47.66%,41.89MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,79.92%,1010MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,9.105MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,48.93%,42.35MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,93.18%,1011MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.867MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,48.93%,42.35MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,93.18%,1011MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.867MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,56.78%,40.98MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,96.54%,1012MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.28%,9.133MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,56.78%,40.98MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,96.54%,1012MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.28%,9.133MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,64.16%,40.68MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,107.70%,1013MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,6.01%,8.398MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,64.16%,40.68MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,107.70%,1013MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,6.01%,8.398MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,47.61%,40.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,83.36%,1013MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.895MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,47.61%,40.5MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,83.36%,1013MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.21%,8.895MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,48.34%,41.93MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,88.23%,1014MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.27%,8.914MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,48.34%,41.93MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,88.23%,1014MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.27%,8.914MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,46.18%,41.18MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,81.15%,1014MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.672MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,46.18%,41.18MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,81.15%,1014MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.672MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,46.18%,41.18MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,81.15%,1014MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.23%,8.672MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,45.41%,41.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,84.96%,1015MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.26%,9.18MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,45.41%,41.3MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,84.96%,1015MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,0.26%,9.18MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,56.51%,41.21MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,87.31%,1015MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,6.36%,8.938MiB / 14.73GiB[K
+[K
+[J[Hledgerpay-perf-api-1,56.51%,41.21MiB / 14.73GiB[K
+ledgerpay-perf-postgres-1,87.31%,1015MiB / 14.73GiB[K
+ledgerpay-perf-worker-1,6.36%,8.938MiB / 14.73GiB[K
+[K
+[J

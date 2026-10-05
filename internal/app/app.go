@@ -23,6 +23,7 @@ import (
 	"ledgerpay/internal/modules/ops"
 	"ledgerpay/internal/modules/payment"
 	"ledgerpay/internal/modules/payout"
+	"ledgerpay/internal/modules/recon"
 	"ledgerpay/internal/modules/topup"
 	"ledgerpay/internal/modules/transfer"
 	"ledgerpay/internal/modules/wallet"
@@ -59,6 +60,7 @@ type Deps struct {
 	CallbackURL    string   // URL webhook LedgerPay yang diberikan ke provider
 	WebhookSecrets []string // secret HMAC webhook provider (lebih dari satu saat rotasi)
 
+	Settlements      recon.Source // laporan settlement provider (rekonsiliasi)
 	Bank             payout.Bank
 	Keyring          *crypto.Keyring // PII at-rest (rekening payout, secret webhook merchant)
 	Egress           egress.Policy   // webhook keluar ke merchant (anti-SSRF)
@@ -73,6 +75,7 @@ func (d Deps) ValidateAPI() error {
 	for name, missing := range map[string]bool{
 		"Pool": d.Pool == nil, "Tokens": d.Tokens == nil, "Clock": d.Clock == nil, "IDs": d.IDs == nil,
 		"Provider": d.Provider == nil, "Keyring": d.Keyring == nil, "CallbackURL": d.CallbackURL == "", "WebhookSecrets": len(d.WebhookSecrets) == 0,
+		"Settlements": d.Settlements == nil,
 	} {
 		if missing {
 			errs = append(errs, fmt.Errorf("app: dependency %s is required", name))
@@ -86,7 +89,7 @@ func (d Deps) ValidateWorker() error {
 	var errs []error
 	for name, missing := range map[string]bool{
 		"Pool": d.Pool == nil, "Clock": d.Clock == nil, "IDs": d.IDs == nil, "Provider": d.Provider == nil,
-		"Bank": d.Bank == nil, "Keyring": d.Keyring == nil,
+		"Bank": d.Bank == nil, "Keyring": d.Keyring == nil, "Settlements": d.Settlements == nil,
 	} {
 		if missing {
 			errs = append(errs, fmt.Errorf("app: dependency %s is required", name))
@@ -105,6 +108,7 @@ type services struct {
 	payment  *payment.Service
 	topup    *topup.Service
 	payout   *payout.Service
+	recon    *recon.Service
 }
 
 func build(d Deps) services {
@@ -114,6 +118,7 @@ func build(d Deps) services {
 	s.payment = payment.NewService(s.ledger, s.users, s.webhooks, d.IDs)
 	s.topup = topup.NewService(s.ledger, d.Provider, d.IDs, topup.Config{CallbackURL: d.CallbackURL, ReturnBaseURL: strings.TrimRight(d.PublicBaseURL, "/")})
 	s.payout = payout.NewService(d.Pool, s.ledger, d.Bank, d.Keyring, d.IDs, payout.Config{SafeWindow: d.PayoutSafeWindow})
+	s.recon = recon.NewService(d.Pool, s.ledger, d.Settlements, d.IDs)
 	return s
 }
 
@@ -142,7 +147,8 @@ func APIRouter(d Deps) http.Handler {
 	topupH := topup.NewHandler(d.Pool, sv.topup, idem)
 	payoutH := payout.NewHandler(d.Pool, sv.payout, idem)
 	inboxH := inbox.NewHandler(d.Pool, d.WebhookSecrets, d.Clock, d.IDs)
-	opsH := ops.NewHandler(d.Pool, idem, d.IDs, sv.payout, sv.webhooks)
+	opsH := ops.NewHandler(d.Pool, idem, d.IDs, sv.payout, sv.webhooks, reconAdapter{})
+	reconH := recon.NewHandler(d.Pool, sv.recon, d.Clock)
 
 	r := chi.NewRouter()
 	r.Use(httpx.RequestID(d.Logger), httpx.Recover, tracing.Middleware, httpx.Metrics, httpx.SecurityHeaders,
@@ -169,6 +175,7 @@ func APIRouter(d Deps) http.Handler {
 		paymentH.MerchantRoutes(merchantAPI)
 		merchantH.OpsRoutes(opsAll)
 		opsH.Routes(opsRead, opsWrite)
+		reconH.Routes(opsRead, opsWrite)
 		topupH.Routes(read, money)
 		payoutH.Routes(read, money)
 		inboxH.Routes(v1) // publik: autentikasi = tanda tangan HMAC provider

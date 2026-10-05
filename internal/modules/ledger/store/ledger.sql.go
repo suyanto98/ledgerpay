@@ -329,6 +329,25 @@ func (q *Queries) JournalExists(ctx context.Context, id uuid.UUID) (bool, error)
 	return exists, err
 }
 
+const journalIDBySource = `-- name: JournalIDBySource :one
+SELECT id FROM journals WHERE source_type = $1 AND source_id = $2 AND purpose = $3
+`
+
+type JournalIDBySourceParams struct {
+	SourceType string
+	SourceID   uuid.UUID
+	Purpose    string
+}
+
+// Satu objek bisnis = satu journal per purpose (uq_journals_source). Dipakai recon: run ulang
+// merujuk journal PROVIDER_SETTLEMENT yang sudah ada alih-alih memposting lagi.
+func (q *Queries) JournalIDBySource(ctx context.Context, arg JournalIDBySourceParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, journalIDBySource, arg.SourceType, arg.SourceID, arg.Purpose)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listAccountEntries = `-- name: ListAccountEntries :many
 SELECT e.id AS entry_id, e.journal_id, e.direction, e.amount, e.currency, e.created_at, j.purpose
 FROM journal_entries e

@@ -610,6 +610,8 @@ Dua partial unique terakhir membuat batch insert item dalam satu run idempoten (
 **Trigger:** `updated_at`; menolak perubahan `category`, `internal_*`, `external_*` setelah insert (hanya kolom resolusi yang boleh berubah).
 **Grant:** `SELECT, INSERT, UPDATE (resolution, resolution_action, resolution_note, resolved_by, resolved_at, settlement_journal_id, updated_at)`.
 
+
+**Catatan implementasi (Sprint 9, migrasi `00009`):** sesuai tabel di atas, ditambah kolom `provider_ref` (ID di sisi provider, untuk bukti ops), `row_count` di `recon_runs`, dan `ck_recon_runs_upload_actor`. Trigger `forbid_recon_fact_change` menolak perubahan fakta matching **dan** perubahan apa pun setelah `RESOLVED`. Item bersumber `WEBHOOK` (konflik inbox) sudah didukung skema tetapi belum ditulis modul inbox (backlog).
 ---
 
 ## 16. Ringkasan grant `ledgerpay_app`

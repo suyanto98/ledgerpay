@@ -87,7 +87,7 @@
 - [ ] mock-provider menyimpan state **in-memory** (desain: DB terpisah `migrations_mock`). Cukup untuk dev/E2E; DB dibutuhkan kalau mock harus bertahan restart (settlement CSV, Sprint 9)
 - [ ] Endpoint mock payout (`/v1/payouts`) dan settlement CSV belum ada (Sprint 6 dan 9)
 - [ ] Job `topup.recover` (top-up macet di `CREATED` tanpa retry client) dan `topup.expire_sweep` (cek provider dulu) — Sprint 6 job runner
-- [ ] Event `CONFLICT` hanya dicatat log; `recon_items` di tx yang sama menunggu tabel recon (Sprint 9)
+- [ ] Event `CONFLICT` hanya dicatat log. Tabel `recon_items` (source `WEBHOOK`) sudah ada sejak Sprint 9; penulisan dari inbox belum
 - [x] Metrik `webhook_late_total`, `webhook_inbox_dead_total`, alert DEAD — selesai Sprint 7
 - [ ] Replay event inbox `DEAD` dari ops console (`DEAD → RECEIVED`): belum. Replay webhook KELUAR selesai Sprint 8
 - [ ] Retensi inbox (hapus > 90 hari, bukan `RECEIVED`) — job cleanup Sprint 6
@@ -110,9 +110,9 @@
 - [x] Worker belum punya endpoint health/metrics; compose healthcheck dimatikan — selesai Sprint 7
 - [ ] `maintenance.refresh_token_cleanup` dan `maintenance.inbox_cleanup` belum dijadwalkan
 - [ ] Job `pii.reencrypt` (dibutuhkan saat rotasi kunci keyring pertama kali)
-- [ ] `EXPLAIN (ANALYZE, BUFFERS)` query claim jobs (amandemen ADR-006) — bersama load test Sprint 9
+- [ ] `EXPLAIN (ANALYZE, BUFFERS)` query claim jobs (amandemen ADR-006): belum; subset load test S9 tidak membebani antrean job
 - [ ] Mock bank tidak pernah menjawab `202 PROCESSING`; cabang `OutcomeProcessing` belum teruji end-to-end
-- [ ] `needs_reconciliation` baru ditandai; dikonsumsi rekonsiliasi Sprint 9
+- [x] `needs_reconciliation` baru ditandai; payout yang menggantung kini muncul di recon sebagai `STATUS_MISMATCH`/`MISSING_EXTERNAL` — Sprint 9
 - [ ] Konfigurasi webhook merchant hanya lewat CLI (belum ada rotasi secret dual-window, §6.2)
 
 ## Sprint 7 — Observability · M3 ✅
@@ -156,6 +156,24 @@
 - [ ] Ops console **UI** belum ada (API saja); dijadwalkan bersama recon di S10
 - [ ] `GET /payouts` (list user) dan `GET /merchant/payment-intents` (list) masih belum
 - [ ] Notifikasi nightly gagal: hanya email bawaan GitHub (issue otomatis `nightly-failure` belum)
-- [ ] Pencarian ops `merchant_order_id` tanpa `merchant_id` tidak memakai indeks (uq parsial berawalan merchant_id) — cek dengan EXPLAIN di Sprint 9
+- [ ] Pencarian ops `merchant_order_id` tanpa `merchant_id` tidak memakai indeks (uq parsial berawalan merchant_id): belum diukur
 - [ ] Rate tier ops write memakai `money-write` (30/menit); desain menyebut tier `write` yang belum didefinisikan
 - [ ] Penyimpanan Pushgateway in-memory: restart Pushgateway → `BackupMissing` sampai backup berikutnya (diterima; alert itu sendiri yang memberi tahu)
+
+## Sprint 9 — Performance + Reconciliation ✅
+- [x] Rekonsiliasi (LF-17, Demo D): migrasi 00009 (`recon_runs`, `recon_items`, fakta immutable), mock `GET /v1/settlements/{date}.csv` + skenario `settlement_mismatch:missing|amount|status|extra`, modul `recon` (parser + classifier murni, `PROVIDER_SETTLEMENT` dedupe per top-up, lock advisory per tanggal), job `recon.daily` (02:30 WIB, catch-up), `POST/GET /ops/recon-runs`, `GET /ops/recon-items`, `POST /ops/recon-items/{id}/resolve` (APPLY_PAYOUT_SETTLE/REVERSAL lewat `ResolveByOps`, NO_ACTION_*), gauge item OPEN, `make demo-d`
+- [x] Seed `ledgerpay seed smoke|perf` (COPY + `session_replication_role`, gate invariant via role aplikasi): 1.001.005 journal dalam 49,6 dtk
+- [x] Perf env (`deploy/perf/compose.perf.yml`: pg_stat_statements, auto_explain, pprof, rate limit off — ditolak di luar dev/test/perf), metrik `ledgerpay_ledger_lock_wait_seconds`
+- [x] k6 LP-2, LP-3, LP-4 (+ kontrol), LP-9; `perf/run.sh` (bukti + cek invariant per skenario), `perf/stages.py`
+- [x] Laporan baseline laptop (`docs/performance.md`, `perf/results/2026-10-05-d442f04/`), keputusan E-1, OpenAPI recon
+
+## Catatan dari Sprint 9 (dibawa ke sprint berikutnya)
+- [ ] **E-1 → `MERCHANT_PENDING` (V2)**: aturan keputusan terpicu di baseline laptop (lihat ADR-L07). Langkah murah lebih dulu: kurangi round trip di bagian yang memegang lock merchant; ulangi E-1 di VM target
+- [ ] Angka performa resmi di VM 2 vCPU / 4 GB dengan k6 dari mesin terpisah (saat deploy)
+- [ ] Skenario opsional LP-1, LP-5–LP-8 belum dijalankan; CI perf smoke nightly ditunda sampai setelah M4 (amandemen Step 12)
+- [ ] `POST /ops/recon-runs` sinkron (desain: 202 + job) dan upload file manual (multipart) belum ada
+- [ ] Top-up `STATUS_MISMATCH` (provider menerima uang setelah top-up kedaluwarsa) belum punya aksi `APPLY_TOPUP_CREDIT`
+- [ ] Aksi `REPLAY_INBOX_EVENT` di resolve recon belum ada
+- [ ] Alert untuk item recon OPEN yang menumpuk / run harian yang gagal belum dibuat (gauge sudah ada)
+- [ ] LP-4 memakai 1.000 payer (desain 5.000): login 5.000 user = 5.000 hash argon2 di setup k6
+- [ ] Ide LP-2 (belum diukur): kurangi round trip per transfer (±10 statement) dengan `pgx.Batch`/fungsi SQL

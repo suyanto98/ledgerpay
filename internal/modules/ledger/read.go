@@ -2,9 +2,11 @@ package ledger
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"ledgerpay/internal/modules/ledger/store"
 	"ledgerpay/internal/platform/apperr"
@@ -143,4 +145,16 @@ func (s *Service) JournalFor(ctx context.Context, q store.DBTX, ownerAccountID, 
 		return JournalView{}, apperr.ErrNotFound
 	}
 	return v, nil
+}
+
+// JournalBySource mengembalikan journal untuk (source, purpose), atau false kalau belum ada.
+func (s *Service) JournalBySource(ctx context.Context, q store.DBTX, sourceType string, sourceID uuid.UUID, purpose Purpose) (uuid.UUID, bool, error) {
+	id, err := store.New(q).JournalIDBySource(ctx, store.JournalIDBySourceParams{SourceType: sourceType, SourceID: sourceID, Purpose: string(purpose)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, db.MapError(err)
+	}
+	return id, true, nil
 }

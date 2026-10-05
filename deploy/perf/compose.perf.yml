@@ -1,0 +1,62 @@
+# Perf env lokal (docs/design/23-performance-plan.md §3), di ATAS deploy/compose.yml:
+#   docker compose -p ledgerpay-perf -f deploy/compose.yml -f deploy/perf/compose.perf.yml up -d --build --wait api worker mock-provider
+# Project terpisah (volume sendiri) supaya data dev tidak tercampur dataset 1 juta journal.
+# Angka dari env ini adalah BASELINE MESIN INI, bukan klaim kapasitas server (§8).
+services:
+  postgres:
+    # Pengaturan §3 (target VM 4 GB). Pool aplikasi TIDAK diperbesar untuk "memenangkan" benchmark.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements,auto_explain
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - effective_cache_size=2560MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - max_connections=100
+      - -c
+      - wal_compression=on
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - track_io_timing=on
+      - -c
+      - auto_explain.log_min_duration=100ms
+      - -c
+      - auto_explain.log_analyze=on
+      - -c
+      - auto_explain.log_buffers=on
+    shm_size: 1g # extension pg_stat_statements dibuat oleh `ledgerpay seed` (superuser)
+
+  api:
+    environment:
+      APP_ENV: perf
+      COOKIE_SECURE: "true"
+      RATE_LIMIT_DISABLED: "true" # kapasitas mentah (LP-9 dan setup k6 yang login ratusan user)
+      PPROF_ENABLED: "true"       # /debug/pprof di port ops (127.0.0.1 saja)
+      OTEL_EXPORTER_OTLP_ENDPOINT: ""
+
+  worker:
+    environment:
+      APP_ENV: perf
+      PPROF_ENABLED: "true"
+      WEBHOOK_EGRESS_ALLOW_CIDRS: "" # tidak boleh di luar dev/test
+      OTEL_EXPORTER_OTLP_ENDPOINT: ""
+
+  # Seed dataset: superuser HANYA di container ini (session_replication_role). `run --rm seed perf`.
+  seed:
+    build: { context: .., dockerfile: deploy/Dockerfile, target: ledgerpay }
+    entrypoint: ["/app/ledgerpay", "seed"]
+    command: ["smoke"]
+    environment:
+      APP_ENV: perf
+      DATABASE_URL: postgres://ledgerpay_app:app-dev@postgres:5432/ledgerpay?sslmode=disable
+      SEED_DATABASE_URL: postgres://postgres:postgres-dev@postgres:5432/ledgerpay?sslmode=disable
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    profiles: [seed]

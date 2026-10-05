@@ -1,0 +1,19 @@
+ calls  | total_ms | mean_ms  | blks_read |                                           query                                            
+--------+----------+----------+-----------+--------------------------------------------------------------------------------------------
+  51508 |  4321418 |   83.898 |         0 | -- name: LockWalletAccounts :many SELECT id, user_id, system_code, is_system, type, curren
+  51508 |    80937 |    1.571 |        54 | -- name: InsertIntent :one INSERT INTO payment_intents (id, merchant_id, merchant_account_
+  51508 |    35995 |    0.699 |         2 | -- name: MarkIntentSucceeded :execrows UPDATE payment_intents SET status = 'SUCCEEDED', pa
+ 103017 |    34773 |    0.338 |        25 | -- name: InsertKey :one INSERT INTO idempotency_keys (id, client_type, client_id, endpoint
+ 103016 |    30382 |    0.295 |       776 | -- name: InsertEntry :exec INSERT INTO journal_entries (id, journal_id, account_id, direct
+ 103016 |    29291 |    0.284 |         0 | -- name: AddToBalance :exec UPDATE accounts SET balance = balance + $1::bigint WHERE id = 
+ 103017 |    24759 |    0.240 |       123 | -- name: CompleteKey :exec UPDATE idempotency_keys SET response_status = $1, response_body
+  51508 |    14418 |    0.280 |         0 | -- name: InsertJournal :exec INSERT INTO journals (id, purpose, source_type, source_id, cu
+  51508 |    13666 |    0.265 |         0 | -- name: GetWalletByMerchant :one SELECT id, currency, balance, status FROM accounts WHERE
+ 103016 |    13276 |    0.129 |         0 | -- name: GetIntent :one SELECT i.id, i.merchant_id, m.name AS merchant_name, i.merchant_or
+  51508 |     6899 |    0.134 |         0 | -- name: GetSystemAccounts :many SELECT id, user_id, system_code, is_system, type, currenc
+  51508 |     6540 |    0.127 |         0 | -- name: GetActiveKeyByPrefix :one SELECT k.id, k.merchant_id, k.key_hash, k.mode, k.expir
+ 154524 |     6201 |    0.040 |         0 | SELECT coalesce(sum(amount) FILTER (WHERE direction = 'D'), 0), coalesce(sum(amount) FILTE
+  51508 |     3956 |    0.077 |         0 | -- name: LockIntent :one SELECT id, merchant_id, merchant_account_id, amount, currency, st
+      1 |     3404 | 3403.709 |         0 | -- name: UnbalancedJournals :many SELECT journal_id FROM journal_entries GROUP BY journal_
+(15 rows)
+

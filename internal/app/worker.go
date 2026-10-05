@@ -16,6 +16,7 @@ import (
 	"ledgerpay/internal/modules/ledger"
 	"ledgerpay/internal/modules/payment"
 	"ledgerpay/internal/modules/payout"
+	"ledgerpay/internal/modules/recon"
 	"ledgerpay/internal/platform/idempotency"
 	"ledgerpay/internal/platform/jobs"
 	"ledgerpay/internal/platform/observability"
@@ -91,6 +92,13 @@ func NewWorker(d Deps, cfg WorkerConfig) *Worker {
 			log(ctx, "jobs.cleanup_done", "deleted", n)
 			return err
 		}),
+		jobs.Kind{Name: "recon.daily", MaxAttempts: 5, Timeout: 15 * time.Minute, Heartbeat: true,
+			Backoff: jobs.Schedule([]time.Duration{5 * time.Minute, 15 * time.Minute, time.Hour, 3 * time.Hour}, 0.1),
+			Handler: func(ctx context.Context, _ *jobs.Job) error {
+				ran, err := sv.recon.Daily(ctx, d.Clock.Now()) // 02:30 WIB untuk D−1; catch-up tiap jam
+				log(ctx, "recon.daily_done", "ran", ran)
+				return err
+			}},
 		quick("maintenance.idempotency_cleanup", func(ctx context.Context) error {
 			n, err := idempotency.Cleanup(ctx, d.Pool)
 			log(ctx, "idempotency.cleanup_done", "deleted", n)
@@ -100,6 +108,7 @@ func NewWorker(d Deps, cfg WorkerConfig) *Worker {
 	for kind, every := range map[string]time.Duration{ // katalog §3.1
 		"topup.recover": time.Minute, "intent.expire_sweep": time.Minute, "topup.expire_sweep": 5 * time.Minute,
 		"ledger.verify": time.Hour, "maintenance.jobs_cleanup": time.Hour, "maintenance.idempotency_cleanup": 24 * time.Hour,
+		"recon.daily": time.Hour,
 	} {
 		w.Maintenance.Every(kind, every)
 	}
@@ -112,6 +121,9 @@ func (w *Worker) Stats(ctx context.Context) error {
 		return err
 	}
 	if err := payout.Stats(ctx, w.deps.Pool); err != nil {
+		return err
+	}
+	if err := recon.Stats(ctx, w.deps.Pool); err != nil {
 		return err
 	}
 	return inbox.Stats(ctx, w.deps.Pool)

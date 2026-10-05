@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -34,6 +36,7 @@ import (
 	"ledgerpay/internal/modules/ledger"
 	"ledgerpay/internal/modules/payment"
 	"ledgerpay/internal/modules/payout"
+	"ledgerpay/internal/modules/recon"
 	"ledgerpay/internal/modules/topup"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
@@ -50,7 +53,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: ledgerpay <api|worker|migrate up|healthcheck|ledger-verify|demo-credit|merchant-create|merchant-webhook|grant-ops>")
+		fmt.Fprintln(os.Stderr, "usage: ledgerpay <api|worker|migrate up|healthcheck|ledger-verify|seed|demo-credit|merchant-create|merchant-webhook|grant-ops>")
 		os.Exit(2)
 	}
 	var err error
@@ -65,6 +68,8 @@ func main() {
 		err = runHealthcheck()
 	case "ledger-verify":
 		err = runLedgerVerify()
+	case "seed":
+		err = runSeed(os.Args[2:])
 	case "demo-credit":
 		err = runDemoCredit(os.Args[2:])
 	case "merchant-create":
@@ -131,11 +136,16 @@ func runAPI() error {
 	}
 	tiers := ratelimit.DefaultTiers()
 	tiers.MoneyWrite.Rules = []ratelimit.Rule{{Events: cfg.RateLimitMoneyWritePerMin, Per: time.Minute}}
+	if cfg.RateLimitDisabled { // perf env saja (divalidasi config)
+		tiers = ratelimit.Unlimited()
+		logger.Warn("ratelimit.disabled", "app_env", cfg.AppEnv)
+	}
 	deps := app.Deps{
 		Logger: logger, Pool: pool, Tokens: tokens, Clock: clk, IDs: ids, CookieSecure: cfg.CookieSecure,
 		Identity:       identity.Config{Argon2: auth.DefaultArgon2, RefreshTTL: cfg.RefreshTTL, RefreshFamilyTTL: cfg.RefreshFamilyTTL},
 		AllowedOrigins: cfg.AllowedOrigins, TrustedProxies: cfg.TrustedProxies, PublicBaseURL: cfg.PublicBaseURL, Tiers: &tiers,
 		Provider:    topup.NewHTTPProvider(cfg.ProviderBaseURL, cfg.ProviderAPISecret),
+		Settlements: recon.NewHTTPSource(cfg.ProviderBaseURL, cfg.ProviderAPISecret, 30*time.Second),
 		CallbackURL: cfg.ProviderCallbackURL, WebhookSecrets: cfg.ProviderWebhookSecrets,
 		Keyring: cfg.Keyring, Egress: egress.Policy{AllowCIDRs: cfg.EgressAllow, RequireHTTPS: cfg.RequireHTTPSHooks},
 		PayoutSafeWindow: cfg.PayoutSafeWindow,
@@ -147,7 +157,7 @@ func runAPI() error {
 	// Timeout server menutup slowloris dan koneksi menggantung (C-29).
 	api := &http.Server{Addr: cfg.HTTPAddr, Handler: app.APIRouter(deps),
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
-	ops := &http.Server{Addr: cfg.OpsAddr, Handler: app.OpsRouter(pool), ReadHeaderTimeout: 5 * time.Second}
+	ops := &http.Server{Addr: cfg.OpsAddr, Handler: withPprof(cfg.PprofEnabled, app.OpsRouter(pool)), ReadHeaderTimeout: 5 * time.Second}
 
 	errc := make(chan error, 2)
 	go func() { errc <- serve(api) }()
@@ -253,6 +263,39 @@ func runLedgerVerify() error {
 	return nil
 }
 
+// runSeed: `ledgerpay seed <smoke|perf>` — dataset load test (COPY + gate invariant). Butuh
+// SEED_DATABASE_URL (superuser, HANYA di container perf/dev) dan DATABASE_URL (role aplikasi, untuk gate).
+func runSeed(args []string) error {
+	if len(args) != 1 {
+		return errors.New("usage: ledgerpay seed <smoke|perf>")
+	}
+	profile, ok := app.SeedProfiles[args[0]]
+	if !ok {
+		return fmt.Errorf("unknown seed profile %q (smoke | perf)", args[0])
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
+	defer cancel()
+	cfg, pool, err := openPool(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	if cfg.AppEnv != "dev" && cfg.AppEnv != "test" && cfg.AppEnv != "perf" {
+		return fmt.Errorf("seed refuses to run in APP_ENV=%s (dev/test/perf only)", cfg.AppEnv)
+	}
+	superDSN := os.Getenv("SEED_DATABASE_URL")
+	if superDSN == "" {
+		return errors.New("SEED_DATABASE_URL (superuser) is required")
+	}
+	rep, err := app.Seed(ctx, superDSN, pool, profile, 42)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("seed %s OK: %d users, %d merchants, %d journals, %d entries; COPY %.1fs, total (incl. VACUUM + gate) %.1fs\n",
+		rep.Profile, rep.Users, rep.Merchants, rep.Journals, rep.Entries, rep.LoadSeconds, rep.TotalSeconds)
+	return nil
+}
+
 func runDemoCredit(args []string) error {
 	if len(args) != 2 {
 		return errors.New("usage: ledgerpay demo-credit <email> <amount-minor-units>")
@@ -322,8 +365,9 @@ func runWorker() error {
 	}
 	deps := app.Deps{Logger: logger, Pool: pool, Clock: clock.System{}, IDs: idgen.V7{},
 		Provider: topup.NewHTTPProvider(cfg.ProviderBaseURL, cfg.ProviderAPISecret), CallbackURL: cfg.ProviderCallbackURL, PublicBaseURL: cfg.PublicBaseURL,
-		Bank:    payout.NewHTTPBank(cfg.ProviderBaseURL, cfg.ProviderAPISecret, 10*time.Second),
-		Keyring: cfg.Keyring, Egress: egress.Policy{AllowCIDRs: cfg.EgressAllow, RequireHTTPS: cfg.RequireHTTPSHooks},
+		Bank:        payout.NewHTTPBank(cfg.ProviderBaseURL, cfg.ProviderAPISecret, 10*time.Second),
+		Settlements: recon.NewHTTPSource(cfg.ProviderBaseURL, cfg.ProviderAPISecret, 30*time.Second),
+		Keyring:     cfg.Keyring, Egress: egress.Policy{AllowCIDRs: cfg.EgressAllow, RequireHTTPS: cfg.RequireHTTPSHooks},
 		PayoutSafeWindow: cfg.PayoutSafeWindow}
 	if err := deps.ValidateWorker(); err != nil {
 		return err
@@ -338,7 +382,7 @@ func runWorker() error {
 	defer func() { _ = shutdownTracing(context.Background()) }()
 	metrics.SetBuildInfo("worker", cfg.Version)
 	metrics.RegisterPool("worker", pool)
-	ops := &http.Server{Addr: cfg.OpsAddr, Handler: app.WorkerOpsRouter(w, cfg.WorkerPollInterval), ReadHeaderTimeout: 5 * time.Second}
+	ops := &http.Server{Addr: cfg.OpsAddr, Handler: withPprof(cfg.PprofEnabled, app.WorkerOpsRouter(w, cfg.WorkerPollInterval)), ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = serve(ops) }()
 	defer func() { _ = ops.Shutdown(context.Background()) }()
 	logger.Info("worker.started", "worker_id", id, "ops_addr", cfg.OpsAddr)
@@ -372,4 +416,22 @@ func runMerchantWebhook(args []string) error {
 	}
 	fmt.Println(secret) // satu-satunya saat secret terlihat; yang tersimpan hanya ciphertext
 	return nil
+}
+
+// withPprof memasang /debug/pprof/* di port OPS internal (tidak pernah lewat Caddy), hanya kalau
+// PPROF_ENABLED (perf env). Profil mutex/block ikut dinyalakan untuk analisis kontensi lock.
+func withPprof(enabled bool, h http.Handler) http.Handler {
+	if !enabled {
+		return h
+	}
+	runtime.SetMutexProfileFraction(10)
+	runtime.SetBlockProfileRate(int(time.Millisecond))
+	mux := http.NewServeMux()
+	mux.Handle("/", h)
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	return mux
 }

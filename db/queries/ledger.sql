@@ -101,3 +101,8 @@ SELECT EXISTS (SELECT 1 FROM journals WHERE reversal_of = @reversal_of);
 -- name: GlobalImbalance :one
 -- LI-01 global: Σ seluruh debit − Σ seluruh kredit (minor unit). Normalnya 0.
 SELECT coalesce(sum(CASE direction WHEN 'D' THEN amount ELSE -amount END), 0)::bigint FROM journal_entries;
+
+-- name: JournalIDBySource :one
+-- Satu objek bisnis = satu journal per purpose (uq_journals_source). Dipakai recon: run ulang
+-- merujuk journal PROVIDER_SETTLEMENT yang sudah ada alih-alih memposting lagi.
+SELECT id FROM journals WHERE source_type = @source_type AND source_id = @source_id AND purpose = @purpose;

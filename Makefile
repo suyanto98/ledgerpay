@@ -6,7 +6,7 @@ export PATH := $(GOBIN):$(PATH)
 COMPOSE := docker compose -f deploy/compose.yml
 REDOCLY := npx --yes @redocly/cli@1
 
-.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions lint-shell gen gen-check smoke demo-a demo-b demo-c demo-payment demo-ops demo-verify demo-topup web web-check test-e2e up-obs test-alerts dashboards
+.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions lint-shell gen gen-check smoke demo-a demo-b demo-c demo-d demo-payment demo-ops demo-verify demo-topup web web-check test-e2e up-obs test-alerts dashboards perf-up perf-seed perf-run perf-down
 
 help: ## Tampilkan daftar target
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -51,6 +51,9 @@ demo-topup: ## Demo Sprint 5: top-up lewat mock-provider, webhook duplikat & sig
 demo-c: ## Demo C: payout timeout_after_process + docker kill worker → tetap 1 transfer
 	./scripts/demo/c_payout_recovery.sh
 
+demo-d: ## Demo D: payout UNKNOWN → settlement bank SUCCEEDED → recon STATUS_MISMATCH → ops resolve dengan bukti
+	./scripts/demo/d_reconciliation.sh
+
 demo-payment: ## Demo Sprint 4: merchant API key → payment intent → confirm dari dua tab
 	./scripts/demo/payment.sh
 
@@ -59,7 +62,23 @@ demo-ops: ## Demo Sprint 8: refund paralel + ops resolve payout UNKNOWN dengan b
 
 demo-verify: ## Semua demo headless (nightly CI); berhenti di kegagalan pertama
 	./scripts/demo/a_idempotency.sh && ./scripts/demo/b_concurrency.sh && ./scripts/demo/payment.sh \
-	  && ./scripts/demo/topup.sh && ./scripts/demo/ops.sh && ./scripts/demo/c_payout_recovery.sh
+	  && ./scripts/demo/topup.sh && ./scripts/demo/ops.sh && ./scripts/demo/d_reconciliation.sh \
+	  && ./scripts/demo/c_payout_recovery.sh
+
+# ------------------------------------------------------------------ perf (docs/design/23-performance-plan.md)
+PERF = docker compose -p ledgerpay-perf -f deploy/compose.yml -f deploy/perf/compose.perf.yml
+
+perf-up: ## Perf env lokal (project terpisah, pg_stat_statements, pprof, rate limit off)
+	$(PERF) up -d --build --wait api worker mock-provider
+
+perf-seed: ## Seed dataset perf (100k user, 1 juta journal) + gate invariant; PROFILE=smoke untuk kecil
+	$(PERF) --profile seed run --build --rm seed $${PROFILE:-perf}
+
+perf-run: ## Satu skenario: make perf-run S=lp2|lp3|lp4|lp4-control|lp9 (bukti di perf/results/)
+	./perf/run.sh $(S)
+
+perf-down: ## Hentikan perf env DAN hapus datanya
+	$(PERF) --profile seed down -v
 
 # ------------------------------------------------------------------ build & test
 build: ## Build binary ke bin/ledgerpay

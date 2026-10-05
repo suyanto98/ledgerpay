@@ -1,0 +1,19 @@
+ calls | total_ms | mean_ms | blks_read |                                           query                                            
+-------+----------+---------+-----------+--------------------------------------------------------------------------------------------
+ 20198 |     4393 |   0.217 |         0 | -- name: InsertEntry :exec INSERT INTO journal_entries (id, journal_id, account_id, direct
+ 20198 |     3995 |   0.198 |         0 | -- name: AddToBalance :exec UPDATE accounts SET balance = balance + $1::bigint WHERE id = 
+ 10099 |     3876 |   0.384 |         6 | -- name: InsertTransfer :one INSERT INTO transfers (id, sender_user_id, receiver_user_id, 
+ 10099 |     2325 |   0.230 |         0 | -- name: InsertJournal :exec INSERT INTO journals (id, purpose, source_type, source_id, cu
+ 10099 |     2144 |   0.212 |         0 | -- name: InsertKey :one INSERT INTO idempotency_keys (id, client_type, client_id, endpoint
+ 10099 |     1365 |   0.135 |         0 | -- name: CompleteKey :exec UPDATE idempotency_keys SET response_status = $1, response_body
+ 20198 |     1076 |   0.053 |         0 | -- name: GetWalletByUser :one SELECT id, currency, balance, status FROM accounts WHERE use
+ 30297 |      988 |   0.033 |         0 | SELECT coalesce(sum(amount) FILTER (WHERE direction = $15), $16), coalesce(sum(amount) FIL
+ 11099 |      788 |   0.071 |        83 | -- name: GetUserByEmail :one SELECT id, email, password_hash, display_name, role, status, 
+ 10099 |      720 |   0.071 |         0 | -- name: LockWalletAccounts :many SELECT id, user_id, system_code, is_system, type, curren
+  1000 |      538 |   0.538 |         0 | -- name: RecordLoginSuccess :exec UPDATE users SET last_login_at = $1, failed_login_count 
+  1000 |      502 |   0.502 |         6 | -- name: CreateRefreshToken :exec INSERT INTO refresh_tokens (id, user_id, family_id, toke
+ 10099 |      412 |   0.041 |         0 | -- name: GetSystemAccounts :many SELECT id, user_id, system_code, is_system, type, currenc
+     3 |      331 | 110.400 |     12024 | SELECT count(*) FROM journals WHERE purpose = $1
+     1 |      300 | 299.887 |         0 | SELECT count(*) FROM journal_entries
+(15 rows)
+

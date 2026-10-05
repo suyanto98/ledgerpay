@@ -1,0 +1,19 @@
+ calls | total_ms | mean_ms | blks_read |                                           query                                            
+-------+----------+---------+-----------+--------------------------------------------------------------------------------------------
+ 65686 |    50178 |   0.764 |       525 | -- name: InsertEntry :exec INSERT INTO journal_entries (id, journal_id, account_id, direct
+ 32843 |    43951 |   1.338 |       218 | -- name: InsertTransfer :one INSERT INTO transfers (id, sender_user_id, receiver_user_id, 
+ 65686 |    43946 |   0.669 |         0 | -- name: AddToBalance :exec UPDATE accounts SET balance = balance + $1::bigint WHERE id = 
+ 32843 |    28752 |   0.875 |         0 | -- name: LockWalletAccounts :many SELECT id, user_id, system_code, is_system, type, curren
+ 32843 |    22025 |   0.671 |         2 | -- name: InsertJournal :exec INSERT INTO journals (id, purpose, source_type, source_id, cu
+ 32843 |    20302 |   0.618 |      3425 | -- name: InsertKey :one INSERT INTO idempotency_keys (id, client_type, client_id, endpoint
+ 32843 |    16313 |   0.497 |      3458 | -- name: CompleteKey :exec UPDATE idempotency_keys SET response_status = $1, response_body
+ 98529 |    15439 |   0.157 |         0 | SELECT coalesce(sum(amount) FILTER (WHERE direction = $15), $16), coalesce(sum(amount) FIL
+ 65686 |     8892 |   0.135 |         0 | -- name: GetWalletByUser :one SELECT id, currency, balance, status FROM accounts WHERE use
+ 32843 |     6763 |   0.206 |         0 | -- name: GetSystemAccounts :many SELECT id, user_id, system_code, is_system, type, currenc
+ 33843 |     5964 |   0.176 |         0 | -- name: GetUserByEmail :one SELECT id, email, password_hash, display_name, role, status, 
+ 33853 |      700 |   0.021 |         0 | begin isolation level read committed
+  1000 |      641 |   0.641 |         1 | -- name: CreateRefreshToken :exec INSERT INTO refresh_tokens (id, user_id, family_id, toke
+  1000 |      545 |   0.545 |         6 | -- name: RecordLoginSuccess :exec UPDATE users SET last_login_at = $1, failed_login_count 
+     3 |      346 | 115.450 |         0 | SELECT count(*) FROM journals WHERE purpose = $1
+(15 rows)
+

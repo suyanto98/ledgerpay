@@ -1,0 +1,59 @@
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{name:login,status:200}
+    ✓ 'p(95)<100000' p(95)=2.41s
+
+    http_req_duration{name:login,status:503}
+    ✓ 'p(95)<100000' p(95)=2.01s
+
+    http_req_duration{name:wallet}
+    ✓ 'p(95)<100000' p(95)=14.89ms
+
+    http_reqs{name:login,status:200}
+    ✓ 'count>=0' count=3233
+
+    http_reqs{name:login,status:503}
+    ✓ 'count>=0' count=5010
+
+    http_reqs{status:500}
+    ✓ 'count>=0' count=0
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1       0.003306/s
+    checks_succeeded...: 100.00% 1 out of 1
+    checks_failed......: 0.00%   0 out of 1
+
+    ✓ login 200
+
+    CUSTOM
+    lp9_outcomes...................: 8243   27.25485/s
+
+    HTTP
+    http_req_duration..............: avg=1.17s  med=2s     p(95)=2.37s   p(99)=2.42s   max=2.65s  
+      { expected_response:true }...: avg=1.17s  med=2s     p(95)=2.37s   p(99)=2.42s   max=2.65s  
+      { name:login,status:200 }....: avg=2.03s  med=2.34s  p(95)=2.41s   p(99)=2.47s   max=2.65s  
+      { name:login,status:503 }....: avg=2s     med=2s     p(95)=2.01s   p(99)=2.02s   max=2.07s  
+      { name:wallet }..............: avg=6.76ms med=5.59ms p(95)=14.89ms p(99)=20.85ms max=54.02ms
+    http_req_failed................: 0.00%  0 out of 14245
+    http_reqs......................: 14245  47.100005/s
+      { name:login,status:200 }....: 3233   10.689668/s
+      { name:login,status:503 }....: 5010   16.565183/s
+      { status:500 }...............: 0      0/s
+
+    EXECUTION
+    dropped_iterations.............: 6      0.019839/s
+    iteration_duration.............: avg=1.17s  med=2s     p(95)=2.37s   p(99)=2.42s   max=2.65s  
+    iterations.....................: 14244  47.096699/s
+    vus............................: 16     min=1          max=104
+    vus_max........................: 126    min=120        max=126
+
+    NETWORK
+    data_received..................: 9.1 MB 30 kB/s
+    data_sent......................: 4.7 MB 16 kB/s
+
+
+

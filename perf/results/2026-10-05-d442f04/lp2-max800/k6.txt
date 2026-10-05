@@ -1,0 +1,64 @@
+time="2026-10-05T05:30:31Z" level=warning msg="Insufficient VUs, reached 2000 active VUs and cannot initialize more" executor=ramping-arrival-rate scenario=transfers
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{name:transfer}
+    ✓ 'p(95)<100000' p(95)=3.99s
+
+    http_req_failed{expected_response:true}
+    ✓ 'rate<1' rate=0.00%
+
+    http_reqs{name:transfer,status:201}
+    ✓ 'count>=0' count=32843
+
+    http_reqs{name:transfer,status:409}
+    ✓ 'count>=0' count=0
+
+    http_reqs{name:transfer,status:422}
+    ✓ 'count>=0' count=0
+
+    http_reqs{name:transfer,status:500}
+    ✓ 'count>=0' count=0
+
+    http_reqs{name:transfer,status:503}
+    ✓ 'count>=0' count=0
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1000    5.242237/s
+    checks_succeeded...: 100.00% 1000 out of 1000
+    checks_failed......: 0.00%   0 out of 1000
+
+    ✓ login 200
+
+    CUSTOM
+    lp2_outcomes.....................: 32843 172.170774/s
+
+    HTTP
+    http_req_duration................: avg=1.42s med=611.12ms p(90)=3.93s p(95)=3.99s p(99)=4.11s max=4.18s
+      { expected_response:true }.....: avg=1.42s med=611.12ms p(90)=3.93s p(95)=3.99s p(99)=4.11s max=4.18s
+      { name:transfer }..............: avg=1.45s med=627.13ms p(90)=3.93s p(95)=3.99s p(99)=4.11s max=4.18s
+    http_req_failed..................: 0.00% 0 out of 33843
+      { expected_response:true }.....: 0.00% 0 out of 33843
+    http_reqs........................: 33843 177.413011/s
+      { name:transfer,status:201 }...: 32843 172.170774/s
+      { name:transfer,status:409 }...: 0     0/s
+      { name:transfer,status:422 }...: 0     0/s
+      { name:transfer,status:500 }...: 0     0/s
+      { name:transfer,status:503 }...: 0     0/s
+
+    EXECUTION
+    dropped_iterations...............: 7255  38.032426/s
+    iteration_duration...............: avg=1.45s med=628.08ms p(90)=3.93s p(95)=3.99s p(99)=4.11s max=4.19s
+    iterations.......................: 32843 172.170774/s
+    vus..............................: 451   min=0          max=2000
+    vus_max..........................: 2000  min=200        max=2000
+
+    NETWORK
+    data_received....................: 22 MB 113 kB/s
+    data_sent........................: 22 MB 113 kB/s
+
+
+

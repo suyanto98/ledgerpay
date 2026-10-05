@@ -224,3 +224,7 @@ func SkipIfShort(t testing.TB) {
 		t.Skip("integration test (skipped with -short)")
 	}
 }
+
+// SuperDSN: DSN superuser ke DB test. HANYA untuk test alat non-produksi (seed perf memakai
+// session_replication_role, yang butuh superuser).
+func (d TestDB) SuperDSN() string { return DSN(d.Name, superUser, superPass) }

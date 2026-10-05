@@ -1,0 +1,62 @@
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{name:transfer}
+    ✓ 'p(95)<100000' p(95)=11.22ms
+
+    http_req_failed{expected_response:true}
+    ✓ 'rate<1' rate=0.00%
+
+    http_reqs{name:transfer,status:201}
+    ✓ 'count>=0' count=10099
+
+    http_reqs{name:transfer,status:409}
+    ✓ 'count>=0' count=0
+
+    http_reqs{name:transfer,status:422}
+    ✓ 'count>=0' count=0
+
+    http_reqs{name:transfer,status:500}
+    ✓ 'count>=0' count=0
+
+    http_reqs{name:transfer,status:503}
+    ✓ 'count>=0' count=0
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1000    5.600833/s
+    checks_succeeded...: 100.00% 1000 out of 1000
+    checks_failed......: 0.00%   0 out of 1000
+
+    ✓ login 200
+
+    CUSTOM
+    lp2_outcomes.....................: 10099  56.562817/s
+
+    HTTP
+    http_req_duration................: avg=42.44ms med=7.08ms p(90)=20.24ms p(95)=333.92ms p(99)=533.14ms max=759.58ms
+      { expected_response:true }.....: avg=42.44ms med=7.08ms p(90)=20.24ms p(95)=333.92ms p(99)=533.14ms max=759.58ms
+      { name:transfer }..............: avg=7.61ms  med=6.87ms p(90)=10.07ms p(95)=11.22ms  p(99)=22.19ms  max=107.79ms
+    http_req_failed..................: 0.00%  0 out of 11099
+      { expected_response:true }.....: 0.00%  0 out of 11099
+    http_reqs........................: 11099  62.16365/s
+      { name:transfer,status:201 }...: 10099  56.562817/s
+      { name:transfer,status:409 }...: 0      0/s
+      { name:transfer,status:422 }...: 0      0/s
+      { name:transfer,status:500 }...: 0      0/s
+      { name:transfer,status:503 }...: 0      0/s
+
+    EXECUTION
+    iteration_duration...............: avg=8.03ms  med=7.24ms p(90)=10.7ms  p(95)=11.91ms  p(99)=23.24ms  max=108.44ms
+    iterations.......................: 10099  56.562817/s
+    vus..............................: 2      min=0          max=9  
+    vus_max..........................: 200    min=200        max=200
+
+    NETWORK
+    data_received....................: 7.2 MB 41 kB/s
+    data_sent........................: 6.8 MB 38 kB/s
+
+
+

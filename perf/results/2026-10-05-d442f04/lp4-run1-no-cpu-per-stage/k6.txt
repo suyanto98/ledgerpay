@@ -1,0 +1,116 @@
+time="2026-10-05T04:39:54Z" level=warning msg="Insufficient VUs, reached 2000 active VUs and cannot initialize more" executor=ramping-arrival-rate scenario=payments
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{name:confirm,stage:0}
+    ✓ 'p(95)<100000' p(95)=15.32ms
+
+    http_req_duration{name:confirm,stage:1}
+    ✓ 'p(95)<100000' p(95)=13.53ms
+
+    http_req_duration{name:confirm,stage:2}
+    ✓ 'p(95)<100000' p(95)=404.27ms
+
+    http_req_duration{name:confirm,stage:3}
+    ✓ 'p(95)<100000' p(95)=10.33s
+
+    http_req_duration{name:confirm,stage:4}
+    ✓ 'p(95)<100000' p(95)=16.97s
+
+    http_reqs{name:confirm,stage:0,status:200}
+    ✓ 'count>=0' count=2999
+
+    http_reqs{name:confirm,stage:0}
+    ✓ 'count>=0' count=2999
+
+    http_reqs{name:confirm,stage:1,status:200}
+    ✓ 'count>=0' count=5938
+
+    http_reqs{name:confirm,stage:1}
+    ✓ 'count>=0' count=5938
+
+    http_reqs{name:confirm,stage:2,status:200}
+    ✓ 'count>=0' count=11874
+
+    http_reqs{name:confirm,stage:2}
+    ✓ 'count>=0' count=11874
+
+    http_reqs{name:confirm,stage:3,status:200}
+    ✓ 'count>=0' count=13919
+
+    http_reqs{name:confirm,stage:3}
+    ✓ 'count>=0' count=13919
+
+    http_reqs{name:confirm,stage:4,status:200}
+    ✓ 'count>=0' count=11235
+
+    http_reqs{name:confirm,stage:4}
+    ✓ 'count>=0' count=11235
+
+    http_reqs{name:confirm,status:200}
+    ✓ 'count>=0' count=45965
+
+    http_reqs{name:confirm,status:409}
+    ✓ 'count>=0' count=0
+
+    http_reqs{name:confirm,status:422}
+    ✓ 'count>=0' count=0
+
+    http_reqs{name:create_intent,status:201}
+    ✓ 'count>=0' count=45965
+
+    http_reqs{status:500}
+    ✓ 'count>=0' count=0
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1001    1.411345/s
+    checks_succeeded...: 100.00% 1001 out of 1001
+    checks_failed......: 0.00%   0 out of 1001
+
+    ✓ login 200
+
+    CUSTOM
+    lp4_outcomes............................: 45965 64.807666/s
+
+    HTTP
+    http_req_duration.......................: avg=5s      med=3.1s    p(95)=15.75s   p(99)=17.85s   max=21.09s  
+      { expected_response:true }............: avg=5s      med=3.1s    p(95)=15.75s   p(99)=17.85s   max=21.09s  
+      { name:confirm,stage:0 }..............: avg=11.54ms med=10.18ms p(95)=15.32ms  p(99)=25.11ms  max=378.15ms
+      { name:confirm,stage:1 }..............: avg=10.56ms med=10.29ms p(95)=13.53ms  p(99)=17.86ms  max=50.03ms 
+      { name:confirm,stage:2 }..............: avg=56.92ms med=11.64ms p(95)=404.27ms p(99)=588.28ms max=858.66ms
+      { name:confirm,stage:3 }..............: avg=5.98s   med=5.94s   p(95)=10.33s   p(99)=11.34s   max=11.94s  
+      { name:confirm,stage:4 }..............: avg=10.3s   med=10.48s  p(95)=16.97s   p(99)=17.78s   max=19.12s  
+    http_req_failed.........................: 0.00% 0 out of 92932
+    http_reqs...............................: 92932 131.028087/s
+      { name:confirm,stage:0,status:200 }...: 2999  4.228395/s
+      { name:confirm,stage:0 }..............: 2999  4.228395/s
+      { name:confirm,stage:1,status:200 }...: 5938  8.372195/s
+      { name:confirm,stage:1 }..............: 5938  8.372195/s
+      { name:confirm,stage:2,status:200 }...: 11874 16.741569/s
+      { name:confirm,stage:2 }..............: 11874 16.741569/s
+      { name:confirm,stage:3,status:200 }...: 13919 19.624886/s
+      { name:confirm,stage:3 }..............: 13919 19.624886/s
+      { name:confirm,stage:4,status:200 }...: 11235 15.840621/s
+      { name:confirm,stage:4 }..............: 11235 15.840621/s
+      { name:confirm,status:200 }...........: 45965 64.807666/s
+      { name:confirm,status:409 }...........: 0     0/s
+      { name:confirm,status:422 }...........: 0     0/s
+      { name:create_intent,status:201 }.....: 45965 64.807666/s
+      { status:500 }........................: 0     0/s
+
+    EXECUTION
+    dropped_iterations......................: 46095 64.990958/s
+    iteration_duration......................: avg=10.1s   med=8.79s   p(95)=23.33s   p(99)=24.96s   max=26.72s  
+    iterations..............................: 45965 64.807666/s
+    vus.....................................: 43    min=0          max=2000
+    vus_max.................................: 2000  min=400        max=2000
+
+    NETWORK
+    data_received...........................: 72 MB 102 kB/s
+    data_sent...............................: 46 MB 65 kB/s
+
+
+

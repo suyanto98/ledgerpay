@@ -5,9 +5,12 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"ledgerpay/internal/modules/identity"
 	"ledgerpay/internal/modules/merchant"
+	"ledgerpay/internal/modules/ops"
+	"ledgerpay/internal/modules/recon"
 	"ledgerpay/internal/modules/transfer"
 	"ledgerpay/internal/modules/webhookout"
 	"ledgerpay/internal/platform/db"
@@ -39,4 +42,23 @@ func (m merchantTargets) WebhookTarget(ctx context.Context, q db.DBTX, merchantI
 		return "", nil, webhookout.ErrNoTarget
 	}
 	return url, secret, err
+}
+
+// reconAdapter menghubungkan modul recon ke ops.Recon (ADR-001: ops tidak meng-import recon).
+type reconAdapter struct{}
+
+func (reconAdapter) LockOpenItem(ctx context.Context, tx pgx.Tx, id uuid.UUID) (ops.ReconItem, error) {
+	it, err := recon.LockOpenItem(ctx, tx, id)
+	if err != nil {
+		return ops.ReconItem{}, err
+	}
+	return ops.ReconItem{ObjectType: it.ObjectType, InternalID: it.InternalID, Category: it.Category, ExternalStatus: it.ExternalStatus}, nil
+}
+
+func (reconAdapter) ResolveItem(ctx context.Context, tx pgx.Tx, id uuid.UUID, action, note string, by uuid.UUID) error {
+	return recon.ResolveItem(ctx, tx, id, action, note, by)
+}
+
+func (reconAdapter) ItemView(ctx context.Context, tx pgx.Tx, id uuid.UUID) (any, error) {
+	return recon.GetItemView(ctx, tx, id)
 }

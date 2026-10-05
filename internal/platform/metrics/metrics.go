@@ -75,16 +75,23 @@ var (
 // ---------------------------------------------------------------- LedgerPay (ledgerpay_)
 var (
 	// INVARIANT: hasil job ledger.verify; normal = 0.
-	LedgerDriftAccounts    = gauge("ledgerpay_ledger_balance_drift_accounts", "INV: accounts whose balance != sum of entries (last verification).")
-	LedgerUnbalanced       = gauge("ledgerpay_ledger_unbalanced_journals", "INV: journals with sum(D) != sum(C) (last verification).")
-	LedgerGlobalImbalance  = gauge("ledgerpay_ledger_global_imbalance_minor", "INV: total debits - total credits in minor units.")
-	LedgerVerifiedAt       = gauge("ledgerpay_ledger_verification_last_success_timestamp_seconds", "Unix time of the last successful ledger verification.")
-	Transfers              = counter("ledgerpay_transfers_total", "Transfer results (first execution, not replays).", "outcome")
-	Payments               = counter("ledgerpay_payments_total", "Payment confirmation results.", "outcome")
-	Refunds                = counter("ledgerpay_refunds_total", "Refund results.", "outcome")
-	Topups                 = counter("ledgerpay_topups_total", "Top-up transitions.", "status")
-	Payouts                = counter("ledgerpay_payouts_total", "Payout transitions.", "status")
-	RefundDriftIntents     = gauge("ledgerpay_payment_refund_drift_intents", "Payment intents whose refunded_amount differs from the sum of refunds (LI-08); normally 0.")
+	LedgerDriftAccounts   = gauge("ledgerpay_ledger_balance_drift_accounts", "INV: accounts whose balance != sum of entries (last verification).")
+	LedgerUnbalanced      = gauge("ledgerpay_ledger_unbalanced_journals", "INV: journals with sum(D) != sum(C) (last verification).")
+	LedgerGlobalImbalance = gauge("ledgerpay_ledger_global_imbalance_minor", "INV: total debits - total credits in minor units.")
+	LedgerVerifiedAt      = gauge("ledgerpay_ledger_verification_last_success_timestamp_seconds", "Unix time of the last successful ledger verification.")
+	Transfers             = counter("ledgerpay_transfers_total", "Transfer results (first execution, not replays).", "outcome")
+	Payments              = counter("ledgerpay_payments_total", "Payment confirmation results.", "outcome")
+	Refunds               = counter("ledgerpay_refunds_total", "Refund results.", "outcome")
+	Topups                = counter("ledgerpay_topups_total", "Top-up transitions.", "status")
+	Payouts               = counter("ledgerpay_payouts_total", "Payout transitions.", "status")
+	RefundDriftIntents    = gauge("ledgerpay_payment_refund_drift_intents", "Payment intents whose refunded_amount differs from the sum of refunds (LI-08); normally 0.")
+	// Lama menunggu lock baris wallet di PostJournal (query LockWalletAccounts ≈ waktu tunggu lock +
+	// eksekusi sub-ms). Dipakai eksperimen E-1 (hot merchant): purpose=PAYMENT memperlihatkan antrean
+	// di baris wallet merchant (docs/design/23-performance-plan.md §6).
+	LedgerLockWait = histogram("ledgerpay_ledger_lock_wait_seconds", "Time PostJournal spends acquiring wallet row locks.",
+		[]float64{0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5}, "purpose")
+	ReconRuns              = counter("ledgerpay_recon_runs_total", "Reconciliation runs by result.", "status")
+	ReconOpenItems         = gauge("ledgerpay_recon_open_items", "Reconciliation items waiting for ops (OPEN).")
 	PayoutUnknown          = gauge("ledgerpay_payout_unknown", "Payouts currently UNKNOWN.")
 	PayoutUnknownOldest    = gauge("ledgerpay_payout_unknown_oldest_age_seconds", "Age of the oldest UNKNOWN payout.")
 	PayoutStatusChecks     = counter("ledgerpay_payout_status_checks_total", "Bank status query results.", "result")
@@ -123,3 +130,6 @@ func Handler() http.Handler {
 
 // Since mengembalikan detik sejak t (helper histogram).
 func Since(t time.Time) float64 { return time.Since(t).Seconds() } //nolint:forbidigo // durasi teknis, bukan waktu bisnis
+
+// Start menandai awal pengukuran durasi teknis (pasangan Since); bukan waktu bisnis (C-31).
+func Start() time.Time { return time.Now() } //nolint:forbidigo // durasi teknis, bukan waktu bisnis

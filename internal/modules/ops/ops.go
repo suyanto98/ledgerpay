@@ -32,6 +32,21 @@ type Webhooks interface {
 	Replay(ctx context.Context, tx pgx.Tx, deliveryID uuid.UUID) (eventID uuid.UUID, err error)
 }
 
+// ReconItem adalah item rekonsiliasi yang terkunci untuk diselesaikan.
+type ReconItem struct {
+	ObjectType     string
+	InternalID     *uuid.UUID
+	Category       string
+	ExternalStatus *string
+}
+
+// Recon: antrean mismatch rekonsiliasi (modul recon, lewat adapter di composition root).
+type Recon interface {
+	LockOpenItem(ctx context.Context, tx pgx.Tx, id uuid.UUID) (ReconItem, error)
+	ResolveItem(ctx context.Context, tx pgx.Tx, id uuid.UUID, action, note string, by uuid.UUID) error
+	ItemView(ctx context.Context, tx pgx.Tx, id uuid.UUID) (any, error)
+}
+
 // MinReasonLen: alasan aksi ops (§11).
 const MinReasonLen = 10
 

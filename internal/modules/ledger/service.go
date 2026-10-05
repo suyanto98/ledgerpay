@@ -16,6 +16,7 @@ import (
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/idgen"
+	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/testhook"
 )
 
@@ -77,7 +78,9 @@ func (s *Service) PostJournal(ctx context.Context, tx pgx.Tx, j Journal) error {
 	//    lock (ADR-L07): saldonya tidak disimpan, jadi tidak ada yang perlu diserialkan, dan
 	//    menguncinya akan membuat semua top-up antre di satu baris PROVIDER_CLEARING.
 	ids := uniqueAccountIDs(j.Entries)
+	lockStart := metrics.Start()
 	wallets, err := q.LockWalletAccounts(ctx, ids)
+	metrics.LedgerLockWait.WithLabelValues(string(j.Purpose)).Observe(metrics.Since(lockStart))
 	if err != nil {
 		return db.MapError(err)
 	}

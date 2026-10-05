@@ -61,6 +61,7 @@ type Scenario struct {
 	Webhooks          []string `json:"webhooks"`            // webhook_duplicate:n | webhook_delay:<dur> | webhook_out_of_order | webhook_bad_signature
 	Payouts           string   `json:"payouts"`             // ok | timeout_after_process | timeout_before_process | error_5xx | decline | response_mismatch
 	PayoutStatusQuery string   `json:"payout_status_query"` // enabled (default) | disabled
+	Settlement        string   `json:"settlement"`          // "" | settlement_mismatch:missing | amount | status | extra
 }
 
 // bankPayout adalah transfer keluar di sisi bank.
@@ -171,6 +172,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/payouts", s.auth(s.createPayout))
 	mux.HandleFunc("GET /v1/payouts/{key}", s.auth(s.getPayout))
 	mux.HandleFunc("GET /admin/transfers", s.getTransfers)
+	mux.HandleFunc("GET /v1/settlements/{name}", s.auth(s.getSettlement))
 	mux.HandleFunc("POST /merchant-sink", s.sinkReceive)
 	mux.HandleFunc("GET /admin/merchant-sink", s.sinkList)
 	return mux

@@ -2,7 +2,7 @@
 
 > A mini payment platform where money stays correct even when requests are duplicated, concurrent, or interrupted by failures.
 
-**Status:** Sprint 8 of 10 — money flows (incl. refunds), background processing, observability, an ops console API, encrypted backups with a restore drill, and a CD pipeline are done. Reconciliation, load testing and the final demo pass are next ([backlog](docs/backlog.md)).
+**Status:** Sprint 9 of 10 — money flows (incl. refunds), background processing, observability, an ops console API, daily reconciliation, encrypted backups with a restore drill, a CD pipeline and a first (laptop) performance baseline are done. The ops console UI and the final demo pass are next ([backlog](docs/backlog.md)).
 **Live demo:** `[LINK: https://<domain> after the first deploy]` · **Demo video (~5 min):** `[LINK: video]`
 
 Production-oriented, small in scope, strict about correctness. Built for learning and as a portfolio project.
@@ -26,6 +26,7 @@ Production-oriented, small in scope, strict about correctness. Built for learnin
 | Side effects lost on a crash | At-least-once with idempotent consumers; no event without a commit | Transactional outbox + PostgreSQL job queue with leases and **fencing** ([ADR-006](docs/adr/ADR-006-background-processing-postgres-queue.md)) | `TestJobRunner_FencedCompletion_ZombieRollsBack`, `TestJobRunner_LeaseExpiry_Reclaims` |
 | Parallel refunds on one payment | Σ refunds never exceeds the payment | Intent row locked before the wallets; guard in the `UPDATE` + `CHECK (refunded_amount <= amount)`; drift check `refunded_amount = Σ refunds` in the hourly verifier | `TestRefund_ParallelExceedingAmount`, `TestRefund_ParallelWaitOnIntentLock`, Demo ops |
 | An operator "fixes" a stuck payout | No balance edits; every manual action is evidenced and audited | Ops resolution goes through the same guarded journal path as the automatic status check, in one transaction with an `audit_log` row holding the evidence | `TestOps_ResolutionRequiresEvidence`, `TestPayoutStatusCheck_VsOpsResolve` |
+| Our records and the bank's disagree (lost webhook, stuck payout, bug) | Every difference is found daily and resolved with evidence | Settlement file hashed (same file never processed twice) → pure classifier → `PROVIDER_SETTLEMENT` for matched top-ups, deduplicated per top-up → mismatches queued for ops; one run per date at a time (advisory lock) | `TestRecon_ClassifiesAllCategories`, `TestRecon_DemoD_StatusMismatchResolvedWithEvidence`, `TestRecon_ConcurrentDifferentFiles_OneSettlementJournal`, Demo D |
 | Forged or duplicated provider webhooks | A webhook can never create money on its own | HMAC + timestamp, inbox dedupe, monotonic transitions, **verify-by-fetch** with the provider ([ADR-L08](docs/adr/ADR-L08-inbound-webhook-inbox.md)) | `TestInbox_VerifyByFetch_ForgedWebhookNoCredit`, `TestTopup_DuplicateWebhook_OneJournal` |
 
 ## Architecture
@@ -93,6 +94,7 @@ make demo-c             # payout timeout + docker kill worker (~60 s)
 make demo-topup         # top-up through the mock provider, duplicate + forged webhooks
 make demo-payment       # merchant API key → payment intent → two tabs confirm
 make demo-ops           # 5 parallel refunds (3 succeed) + ops resolves an UNKNOWN payout with evidence
+make demo-d             # reconciliation: bank says SUCCEEDED for a stuck payout → STATUS_MISMATCH → resolved with evidence
 make web                # SPA on http://localhost:5173
 make up-obs             # + Grafana (http://localhost:3000), Jaeger (http://localhost:16686), Prometheus
 ```
@@ -113,7 +115,7 @@ Backups: nightly `pg_dump` with a read-only role, encrypted with [age](https://a
 
 ## Testing
 
-- **144 Go tests** against a real PostgreSQL (testcontainers, one cloned template DB per test, app role — not superuser), plus Vitest and two Playwright journeys (register → top-up via checkout → transfer → payout → login again; merchant checkout link → login → pay → refund).
+- **154 Go tests** against a real PostgreSQL (testcontainers, one cloned template DB per test, app role — not superuser), plus Vitest and two Playwright journeys (register → top-up via checkout → transfer → payout → login again; merchant checkout link → login → pay → refund).
 - **Concurrency tests** with barriers and named test hooks (`-tags testhooks`) for deterministic interleavings; repeated `-count=20` before merging.
 - **Property tests** (`rapid`): random transfer sequences conserve money.
 - **"Test the test"**: mutation checks (e.g. removing lock ordering, verify-by-fetch, or the `SUBMITTED` guard must make tests fail) and a naive implementation that is shown to overdraw.
@@ -136,11 +138,17 @@ make test-e2e           # Playwright (stack running)
 
 ## Performance baseline
 
-Not measured yet (planned for Sprint 9 with k6 from a separate machine). This README will only show numbers together with the environment they were measured on:
+Measured on **one laptop** (Intel i3-1315U, 8 threads, k6 and desktop apps on the same machine) against a seeded ledger of **1,000,000 journals / 2,000,000 entries**. These are a laptop baseline for finding bottlenecks, not server capacity; numbers for the target VM (2 vCPU / 4 GB, k6 on a separate machine) will be added after deployment. Full report and raw evidence: [docs/performance.md](docs/performance.md).
 
-| Scenario | Environment | Load | p95 | Invariants |
+| Scenario | Load | Result | p95 | Invariants |
 |---|---|---|---|---|
-| Transfers | `[MEASURE]` | `[MEASURE]` | `[MEASURE]` | drift 0 |
+| LP-2 transfers | ramp 10 → 200/s, 10,099 transfers | all succeeded, not saturated | 11 ms | sum of balances unchanged, drift 0 |
+| LP-3 hot wallet | 2,001 requests at 500/s on one wallet worth 100 transfers | exactly 100 succeeded, balance 0, 0 deadlocks | 690 ms | ✅ |
+| LP-4 one merchant (E-1) | 25 → 400 payments/s | saturates at ~116–137/s: the merchant wallet row lock is held ~8.6 ms per payment | 16–404 ms at 100/s | ✅ |
+| LP-4 control, 100 merchants | same rates | saturates at ~250/s (CPU) | 18 ms at 100/s | ✅ |
+| LP-9 login (argon2id 64 MiB) | 5 → 50/s | ~11/s; excess gets 503 within 2 s; other endpoints stay at p95 15 ms | — | — |
+
+The hot-merchant experiment triggered its decision rule, so a `MERCHANT_PENDING` design (V2) is tracked in the backlog; profiling the API found no code hotspot, so no "optimisation" was shipped without evidence.
 
 ## Security notes
 
@@ -151,7 +159,7 @@ Threat model: [docs/design/16-security-threat-model.md](docs/design/16-security-
 - Single VM. The CD workflows and offsite backup upload are written and rehearsed locally (local registry, pull-mode deploy, rollback) but have not run on GitHub or against a real bucket yet.
 - The payment provider and the bank are mocks that mimic real APIs, including their failure modes.
 - IDR only; no KYC, no cards, no MFA.
-- Reconciliation (Demo D) and the ops console UI are not built yet (the ops API is).
+- The ops console UI is not built yet (the ops API, including reconciliation, is). Performance numbers come from a laptop, not the target VM.
 
 ## Project structure
 

@@ -37,10 +37,11 @@ type Handler struct {
 	ids      idgen.Generator
 	payouts  Payouts
 	webhooks Webhooks
+	recon    Recon
 }
 
-func NewHandler(pool *pgxpool.Pool, idem *idempotency.Service, ids idgen.Generator, p Payouts, w Webhooks) *Handler {
-	return &Handler{pool: pool, idem: idem, ids: ids, payouts: p, webhooks: w}
+func NewHandler(pool *pgxpool.Pool, idem *idempotency.Service, ids idgen.Generator, p Payouts, w Webhooks, rc Recon) *Handler {
+	return &Handler{pool: pool, idem: idem, ids: ids, payouts: p, webhooks: w, recon: rc}
 }
 
 // Routes: read dan write sudah melewati RequireUser + RequireRole("OPS") + rate limit masing-masing.
@@ -54,6 +55,7 @@ func (h *Handler) Routes(read, write chi.Router) {
 	write.Post("/ops/payouts/{id}/resolve", h.resolvePayout)
 	write.Post("/ops/jobs/{id}/retry", h.retryJob)
 	write.Post("/ops/webhook-deliveries/{id}/replay", h.replayDelivery)
+	write.Post("/ops/recon-items/{id}/resolve", h.resolveReconItem)
 }
 
 func actorFrom(r *http.Request) Actor {
@@ -500,6 +502,119 @@ func (h *Handler) replayDelivery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusAccepted, map[string]any{"id": id, "event_id": eventID, "status": "PENDING"})
+}
+
+// ---------------------------------------------------------------- recon items (LF-17, Demo D)
+
+type reconResolveRequest struct {
+	Action      string `json:"action"`
+	EvidenceRef string `json:"evidence_ref"`
+	Reason      string `json:"reason"`
+}
+
+var reconActions = map[string]bool{"APPLY_PAYOUT_SETTLE": true, "APPLY_PAYOUT_REVERSAL": true, "NO_ACTION_TIMING": true, "NO_ACTION_PROVIDER_ERROR": true}
+
+// reconActionAllowed: aksi harus cocok dengan fakta item. APPLY_* menggerakkan uang, jadi hanya untuk
+// payout yang bukti provider-nya menunjuk arah yang sama (SETTLE ⇐ provider SUCCEEDED; REVERSAL ⇐
+// provider FAILED, atau payout yang tidak pernah sampai ke bank: MISSING_EXTERNAL).
+func reconActionAllowed(action string, it ReconItem) bool {
+	ext := ""
+	if it.ExternalStatus != nil {
+		ext = *it.ExternalStatus
+	}
+	switch action {
+	case "APPLY_PAYOUT_SETTLE":
+		return it.ObjectType == "payout" && it.Category == "STATUS_MISMATCH" && ext == "SUCCEEDED"
+	case "APPLY_PAYOUT_REVERSAL":
+		return it.ObjectType == "payout" && ((it.Category == "STATUS_MISMATCH" && ext == "FAILED") || it.Category == "MISSING_EXTERNAL")
+	default: // NO_ACTION_*: mencatat keputusan ops tanpa efek uang
+		return true
+	}
+}
+
+// resolveReconItem: POST /ops/recon-items/{id}/resolve. Satu tx: lock item (OPEN) → aksi (payout lewat
+// jalur ResolveByOps yang sama dengan resolve manual) → item RESOLVED → audit dengan bukti.
+func (h *Handler) resolveReconItem(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	key, err := idempotency.KeyFrom(r)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	raw, err := idempotency.ReadBody(r)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	var in reconResolveRequest
+	if err := httpx.Decode(r, &in); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !reconActions[in.Action] {
+		httpx.WriteError(w, r, apperr.Validation(apperr.FieldError{Field: "action", Code: "INVALID_VALUE",
+			Message: "APPLY_PAYOUT_SETTLE | APPLY_PAYOUT_REVERSAL | NO_ACTION_TIMING | NO_ACTION_PROVIDER_ERROR"}))
+		return
+	}
+	evidence, reason := strings.TrimSpace(in.EvidenceRef), strings.TrimSpace(in.Reason)
+	if utf8.RuneCountInString(evidence) > 200 {
+		httpx.WriteError(w, r, apperr.Validation(apperr.FieldError{Field: "evidence_ref", Code: "TOO_LONG"}))
+		return
+	}
+	if utf8.RuneCountInString(evidence) < 3 || utf8.RuneCountInString(reason) < MinReasonLen {
+		httpx.WriteError(w, r, apperr.ErrResolutionEvidenceRequired.WithDetail("evidence_ref (3–200) and reason (≥ 10 characters) are required"))
+		return
+	}
+	hash, err := idempotency.Hash(r.Method, r.URL.Path, raw)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	a := actorFrom(r)
+	resp, err := h.idem.Execute(r, idempotency.Request{
+		ClientType: idempotency.ClientUser, ClientID: a.UserID, Endpoint: "POST /v1/ops/recon-items/{id}/resolve", Key: key, Hash: hash,
+	}, func(ctx context.Context, tx pgx.Tx, _ uuid.UUID) (idempotency.Outcome, error) {
+		it, err := h.recon.LockOpenItem(ctx, tx, id)
+		if err != nil {
+			return idempotency.Outcome{}, err
+		}
+		if !reconActionAllowed(in.Action, it) {
+			return idempotency.Outcome{}, apperr.Validation(apperr.FieldError{Field: "action", Code: "NOT_ALLOWED_FOR_ITEM",
+				Message: "action does not match the item's category, object type and provider status"})
+		}
+		diff := map[string]any{"action": in.Action, "evidence_ref": evidence, "category": it.Category}
+		if strings.HasPrefix(in.Action, "APPLY_PAYOUT_") {
+			succeeded := in.Action == "APPLY_PAYOUT_SETTLE"
+			if err := h.payouts.ResolveByOps(ctx, tx, *it.InternalID, succeeded, a.UserID, a.RequestID); err != nil {
+				return idempotency.Outcome{}, err
+			}
+			outcome := map[bool]string{true: "SUCCEEDED", false: "FAILED"}[succeeded]
+			if err := writeAudit(ctx, tx, h.ids, a, auditEntry{Action: "payout.manual_resolve", TargetType: "payout", TargetID: *it.InternalID,
+				Reason: reason, Diff: map[string]any{"outcome": outcome, "evidence_ref": evidence, "recon_item_id": id}}); err != nil {
+				return idempotency.Outcome{}, err
+			}
+			diff["payout_id"] = *it.InternalID
+		}
+		if err := h.recon.ResolveItem(ctx, tx, id, in.Action, reason, a.UserID); err != nil {
+			return idempotency.Outcome{}, err
+		}
+		if err := writeAudit(ctx, tx, h.ids, a, auditEntry{Action: "recon.item_resolve", TargetType: "recon_item", TargetID: id, Reason: reason, Diff: diff}); err != nil {
+			return idempotency.Outcome{}, err
+		}
+		view, err := h.recon.ItemView(ctx, tx, id)
+		if err != nil {
+			return idempotency.Outcome{}, err
+		}
+		return idempotency.Outcome{Status: http.StatusOK, Body: view, ResourceType: "recon_item", ResourceID: &id}, nil
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	idempotency.Write(w, resp)
 }
 
 // ---------------------------------------------------------------- helpers

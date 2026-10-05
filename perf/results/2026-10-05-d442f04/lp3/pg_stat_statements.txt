@@ -1,0 +1,19 @@
+ calls | total_ms | mean_ms | blks_read |                                           query                                            
+-------+----------+---------+-----------+--------------------------------------------------------------------------------------------
+  2001 |    43620 |  21.799 |         0 | -- name: LockWalletAccounts :many SELECT id, user_id, system_code, is_system, type, curren
+  2001 |      580 |   0.290 |         0 | -- name: InsertKey :one INSERT INTO idempotency_keys (id, client_type, client_id, endpoint
+  2001 |      547 |   0.273 |         0 | -- name: CompleteKey :exec UPDATE idempotency_keys SET response_status = $1, response_body
+  4002 |      288 |   0.072 |         0 | -- name: GetWalletByUser :one SELECT id, currency, balance, status FROM accounts WHERE use
+  2002 |      180 |   0.090 |         0 | -- name: GetUserByEmail :one SELECT id, email, password_hash, display_name, role, status, 
+     1 |      169 | 168.633 |         0 | SELECT count(*) FROM journal_entries
+  2001 |      163 |   0.081 |         0 | -- name: GetSystemAccounts :many SELECT id, user_id, system_code, is_system, type, currenc
+     2 |      161 |  80.523 |         0 | SELECT count(*) FROM journals WHERE purpose = $1
+   200 |       80 |   0.402 |         0 | -- name: InsertEntry :exec INSERT INTO journal_entries (id, journal_id, account_id, direct
+   100 |       77 |   0.765 |         0 | -- name: InsertTransfer :one INSERT INTO transfers (id, sender_user_id, receiver_user_id, 
+   200 |       72 |   0.360 |         0 | -- name: AddToBalance :exec UPDATE accounts SET balance = balance + $1::bigint WHERE id = 
+     1 |       66 |  66.042 |         0 | SELECT count(*) FROM journals
+   100 |       42 |   0.420 |         0 | -- name: InsertJournal :exec INSERT INTO journals (id, purpose, source_type, source_id, cu
+     1 |       25 |  24.781 |         0 | SELECT sum(balance) FROM accounts WHERE user_id IS NOT NULL
+     1 |       24 |  23.519 |       730 | SELECT a.id FROM accounts a JOIN users u ON u.id = a.user_id WHERE u.email = $1
+(15 rows)
+

@@ -22,6 +22,7 @@ import (
 	"ledgerpay/internal/modules/identity"
 	"ledgerpay/internal/modules/ledger"
 	"ledgerpay/internal/modules/payout"
+	"ledgerpay/internal/modules/recon"
 	"ledgerpay/internal/modules/topup"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
@@ -97,8 +98,9 @@ func newEnvTiers(t *testing.T, tiers *ratelimit.Tiers, opts ...dbtest.Option) en
 		Provider:    topup.NewHTTPProviderTimeout(mockSrv.URL, "mock_api_secret", 300*time.Millisecond),
 		CallbackURL: srv.URL + "/api/v1/webhooks/provider", WebhookSecrets: []string{testWebhookSecret},
 		// Bank: timeout klien 300 ms < HoldTimeout mock (skenario 0408 = timeout_after_process benar-benar timeout).
-		Bank:    payout.NewHTTPBank(mockSrv.URL, "mock_api_secret", 300*time.Millisecond),
-		Keyring: testKeyring(t),
+		Bank:        payout.NewHTTPBank(mockSrv.URL, "mock_api_secret", 300*time.Millisecond),
+		Settlements: recon.NewHTTPSource(mockSrv.URL, "mock_api_secret", 5*time.Second),
+		Keyring:     testKeyring(t),
 		// Sink webhook merchant di test berjalan di 127.0.0.1 → allowlist loopback (HANYA test; metadata tetap diblok).
 		Egress:           egress.Policy{AllowCIDRs: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}},
 		PayoutSafeWindow: time.Hour,

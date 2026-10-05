@@ -177,6 +177,50 @@ type Payout struct {
 	UpdatedAt           time.Time
 }
 
+type ReconItem struct {
+	ID                  uuid.UUID
+	ReconRunID          *uuid.UUID
+	Source              string
+	InboxEventID        *uuid.UUID
+	ObjectType          string
+	InternalID          *uuid.UUID
+	ExternalRef         *string
+	ProviderRef         *string
+	Category            string
+	InternalAmount      *int64
+	ExternalAmount      *int64
+	InternalStatus      *string
+	ExternalStatus      *string
+	Currency            string
+	Resolution          *string
+	ResolutionAction    *string
+	ResolutionNote      *string
+	ResolvedBy          *uuid.UUID
+	ResolvedAt          *time.Time
+	SettlementJournalID *uuid.UUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+type ReconRun struct {
+	ID                   uuid.UUID
+	Provider             string
+	BusinessDate         time.Time
+	FileHash             []byte
+	Source               string
+	Status               string
+	RowCount             int32
+	MatchedCount         int32
+	MissingInternalCount int32
+	MissingExternalCount int32
+	AmountMismatchCount  int32
+	StatusMismatchCount  int32
+	Error                *string
+	StartedAt            time.Time
+	FinishedAt           *time.Time
+	CreatedBy            *uuid.UUID
+}
+
 type RefreshToken struct {
 	ID              uuid.UUID
 	UserID          uuid.UUID

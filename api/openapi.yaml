@@ -738,6 +738,135 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /ops/recon-runs:
+    get:
+      tags: [ops]
+      operationId: opsListReconRuns
+      summary: Reconciliation runs (newest first)
+      parameters:
+        - { name: from, in: query, required: false, schema: { type: string, format: date } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date } }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of runs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/ReconRun' } }
+                  page: { $ref: '#/components/schemas/Page' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ops]
+      operationId: opsCreateReconRun
+      summary: Reconcile one business date against the provider settlement file (LF-17)
+      description: |
+        V1 runs synchronously (small files): fetch the settlement CSV, hash it, classify every row,
+        post PROVIDER_SETTLEMENT for matched top-ups (deduplicated per top-up) and queue mismatches.
+        The same file for the same date is never processed twice (uq_recon_runs_file): 200 returns
+        the existing run. A malformed file yields a FAILED run without items.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [business_date]
+              properties:
+                business_date: { type: string, format: date, description: 'Asia/Jakarta, not in the future' }
+                source: { type: string, enum: [PULL], default: PULL }
+      responses:
+        '201':
+          description: New run.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReconRun' }
+        '200':
+          description: This exact file was already processed for that date.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReconRun' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503':
+          description: SERVICE_UNAVAILABLE — the settlement file could not be fetched.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /ops/recon-items:
+    get:
+      tags: [ops]
+      operationId: opsListReconItems
+      summary: Reconciliation items, e.g. ?resolution=OPEN (investigation queue, oldest first)
+      parameters:
+        - { name: resolution, in: query, required: false, schema: { type: string, enum: [OPEN, RESOLVED] } }
+        - { name: category, in: query, required: false, explode: true, schema: { type: array, items: { type: string, enum: [MATCHED, MISSING_INTERNAL, MISSING_EXTERNAL, AMOUNT_MISMATCH, STATUS_MISMATCH] } } }
+        - { name: recon_run_id, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: object_type, in: query, required: false, schema: { type: string, enum: [topup, payout] } }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of items.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/ReconItem' } }
+                  page: { $ref: '#/components/schemas/Page' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /ops/recon-items/{id}/resolve:
+    post:
+      tags: [ops]
+      operationId: opsResolveReconItem
+      summary: Resolve an OPEN item with evidence (Demo D)
+      description: |
+        The action must match the item: APPLY_PAYOUT_SETTLE only for a payout STATUS_MISMATCH whose
+        provider status is SUCCEEDED; APPLY_PAYOUT_REVERSAL for provider FAILED or MISSING_EXTERNAL.
+        APPLY_* uses the same guarded journal path as a manual payout resolution, in one transaction
+        with the item resolution and audit rows.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [action, evidence_ref, reason]
+              properties:
+                action: { type: string, enum: [APPLY_PAYOUT_SETTLE, APPLY_PAYOUT_REVERSAL, NO_ACTION_TIMING, NO_ACTION_PROVIDER_ERROR] }
+                evidence_ref: { type: string, minLength: 3, maxLength: 200 }
+                reason: { type: string, minLength: 10 }
+      responses:
+        '200':
+          description: Resolved item.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReconItem' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
   /ops/merchants/{id}/api-keys:
     post:
       tags: [ops]
@@ -1251,6 +1380,48 @@ components:
         resolved_by: { type: [string, 'null'], format: uuid }
         submitted_at: { type: [string, 'null'], format: date-time }
         resolved_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+    ReconRun:
+      type: object
+      required: [id, provider, business_date, source, status, row_count, matched_count, missing_internal_count, missing_external_count, amount_mismatch_count, status_mismatch_count, started_at]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string }
+        business_date: { type: string, format: date }
+        source: { type: string, enum: [PULL, UPLOAD] }
+        status: { type: string, enum: [RUNNING, COMPLETED, FAILED] }
+        row_count: { type: integer }
+        matched_count: { type: integer }
+        missing_internal_count: { type: integer }
+        missing_external_count: { type: integer }
+        amount_mismatch_count: { type: integer }
+        status_mismatch_count: { type: integer }
+        error: { type: [string, 'null'] }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
+    ReconItem:
+      type: object
+      required: [id, source, object_type, category, currency, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        recon_run_id: { type: [string, 'null'], format: uuid }
+        source: { type: string, enum: [SETTLEMENT, WEBHOOK] }
+        object_type: { type: string, enum: [topup, payout] }
+        internal_id: { type: [string, 'null'], format: uuid }
+        external_ref: { type: [string, 'null'] }
+        provider_ref: { type: [string, 'null'] }
+        category: { type: string, enum: [MATCHED, MISSING_INTERNAL, MISSING_EXTERNAL, AMOUNT_MISMATCH, STATUS_MISMATCH] }
+        internal_amount: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        external_amount: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        internal_status: { type: [string, 'null'] }
+        external_status: { type: [string, 'null'] }
+        currency: { $ref: '#/components/schemas/Currency' }
+        resolution: { type: [string, 'null'], enum: [OPEN, RESOLVED, null] }
+        resolution_action: { type: [string, 'null'] }
+        resolution_note: { type: [string, 'null'] }
+        resolved_by: { type: [string, 'null'], format: uuid }
+        resolved_at: { type: [string, 'null'], format: date-time }
+        settlement_journal_id: { type: [string, 'null'], format: uuid }
         created_at: { type: string, format: date-time }
     CreatePayoutRequest:
       type: object

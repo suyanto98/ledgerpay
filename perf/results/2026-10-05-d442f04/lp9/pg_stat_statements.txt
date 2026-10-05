@@ -1,0 +1,19 @@
+ calls | total_ms | mean_ms | blks_read |                                           query                                            
+-------+----------+---------+-----------+--------------------------------------------------------------------------------------------
+  8244 |     3341 |   0.405 |      1266 | -- name: GetUserByEmail :one SELECT id, email, password_hash, display_name, role, status, 
+  3234 |     2319 |   0.717 |         2 | -- name: CreateRefreshToken :exec INSERT INTO refresh_tokens (id, user_id, family_id, toke
+  3234 |     2253 |   0.697 |        12 | -- name: RecordLoginSuccess :exec UPDATE users SET last_login_at = $1, failed_login_count 
+  6001 |     1171 |   0.195 |         0 | -- name: GetWalletByUser :one SELECT id, currency, balance, status FROM accounts WHERE use
+  3234 |      931 |   0.288 |         2 | -- name: InsertAudit :exec INSERT INTO audit_log (id, actor_type, actor_id, action, target
+  1822 |      326 |   0.179 |         7 | -- name: ClaimJobs :many UPDATE jobs SET status = 'running', locked_by = $1, locked_until 
+     1 |      270 | 269.573 |         0 | SELECT count(*) FROM journal_entries
+     2 |      200 |  99.990 |         0 | SELECT count(*) FROM journals WHERE purpose = $1
+     1 |      122 | 121.867 |       851 | SELECT count(*) FROM journals
+  3250 |       82 |   0.025 |         0 | begin isolation level read committed
+   607 |       56 |   0.093 |         0 | -- name: ClaimEvents :many UPDATE webhook_inbox SET locked_by = $1, locked_until = now() +
+     1 |       26 |  25.523 |       380 | SELECT count(*) FROM users
+     1 |       23 |  22.999 |         0 | SELECT sum(balance) FROM accounts WHERE user_id IS NOT NULL
+    98 |       19 |   0.196 |         0 | -- name: EnqueueScheduledJob :execrows INSERT INTO jobs (id, kind, payload, max_attempts, 
+  3250 |       14 |   0.004 |         0 | commit
+(15 rows)
+

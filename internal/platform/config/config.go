@@ -52,6 +52,10 @@ type Config struct {
 	// Batas tier money-write per user per menit (default konvensi API: 30). Demo B lokal menaikkannya,
 	// karena demo itu sengaja mengirim 100 transfer dari satu user dalam satu detik.
 	RateLimitMoneyWritePerMin int `env:"RATE_LIMIT_MONEY_WRITE_PER_MIN" envDefault:"30"`
+	// Hanya perf env (load test mengukur kapasitas mentah, docs/design/23-performance-plan.md §5 LP-9):
+	// semua tier rate limit dimatikan dan pprof dipasang di port ops internal. Ditolak di demo/production.
+	RateLimitDisabled bool `env:"RATE_LIMIT_DISABLED"`
+	PprofEnabled      bool `env:"PPROF_ENABLED"`
 
 	// Payment provider (mock-provider di V1, ADR-L05).
 	ProviderBaseURL        string   `env:"PROVIDER_BASE_URL"`                         // contoh http://mock-provider:9090
@@ -104,6 +108,9 @@ func (c *Config) validateShared() []error {
 		errs = append(errs, errors.New("WEBHOOK_EGRESS_ALLOW_CIDRS hanya boleh di APP_ENV dev/test (SSRF, C-44)"))
 	}
 	c.RequireHTTPSHooks = !c.Dev()
+	if (c.RateLimitDisabled || c.PprofEnabled) && !c.Dev() && c.AppEnv != "perf" {
+		errs = append(errs, errors.New("RATE_LIMIT_DISABLED / PPROF_ENABLED hanya boleh di APP_ENV dev/test/perf"))
+	}
 	return errs
 }
 

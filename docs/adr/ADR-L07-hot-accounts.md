@@ -40,6 +40,16 @@ Di praktiknya lebih rendah, karena lock dipegang sampai commit selesai (termasuk
 
 **Syarat pembuktian:** load test di sprint performa (Step 8) mengukur throughput transaksi dan latency query saldo sistem. Opsi C/D **hanya** diimplementasikan jika ada angka yang membenarkannya.
 
+### Catatan pengukuran (Sprint 9): eksperimen E-1
+
+Baseline laptop (bukan VM target; lihat `docs/performance.md`): pembayaran ke **satu** merchant jenuh di
+±116–137/dtk sementara CPU masih longgar, sedangkan laju yang sama ke 100 merchant baru jenuh di ±250/dtk.
+Lock baris wallet merchant dipegang ±8,6 ms per pembayaran (SQL ±3 ms + ±15 round trip + COMMIT). Pada
+100/dtk p95 lock wait tercatat ≤ 5 ms di satu run dan 250–500 ms di run lain (utilisasi baris ±75–85%).
+**Aturan keputusan dianggap terpicu** → issue `MERCHANT_PENDING` (akun penampung non-materialized per
+merchant + sweep periodik ke wallet merchant) dibuka di backlog untuk V2. Tidak diimplementasikan untuk
+trafik demo V1. Sebelum V2: kurangi round trip di bagian yang memegang lock, lalu ulangi E-1 di VM target.
+
 ## Reason
 
 - Akun sistem tidak membutuhkan validasi saldo saat transaksi, sehingga tidak ada alasan menguncinya.
