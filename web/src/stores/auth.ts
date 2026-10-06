@@ -4,7 +4,7 @@ import { defineStore } from 'pinia'
 const cookieHeaders = { 'X-Requested-With': 'fetch' }
 
 export const useAuth = defineStore('auth', {
-  state: () => ({ token: '' as string, email: '' as string, roles: [] as string[], ready: false }),
+  state: () => ({ token: '' as string, email: '' as string, displayName: '' as string, roles: [] as string[], ready: false }),
   getters: { loggedIn: (s) => s.token !== '', isOps: (s) => s.roles.includes('OPS') },
   actions: {
     async login(email: string, password: string) {
@@ -14,7 +14,7 @@ export const useAuth = defineStore('auth', {
         body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.code === 'RATE_LIMITED' ? 'Terlalu banyak percobaan, coba lagi nanti' : 'Email atau password salah')
+      if (!res.ok) throw new Error(data.code === 'RATE_LIMITED' ? 'Terlalu banyak percobaan, coba lagi nanti' : 'Email atau kata sandi salah')
       this.token = data.access_token
       this.email = email
       await this.loadMe()
@@ -22,7 +22,11 @@ export const useAuth = defineStore('auth', {
     /** Role dari /me hanya untuk menampilkan menu; server tetap menegakkan otorisasi. */
     async loadMe() {
       const res = await fetch('/api/v1/me', { headers: { Authorization: `Bearer ${this.token}` } })
-      if (res.ok) this.roles = (await res.json()).roles ?? []
+      if (!res.ok) return
+      const me = await res.json()
+      this.roles = me.roles ?? []
+      this.email = me.email ?? this.email
+      this.displayName = me.display_name ?? ''
     },
     /** Memulihkan sesi dari cookie refresh HttpOnly (dipanggil saat aplikasi dibuka / token kedaluwarsa). */
     async refresh(): Promise<boolean> {
@@ -39,6 +43,7 @@ export const useAuth = defineStore('auth', {
       await fetch('/api/v1/auth/logout', { method: 'POST', headers: cookieHeaders })
       this.token = ''
       this.email = ''
+      this.displayName = ''
       this.roles = []
     },
   },

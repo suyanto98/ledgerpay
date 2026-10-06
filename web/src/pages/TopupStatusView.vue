@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api'
+import AppIcon from '../components/AppIcon.vue'
 import { formatMinor } from '../money'
 
 type Topup = { id: string; amount: string; status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED' }
@@ -24,12 +25,28 @@ const text: Record<string, string> = {
   FAILED: 'Pembayaran gagal',
   EXPIRED: 'Waktu pembayaran habis',
 }
+const tone = computed(() => ({ PENDING: 'warn', SUCCEEDED: '', FAILED: 'bad', EXPIRED: 'bad' })[topup.value?.status ?? 'PENDING'])
+const icon = computed(() => ({ PENDING: 'clock', SUCCEEDED: 'check', FAILED: 'x', EXPIRED: 'clock' } as const)[topup.value?.status ?? 'PENDING'])
 </script>
 
 <template>
-  <div class="card" v-if="topup">
-    <h2>Top-up {{ formatMinor(topup.amount) }}</h2>
-    <p data-test="topup-status" :class="{ ok: topup.status === 'SUCCEEDED', error: topup.status === 'FAILED' }">{{ text[topup.status] }}</p>
-    <RouterLink to="/">Kembali ke wallet</RouterLink>
-  </div>
+  <header class="page-head">
+    <div>
+      <nav class="crumb" aria-label="Breadcrumb"><RouterLink to="/">Beranda</RouterLink> / Top-up</nav>
+      <h1>Status top-up</h1>
+    </div>
+  </header>
+
+  <section v-if="topup" class="card narrow stack">
+    <div class="status-hero">
+      <span class="status-icon" :class="tone"><AppIcon :name="icon" :size="30" :stroke="2.6" /></span>
+      <span class="status-title" data-test="topup-status">{{ text[topup.status] }}</span>
+      <span class="big">{{ formatMinor(topup.amount) }}</span>
+      <p v-if="topup.status === 'PENDING'" class="muted">Halaman ini diperbarui otomatis.</p>
+    </div>
+    <dl class="dl">
+      <div><dt>No. referensi</dt><dd class="mono">{{ topup.id }}</dd></div>
+    </dl>
+    <RouterLink to="/" class="btn ghost block">Kembali ke Beranda</RouterLink>
+  </section>
 </template>

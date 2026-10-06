@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, ApiError, newIdempotencyKey } from '../api'
+import AppIcon from '../components/AppIcon.vue'
 import { formatMinor } from '../money'
 
 // Halaman checkout merchant (LF-14): link checkout_url dari merchant → user login → bayar dari wallet.
@@ -61,24 +62,46 @@ const statusText: Record<string, string> = {
 </script>
 
 <template>
-  <div class="card" v-if="notFound">
-    <h2>Pembayaran tidak ditemukan</h2>
-    <p>Link tidak valid, atau pembayaran ini sudah dibayar oleh akun lain.</p>
-    <RouterLink to="/">Kembali ke wallet</RouterLink>
-  </div>
-  <div class="card" v-else-if="intent">
-    <h2>Bayar ke {{ intent.merchant.name }}</h2>
-    <p class="amount" data-test="checkout-amount">{{ formatMinor(intent.amount) }}</p>
-    <p v-if="intent.description">{{ intent.description }}</p>
-    <p class="muted">Order {{ intent.merchant_order_id }}</p>
+  <header class="page-head">
+    <div>
+      <nav class="crumb" aria-label="Breadcrumb"><RouterLink to="/">Beranda</RouterLink> / Pembayaran</nav>
+      <h1>Pembayaran merchant</h1>
+    </div>
+  </header>
+
+  <section v-if="notFound" class="card narrow stack">
+    <div class="status-hero">
+      <span class="status-icon bad"><AppIcon name="x" :size="30" :stroke="2.6" /></span>
+      <h2 class="status-title">Pembayaran tidak ditemukan</h2>
+      <p class="muted">Link tidak valid, atau pembayaran ini sudah dibayar oleh akun lain.</p>
+    </div>
+    <RouterLink to="/" class="btn ghost block">Kembali ke Beranda</RouterLink>
+  </section>
+
+  <section v-else-if="intent" class="card narrow stack">
+    <div class="status-hero">
+      <span class="status-icon" :class="payable ? 'info' : intent.status === 'SUCCEEDED' || intent.status === 'PARTIALLY_REFUNDED' ? '' : 'warn'">
+        <AppIcon :name="payable ? 'cart' : intent.status === 'SUCCEEDED' || intent.status === 'PARTIALLY_REFUNDED' ? 'check' : 'info'" :size="30" :stroke="2.4" />
+      </span>
+      <h2 class="status-title">Bayar ke {{ intent.merchant.name }}</h2>
+      <span class="big" data-test="checkout-amount">{{ formatMinor(intent.amount) }}</span>
+      <p v-if="!payable" class="pill" :class="intent.status === 'SUCCEEDED' || intent.status === 'PARTIALLY_REFUNDED' ? 'ok' : 'warn'" data-test="checkout-status">{{ statusText[intent.status] ?? intent.status }}</p>
+    </div>
+    <dl class="dl">
+      <div v-if="intent.description"><dt>Deskripsi</dt><dd>{{ intent.description }}</dd></div>
+      <div><dt>No. order</dt><dd class="mono">{{ intent.merchant_order_id }}</dd></div>
+      <div v-if="payable"><dt>Berlaku sampai</dt><dd>{{ new Date(intent.expires_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) }} WIB</dd></div>
+      <div v-if="payable && balance !== null"><dt>Saldo kamu</dt><dd>{{ formatMinor(balance) }}</dd></div>
+    </dl>
     <template v-if="payable">
-      <p class="muted">Berlaku sampai {{ new Date(intent.expires_at).toLocaleString('id-ID') }}</p>
-      <p v-if="balance !== null">Saldo kamu: {{ formatMinor(balance) }}</p>
-      <button type="button" :disabled="busy || !enough" @click="pay">Bayar {{ formatMinor(intent.amount) }}</button>
-      <p v-if="balance !== null && !enough" class="error">Saldo tidak cukup. <RouterLink to="/topup">Top-up</RouterLink></p>
+      <p v-if="balance !== null && !enough" class="alert error">Saldo tidak cukup. <RouterLink to="/topup">Top-up dulu</RouterLink>, lalu kembali ke halaman ini.</p>
+      <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+      <button type="button" class="btn block" :disabled="busy || !enough" @click="pay"><AppIcon name="lock" :size="18" :stroke="2.2" />Bayar {{ formatMinor(intent.amount) }}</button>
+      <p class="note"><AppIcon name="info" :size="18" :stroke="2" />Aman meski tombol tertekan dua kali atau halaman dibuka di dua tab: saldo hanya terpotong sekali.</p>
     </template>
-    <p v-else data-test="checkout-status" :class="{ ok: intent.status === 'SUCCEEDED' }">{{ statusText[intent.status] ?? intent.status }}</p>
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <RouterLink v-if="!payable" to="/">Kembali ke wallet</RouterLink>
-  </div>
+    <template v-else>
+      <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+      <RouterLink to="/" class="btn ghost block">Kembali ke Beranda</RouterLink>
+    </template>
+  </section>
 </template>

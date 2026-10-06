@@ -36,7 +36,7 @@ test('merchant link → login → pay from wallet → merchant refunds → balan
   await page.goto(checkoutPath)
   await expect(page).toHaveURL(/\/login\?next=/)
   await page.getByLabel('Email').fill(rina)
-  await page.getByLabel('Password').fill(password)
+  await page.getByLabel('Kata sandi').fill(password)
   await page.getByRole('button', { name: 'Masuk' }).click()
   await expect(page).toHaveURL(new RegExp(checkoutPath))
   await expect(page.getByRole('heading', { name: `Bayar ke Kopi Budi ${run}` })).toBeVisible()
@@ -44,7 +44,7 @@ test('merchant link → login → pay from wallet → merchant refunds → balan
   await page.getByRole('button', { name: 'Bayar Rp30.000' }).click()
   await expect(page.getByTestId('checkout-status')).toHaveText('Pembayaran berhasil')
 
-  await page.getByRole('link', { name: 'Kembali ke wallet' }).click()
+  await page.getByRole('link', { name: 'Kembali ke Beranda' }).click()
   await expect(page.getByTestId('balance')).toHaveText('Rp20.000')
 
   // Merchant me-refund sebagian lewat API; payer melihat saldo kembali dan baris Refund di riwayat.

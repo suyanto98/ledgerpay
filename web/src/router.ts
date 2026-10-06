@@ -10,20 +10,35 @@ import PayoutView from './pages/PayoutView.vue'
 import PayoutStatusView from './pages/PayoutStatusView.vue'
 import CheckoutView from './pages/CheckoutView.vue'
 import OpsView from './pages/OpsView.vue'
+import HistoryView from './pages/HistoryView.vue'
+import AccountView from './pages/AccountView.vue'
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    guest?: boolean
+    ops?: boolean
+    /** Judul di app bar mobile. */
+    title?: string
+    /** Halaman tab utama (mobile): tampilkan bottom tab bar, tanpa tombol kembali. */
+    tab?: boolean
+  }
+}
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', component: LoginView, meta: { guest: true } },
     { path: '/register', component: RegisterView, meta: { guest: true } },
-    { path: '/', component: WalletView },
-    { path: '/transfer', component: TransferView },
-    { path: '/topup', component: TopupView },
-    { path: '/topups/:id', component: TopupStatusView }, // return_url dari halaman checkout provider
-    { path: '/payout', component: PayoutView },
-    { path: '/payouts/:id', component: PayoutStatusView },
-    { path: '/checkout/:id', component: CheckoutView },
-    { path: '/ops', component: OpsView, meta: { ops: true } }, // server tetap memeriksa role OPS (403) // checkout_url dari merchant (login dulu, lalu kembali ke sini)
+    { path: '/', component: WalletView, meta: { tab: true, title: 'Beranda' } },
+    { path: '/transfer', component: TransferView, meta: { title: 'Transfer' } },
+    { path: '/history', component: HistoryView, meta: { tab: true, title: 'Riwayat' } },
+    { path: '/account', component: AccountView, meta: { tab: true, title: 'Akun' } },
+    { path: '/topup', component: TopupView, meta: { title: 'Top-up saldo' } },
+    { path: '/topups/:id', component: TopupStatusView, meta: { title: 'Status top-up' } }, // return_url dari halaman checkout provider
+    { path: '/payout', component: PayoutView, meta: { title: 'Tarik dana' } },
+    { path: '/payouts/:id', component: PayoutStatusView, meta: { title: 'Status tarik dana' } },
+    { path: '/checkout/:id', component: CheckoutView, meta: { title: 'Pembayaran' } }, // checkout_url dari merchant (login dulu, lalu kembali ke sini)
+    { path: '/ops', component: OpsView, meta: { ops: true, title: 'Ops console' } }, // server tetap memeriksa role OPS (403)
   ],
 })
 

@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError } from '../api'
+import AuthLayout from '../components/AuthLayout.vue'
 import { useAuth } from '../stores/auth'
 
 const form = ref({ email: '', password: '', display_name: '' })
@@ -25,17 +26,27 @@ async function submit() {
 </script>
 
 <template>
-  <div class="card">
-    <h2>Daftar</h2>
-    <form @submit.prevent="submit">
-      <label for="name">Nama</label>
-      <input id="name" v-model="form.display_name" required maxlength="80" />
-      <label for="email">Email</label>
-      <input id="email" v-model="form.email" type="email" autocomplete="username" required />
-      <label for="password">Password (min. 12 karakter)</label>
-      <input id="password" v-model="form.password" type="password" autocomplete="new-password" required minlength="12" />
-      <button type="submit" :disabled="busy">Daftar</button>
-      <p v-if="error" class="error" role="alert">{{ error }}</p>
+  <AuthLayout>
+    <form class="form" @submit.prevent="submit">
+      <div>
+        <h2>Buat akun</h2>
+        <p class="lead">Gratis, langsung dapat wallet LedgerPay.</p>
+      </div>
+      <div class="field">
+        <label for="name">Nama</label>
+        <input id="name" v-model="form.display_name" class="input" required maxlength="80" autocomplete="name" />
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" v-model="form.email" class="input" type="email" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="password">Kata sandi (min. 12 karakter)</label>
+        <input id="password" v-model="form.password" class="input" type="password" autocomplete="new-password" required minlength="12" />
+      </div>
+      <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+      <button type="submit" class="btn block" :disabled="busy">Daftar</button>
+      <p class="auth-switch">Sudah punya akun? <RouterLink to="/login">Masuk</RouterLink></p>
     </form>
-  </div>
+  </AuthLayout>
 </template>

@@ -52,6 +52,10 @@
 		}
 	}
 	handle {
+		# PWA: sw.js, manifest dan index.html (termasuk fallback route SPA) selalu divalidasi ulang
+		# supaya versi baru langsung terpasang; hanya aset ber-hash di /assets yang boleh di-cache.
+		@not_hashed not path /assets/*
+		header @not_hashed Cache-Control "no-cache"
 		root * /srv/ledgerpay
 		try_files {path} /index.html # history fallback SPA
 		file_server

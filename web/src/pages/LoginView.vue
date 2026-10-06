@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppIcon from '../components/AppIcon.vue'
+import AuthLayout from '../components/AuthLayout.vue'
 import { useAuth } from '../stores/auth'
 
 const email = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const error = ref('')
 const busy = ref(false)
 const auth = useAuth()
@@ -26,16 +29,28 @@ async function submit() {
 </script>
 
 <template>
-  <div class="card">
-    <h2>Masuk</h2>
-    <form @submit.prevent="submit">
-      <label for="email">Email</label>
-      <input id="email" v-model="email" type="email" autocomplete="username" required />
-      <label for="password">Password</label>
-      <input id="password" v-model="password" type="password" autocomplete="current-password" required />
-      <button type="submit" :disabled="busy">Masuk</button>
-      <p v-if="error" class="error" role="alert">{{ error }}</p>
+  <AuthLayout>
+    <form class="form" @submit.prevent="submit">
+      <div>
+        <h2>Masuk</h2>
+        <p class="lead">Selamat datang kembali. Masukkan email dan kata sandimu.</p>
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" v-model="email" class="input" type="email" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="password">Kata sandi</label>
+        <div class="input-wrap">
+          <input id="password" v-model="password" class="input" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" required />
+          <button type="button" class="icon-btn bare" :aria-label="showPassword ? 'Sembunyikan sandi' : 'Tampilkan sandi'" @click="showPassword = !showPassword">
+            <AppIcon :name="showPassword ? 'eyeOff' : 'eye'" />
+          </button>
+        </div>
+      </div>
+      <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+      <button type="submit" class="btn block" :disabled="busy">Masuk</button>
+      <p class="auth-switch">Belum punya akun? <RouterLink to="/register">Daftar sekarang</RouterLink></p>
     </form>
-    <p>Belum punya akun? <RouterLink to="/register">Daftar</RouterLink></p>
-  </div>
+  </AuthLayout>
 </template>
