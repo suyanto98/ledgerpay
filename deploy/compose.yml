@@ -43,7 +43,8 @@ services:
       JWT_SIGNING_KEYS: '{"dev1":"ZGV2LW9ubHktand0LXNpZ25pbmcta2V5LTMyYnl0ZXM="}'
       JWT_ACTIVE_KID: dev1
       COOKIE_SECURE: "false"       # dev lokal lewat http://localhost
-      ALLOWED_ORIGINS: http://localhost:5173
+      # Akses dari HP di Wi-Fi yang sama: LP_ALLOWED_ORIGINS=http://localhost:5173,http://<IP-laptop>:5173
+      ALLOWED_ORIGINS: ${LP_ALLOWED_ORIGINS:-http://localhost:5173}
       PUBLIC_BASE_URL: http://localhost:5173
       # Demo B sengaja mengirim 100 transfer dari satu user dalam 1 detik untuk menguji LOCK.
       # Default produksi 30/menit akan menjawab 70 di antaranya dengan 429, jadi dev dinaikkan.
