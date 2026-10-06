@@ -9,6 +9,7 @@ import TopupStatusView from './pages/TopupStatusView.vue'
 import PayoutView from './pages/PayoutView.vue'
 import PayoutStatusView from './pages/PayoutStatusView.vue'
 import CheckoutView from './pages/CheckoutView.vue'
+import OpsView from './pages/OpsView.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -21,7 +22,8 @@ export const router = createRouter({
     { path: '/topups/:id', component: TopupStatusView }, // return_url dari halaman checkout provider
     { path: '/payout', component: PayoutView },
     { path: '/payouts/:id', component: PayoutStatusView },
-    { path: '/checkout/:id', component: CheckoutView }, // checkout_url dari merchant (login dulu, lalu kembali ke sini)
+    { path: '/checkout/:id', component: CheckoutView },
+    { path: '/ops', component: OpsView, meta: { ops: true } }, // server tetap memeriksa role OPS (403) // checkout_url dari merchant (login dulu, lalu kembali ke sini)
   ],
 })
 
@@ -33,4 +35,5 @@ router.beforeEach(async (to) => {
   }
   if (!to.meta.guest && !auth.loggedIn) return { path: '/login', query: { next: to.fullPath } }
   if (to.meta.guest && auth.loggedIn) return '/'
+  if (to.meta.ops && !auth.isOps) return '/'
 })

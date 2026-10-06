@@ -6,7 +6,7 @@ export PATH := $(GOBIN):$(PATH)
 COMPOSE := docker compose -f deploy/compose.yml
 REDOCLY := npx --yes @redocly/cli@1
 
-.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions lint-shell gen gen-check smoke demo-a demo-b demo-c demo-d demo-payment demo-ops demo-verify demo-topup web web-check test-e2e up-obs test-alerts dashboards perf-up perf-seed perf-run perf-down
+.PHONY: help tools up down down-volumes logs ps migrate build test test-integration test-concurrency test-all lint lint-go lint-api lint-actions lint-shell gen gen-check smoke demo-a demo-b demo-c demo-d demo-payment demo-ops demo-verify demo-topup web web-check test-e2e up-obs test-alerts dashboards perf-up perf-seed perf-run perf-down api-docs cover
 
 help: ## Tampilkan daftar target
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -65,6 +65,13 @@ demo-verify: ## Semua demo headless (nightly CI); berhenti di kegagalan pertama
 	  && ./scripts/demo/topup.sh && ./scripts/demo/ops.sh && ./scripts/demo/d_reconciliation.sh \
 	  && ./scripts/demo/c_payout_recovery.sh
 
+api-docs: ## Dokumentasi API statis dari api/openapi.yaml → build/api.html
+	mkdir -p build && npx --yes @redocly/cli@1 build-docs api/openapi.yaml -o build/api.html
+
+cover: ## Laporan coverage (indikatif, bukan gate) → build/coverage.html
+	mkdir -p build && go test -tags testhooks -coverprofile=build/coverage.out ./internal/... >/dev/null && \
+	  go tool cover -func=build/coverage.out | tail -1 && go tool cover -html=build/coverage.out -o build/coverage.html
+
 # ------------------------------------------------------------------ perf (docs/design/23-performance-plan.md)
 PERF = docker compose -p ledgerpay-perf -f deploy/compose.yml -f deploy/perf/compose.perf.yml
 
@@ -102,7 +109,7 @@ dashboards: ## Generate JSON dashboard Grafana dari deploy/grafana/gen_dashboard
 
 test-alerts: ## Validasi + unit test alert rules Prometheus (promtool)
 	docker run --rm -v "$$PWD/deploy/prometheus/rules:/r:ro" -w /r --entrypoint promtool prom/prometheus:v3.5.0 check rules ledgerpay.yml platform.yml
-	docker run --rm -v "$$PWD/deploy/prometheus:/p:ro" -w /p/tests --entrypoint promtool prom/prometheus:v3.5.0 test rules ledgerpay_test.yml backup_test.yml
+	docker run --rm -v "$$PWD/deploy/prometheus:/p:ro" -w /p/tests --entrypoint promtool prom/prometheus:v3.5.0 test rules ledgerpay_test.yml backup_test.yml recon_test.yml
 
 # ------------------------------------------------------------------ frontend
 web: ## Jalankan Vue SPA (Vite) di http://localhost:5173, /api di-proxy ke LP_HTTP_PORT

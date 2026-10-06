@@ -1,0 +1,19 @@
+# gitleaks (CI job `security`, seluruh history). Aturan bawaan + pengecualian SEMPIT yang dijelaskan.
+[extend]
+useDefault = true
+
+# Summary k6 Sprint 9 menyimpan setup_data = access token JWT user seed perf: berumur 15 menit,
+# ditandatangani kunci DEV yang memang publik di deploy/compose.yml, untuk database perf yang sudah
+# dihapus. Tidak bisa dipakai. History tidak ditulis ulang; sejak Sprint 10 perf/run.sh membuang
+# setup_data, dan pengecualian ini hanya berlaku untuk commit itu DAN path itu.
+[[allowlists]]
+description = "expired dev-key JWTs in k6 summaries committed in Sprint 9"
+condition = "AND"
+commits = ["e4c3e00160bc1ab3f7209298ca5dc3546cb3e706"]
+paths = ['''perf/results/.*/k6-summary\.json''']
+
+# Idempotency-Key bukan rahasia (dikirim client sebagai pengenal niat); contoh nilainya ada di test/dokumen.
+[[allowlists]]
+description = "Idempotency-Key example values"
+regexTarget = "line"
+regexes = ['''Idempotency-Key''', '''"7c9e6679-7425-40de-944b-e07fc1f90ae7"''']

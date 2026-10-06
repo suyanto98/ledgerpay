@@ -31,6 +31,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ledgerpay/db/migrations"
+	migrationsdemo "ledgerpay/db/migrations_demo"
 	"ledgerpay/internal/app"
 	"ledgerpay/internal/modules/identity"
 	"ledgerpay/internal/modules/ledger"
@@ -44,6 +45,7 @@ import (
 	"ledgerpay/internal/platform/crypto"
 	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/egress"
+	"ledgerpay/internal/platform/faults"
 	"ledgerpay/internal/platform/idgen"
 	"ledgerpay/internal/platform/metrics"
 	"ledgerpay/internal/platform/observability"
@@ -136,6 +138,9 @@ func runAPI() error {
 	}
 	tiers := ratelimit.DefaultTiers()
 	tiers.MoneyWrite.Rules = []ratelimit.Rule{{Events: cfg.RateLimitMoneyWritePerMin, Per: time.Minute}}
+	if cfg.DemoMode && !faults.Enabled() {
+		logger.Warn("demo.mode_ignored", "reason", "release binary has no demo code (build without tag demo)")
+	}
 	if cfg.RateLimitDisabled { // perf env saja (divalidasi config)
 		tiers = ratelimit.Unlimited()
 		logger.Warn("ratelimit.disabled", "app_env", cfg.AppEnv)
@@ -146,7 +151,9 @@ func runAPI() error {
 		AllowedOrigins: cfg.AllowedOrigins, TrustedProxies: cfg.TrustedProxies, PublicBaseURL: cfg.PublicBaseURL, Tiers: &tiers,
 		Provider:    topup.NewHTTPProvider(cfg.ProviderBaseURL, cfg.ProviderAPISecret),
 		Settlements: recon.NewHTTPSource(cfg.ProviderBaseURL, cfg.ProviderAPISecret, 30*time.Second),
-		CallbackURL: cfg.ProviderCallbackURL, WebhookSecrets: cfg.ProviderWebhookSecrets,
+		DemoMode:    cfg.DemoMode, DemoToken: cfg.DemoToken,
+		DisableTopup: !cfg.TopupEnabled,
+		CallbackURL:  cfg.ProviderCallbackURL, WebhookSecrets: cfg.ProviderWebhookSecrets,
 		Keyring: cfg.Keyring, Egress: egress.Policy{AllowCIDRs: cfg.EgressAllow, RequireHTTPS: cfg.RequireHTTPSHooks},
 		PayoutSafeWindow: cfg.PayoutSafeWindow,
 	}
@@ -198,6 +205,9 @@ func runMigrate(args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if err := migrations.MigrateUp(ctx, cfg.MigrateDatabaseURL); err != nil {
+		return err
+	}
+	if err := migrationsdemo.MigrateUp(ctx, cfg.MigrateDatabaseURL); err != nil { // no-op di build release
 		return err
 	}
 	fmt.Println("migrations applied")
@@ -368,7 +378,11 @@ func runWorker() error {
 		Bank:        payout.NewHTTPBank(cfg.ProviderBaseURL, cfg.ProviderAPISecret, 10*time.Second),
 		Settlements: recon.NewHTTPSource(cfg.ProviderBaseURL, cfg.ProviderAPISecret, 30*time.Second),
 		Keyring:     cfg.Keyring, Egress: egress.Policy{AllowCIDRs: cfg.EgressAllow, RequireHTTPS: cfg.RequireHTTPSHooks},
-		PayoutSafeWindow: cfg.PayoutSafeWindow}
+		PayoutSafeWindow:    cfg.PayoutSafeWindow,
+		DisablePayoutSubmit: !cfg.PayoutSubmitEnabled, DisableWebhookDelivery: !cfg.WebhookDeliveryEnabled}
+	if deps.DisablePayoutSubmit || deps.DisableWebhookDelivery {
+		logger.Warn("worker.kill_switch", "payout_submit_disabled", deps.DisablePayoutSubmit, "webhook_delivery_disabled", deps.DisableWebhookDelivery)
+	}
 	if err := deps.ValidateWorker(); err != nil {
 		return err
 	}

@@ -2,7 +2,7 @@
 
 > A mini payment platform where money stays correct even when requests are duplicated, concurrent, or interrupted by failures.
 
-**Status:** Sprint 9 of 10 — money flows (incl. refunds), background processing, observability, an ops console API, daily reconciliation, encrypted backups with a restore drill, a CD pipeline and a first (laptop) performance baseline are done. The ops console UI and the final demo pass are next ([backlog](docs/backlog.md)).
+**Status:** M4 — feature-complete for its scope (Sprints 0–10): money flows incl. refunds, background processing, observability, ops console (API + minimal UI), daily reconciliation, encrypted backups with a restore drill, a CD pipeline, a demo mode and a laptop performance baseline. Still owed by the author: the public deployment, the demo video and the performance numbers on the target VM ([DoD audit](docs/dod-audit.md), [backlog](docs/backlog.md)).
 **Live demo:** `[LINK: https://<domain> after the first deploy]` · **Demo video (~5 min):** `[LINK: video]`
 
 Production-oriented, small in scope, strict about correctness. Built for learning and as a portfolio project.
@@ -90,12 +90,13 @@ Requirements: Go (toolchain from `go.mod`), Docker with Compose, Node 22 + Yarn 
 make up                 # postgres + migrations + api + worker + mock-provider (LP_HTTP_PORT=18080 if 8080 is taken)
 make demo-a             # idempotency
 make demo-b             # 100 concurrent transfers
-make demo-c             # payout timeout + docker kill worker (~60 s)
+make demo-c             # payout timeout; the worker dies right after the bank accepted (demo fault, exit 137) (~60 s)
 make demo-topup         # top-up through the mock provider, duplicate + forged webhooks
 make demo-payment       # merchant API key → payment intent → two tabs confirm
 make demo-ops           # 5 parallel refunds (3 succeed) + ops resolves an UNKNOWN payout with evidence
 make demo-d             # reconciliation: bank says SUCCEEDED for a stuck payout → STATUS_MISMATCH → resolved with evidence
-make web                # SPA on http://localhost:5173
+make demo-verify        # all demos headless, with assertions (what the nightly job runs)
+make web                # SPA on http://localhost:5173 (log in as an OPS user to see the Ops page)
 make up-obs             # + Grafana (http://localhost:3000), Jaeger (http://localhost:16686), Prometheus
 ```
 
@@ -115,11 +116,12 @@ Backups: nightly `pg_dump` with a read-only role, encrypted with [age](https://a
 
 ## Testing
 
-- **154 Go tests** against a real PostgreSQL (testcontainers, one cloned template DB per test, app role — not superuser), plus Vitest and two Playwright journeys (register → top-up via checkout → transfer → payout → login again; merchant checkout link → login → pay → refund).
+- **165 Go tests** against a real PostgreSQL (testcontainers, one cloned template DB per test, app role — not superuser), plus Vitest and two Playwright journeys (register → top-up via checkout → transfer → payout → login again; merchant checkout link → login → pay → refund).
 - **Concurrency tests** with barriers and named test hooks (`-tags testhooks`) for deterministic interleavings; repeated `-count=20` before merging.
 - **Property tests** (`rapid`): random transfer sequences conserve money.
 - **"Test the test"**: mutation checks (e.g. removing lock ordering, verify-by-fetch, or the `SUBMITTED` guard must make tests fail) and a naive implementation that is shown to overdraw.
 - **Alert rules are tested** with `promtool test rules`.
+- **The repo checks itself**: every test named in this README, the ADRs and the traceability matrix must exist (`TestTraceability_DocsReferenceExistingTests`); the release binary must not contain demo or test-hook code (`TestBuild_DemoEndpointsAbsentWithoutDemoMode`, inspected with `go tool nm`); money is a string in every JSON response (`TestContract_MoneyIsString`); every integration test ends with the ledger invariant checker.
 
 ```bash
 make test               # unit (no Docker)
@@ -152,14 +154,30 @@ The hot-merchant experiment triggered its decision rule, so a `MERCHANT_PENDING`
 
 ## Security notes
 
-Threat model: [docs/design/16-security-threat-model.md](docs/design/16-security-threat-model.md). Highlights: argon2id with bounded concurrency, refresh-token rotation with reuse detection, generic auth errors (no account enumeration, including no `Retry-After` oracle on lockout), BOLA → 404, merchant API keys hashed at rest with slot limits, HMAC webhooks with replay window, SSRF egress guard for merchant webhooks, AES-GCM encryption of account numbers and webhook secrets with a versioned keyring, least-privilege database roles. This project applies data-protection practices; it makes no compliance claims.
+Threat model: [docs/design/16-security-threat-model.md](docs/design/16-security-threat-model.md). Highlights: a demo mode guarded in three layers (compiled only with the `demo` build tag, enabled only with `DEMO_MODE` + a token, every request needs `X-Demo-Token`), env kill switches for payouts, outbound webhooks and top-ups, `govulncheck` + full-history `gitleaks` in CI, argon2id with bounded concurrency, refresh-token rotation with reuse detection, generic auth errors (no account enumeration, including no `Retry-After` oracle on lockout), BOLA → 404, merchant API keys hashed at rest with slot limits, HMAC webhooks with replay window, SSRF egress guard for merchant webhooks, AES-GCM encryption of account numbers and webhook secrets with a versioned keyring, least-privilege database roles. This project applies data-protection practices; it makes no compliance claims.
 
 ## Limitations & what's simplified
 
 - Single VM. The CD workflows and offsite backup upload are written and rehearsed locally (local registry, pull-mode deploy, rollback) but have not run on GitHub or against a real bucket yet.
 - The payment provider and the bank are mocks that mimic real APIs, including their failure modes.
 - IDR only; no KYC, no cards, no MFA.
-- The ops console UI is not built yet (the ops API, including reconciliation, is). Performance numbers come from a laptop, not the target VM.
+- Backups are daily `pg_dump`s: **RPO 24 h, RTO ~2 h** (new VM + restore). Point-in-time recovery would need WAL archiving.
+- Performance numbers come from a laptop, not the target VM. A single merchant is limited by one row lock (~120 payments/s on that laptop).
+- The ops console UI is deliberately minimal (reconciliation queue, stuck payouts); everything else is available through the ops API.
+
+## Deliberately not built
+| Feature | Why not (yet) |
+|---|---|
+| Configurable balance/transaction limits (LF-21), PIN / step-up auth (LF-22) | P2: hardening for a real launch, not needed to demonstrate correctness |
+| Fees as 3-legged journals (LF-23), email notifications (LF-24), velocity risk rules (LF-25) | P3: discussed in interviews, no new correctness problem |
+| Balance snapshots (LF-26) | Only if verification becomes slow; the hourly verifier is fine at 1M journals |
+| `MERCHANT_PENDING` hot-merchant design | The E-1 decision rule triggered on the laptop baseline; designed and tracked, not needed for demo traffic |
+| MFA, KYC, cards, multi-currency, Loki, Alertmanager notifications | Out of scope for a portfolio-sized system |
+
+## What I'd do next
+1. Deploy to the target VM, record the demo, and repeat the load tests with k6 on a separate machine.
+2. Reduce the work done while holding the merchant row lock, then re-run E-1; implement `MERCHANT_PENDING` only if the VM numbers still trigger the rule.
+3. Ship alert notifications (Alertmanager) and log aggregation, then run the 7-day "invariants stay at 0" check on the demo environment.
 
 ## Project structure
 
@@ -176,7 +194,7 @@ docs/                ADRs, design documents, backlog
 
 ## Docs
 
-[Design documents](docs/design/) · [ADRs](docs/adr/) · [OpenAPI](api/openapi.yaml) · [Backlog](docs/backlog.md)
+[Design documents](docs/design/) · [ADRs](docs/adr/) · [OpenAPI](api/openapi.yaml) (`make api-docs` for HTML) · [Demo script](docs/demo-script.md) · [Runbook](docs/runbook.md) · [Performance](docs/performance.md) · [DoD audit](docs/dod-audit.md) · [Backlog](docs/backlog.md)
 
 ## License
 

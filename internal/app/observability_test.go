@@ -59,6 +59,7 @@ func TestMetrics_LedgerVerifyPublishesInvariantGauges(t *testing.T) {
 		t.Fatalf("verification timestamp = %v", v)
 	}
 
+	e.allowBrokenLedger() // drift sengaja disuntikkan di bawah
 	// Drift buatan (UPDATE saldo langsung, melewati ledger) HARUS terlihat di gauge.
 	if _, err := e.pool.Exec(context.Background(), `UPDATE accounts SET balance = balance + 1 WHERE user_id = $1`, rinaID); err != nil {
 		t.Fatal(err)

@@ -20,6 +20,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"ledgerpay/db/migrations"
+	migrationsdemo "ledgerpay/db/migrations_demo"
 )
 
 const (
@@ -93,6 +94,9 @@ func Start(ctx context.Context) (stop func(), err error) {
 	// (Postgres menolak clone template yang masih punya koneksi).
 	if err = migrations.MigrateUp(ctx, DSN(templateDB, ownerRole, rolePass)); err != nil {
 		return nil, fmt.Errorf("dbtest: migrate template: %w", err)
+	}
+	if err = migrationsdemo.MigrateUp(ctx, DSN(templateDB, ownerRole, rolePass)); err != nil { // no-op tanpa -tags demo
+		return nil, fmt.Errorf("dbtest: migrate demo template: %w", err)
 	}
 	started = true
 	return func() {

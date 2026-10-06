@@ -22,6 +22,7 @@ import (
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/crypto"
 	"ledgerpay/internal/platform/db"
+	"ledgerpay/internal/platform/faults"
 	"ledgerpay/internal/platform/idgen"
 	"ledgerpay/internal/platform/jobs"
 	"ledgerpay/internal/platform/metrics"
@@ -216,6 +217,7 @@ func (s *Service) handleSubmit(ctx context.Context, j *jobs.Job) error {
 	res := s.bank.Submit(ctx, SubmitInput{PayoutID: cur.ID.String(), Amount: cur.Amount, Currency: cur.Currency,
 		BankCode: cur.BankCode, AccountNumber: string(acct), HolderName: cur.HolderName})
 	// Titik hook: "worker mati setelah bank menerima, sebelum Tx-b" (TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend).
+	faults.Check(ctx, s.pool, "payout.after_bank_call") // demo: worker mati di sini (Demo C deterministik)
 	if err := testhook.Pause(ctx, "payout.after_bank_call"); err != nil {
 		return err
 	}

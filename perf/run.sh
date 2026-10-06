@@ -22,6 +22,12 @@ k6() { # <script> [env...]
   for e in "$@"; do envs+=(-e "$e"); done
   docker run --rm --network host -u "$(id -u)" -v "$PWD/perf:/perf" "${envs[@]}" grafana/k6:1.2.3 run --quiet \
     --summary-export "/perf/${OUT#perf/}/k6-summary.json" "/perf/k6/$script" 2>&1 | tee "$OUT/k6.txt"
+  # k6 menyimpan setup_data (access token user seed) di summary: buang sebelum file bisa ter-commit
+  # (ditemukan gitleaks di Sprint 10).
+  python3 - "$OUT/k6-summary.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1])); d.pop("setup_data", None); json.dump(d, open(sys.argv[1], "w"), indent=1)
+PY
 }
 count() { python3 - "$OUT/k6-summary.json" "$1" <<'PY'
 import json, sys

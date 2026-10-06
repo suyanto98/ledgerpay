@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -45,9 +46,19 @@ func NewWorker(d Deps, cfg WorkerConfig) *Worker {
 	rc := func(lane string, n int) jobs.RunnerConfig {
 		return jobs.RunnerConfig{Worker: cfg.ID + ":" + lane, Lease: cfg.Lease, Concurrency: n}
 	}
+	// Kill switch: kind yang dimatikan tidak didaftarkan → job-nya tetap queued (tidak hilang, tidak dead)
+	// dan diproses lagi begitu flag dikembalikan.
+	moneyKinds := sv.payout.Kinds()
+	if d.DisablePayoutSubmit {
+		moneyKinds = slices.DeleteFunc(moneyKinds, func(k jobs.Kind) bool { return k.Name == payout.KindSubmit })
+	}
+	webhookKinds := sv.webhooks.Kinds()
+	if d.DisableWebhookDelivery {
+		webhookKinds = nil
+	}
 	w := &Worker{deps: d,
-		Money:      jobs.NewRunner(d.Pool, rc("money", 4), sv.payout.Kinds()...),
-		WebhookOut: jobs.NewRunner(d.Pool, rc("webhook-out", 8), sv.webhooks.Kinds()...),
+		Money:      jobs.NewRunner(d.Pool, rc("money", 4), moneyKinds...),
+		WebhookOut: jobs.NewRunner(d.Pool, rc("webhook-out", 8), webhookKinds...),
 		Inbox:      inbox.NewProcessor(d.Pool, map[string]inbox.Applier{"charge": sv.topup}, inbox.ProcessorConfig{WorkerID: cfg.ID + ":inbox", Lease: cfg.Lease}),
 	}
 	quick := func(name string, fn func(ctx context.Context) error) jobs.Kind {

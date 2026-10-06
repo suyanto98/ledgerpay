@@ -14,7 +14,10 @@ echo "== 100 transfer × 1000000 (Rp10.000) dikirim bersamaan"
 export API TOKEN ANDI RUN
 seq 1 100 | xargs -P 100 -I{} sh -c 'curl -s -o /dev/null -w "%{http_code}\n" -X POST "$API/transfers" \
   -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: demo-b-$RUN-{}" -H "Content-Type: application/json" \
-  -d "{\"recipient_email\":\"$ANDI\",\"amount\":\"1000000\",\"currency\":\"IDR\"}"' | sort | uniq -c
+  -d "{\"recipient_email\":\"$ANDI\",\"amount\":\"1000000\",\"currency\":\"IDR\"}"' | sort | uniq -c | tee /tmp/demo-b-$RUN
 
 echo "saldo akhir Rina: $(balance "$TOKEN")  (harus 0, tidak pernah negatif)"
+expect "transfer 201" "$(awk '$2 == 201 {print $1}' /tmp/demo-b-$RUN)" 10
+expect "transfer 422" "$(awk '$2 == 422 {print $1}' /tmp/demo-b-$RUN)" 90
+expect "saldo akhir Rina" "$(balance "$TOKEN")" 0
 verify

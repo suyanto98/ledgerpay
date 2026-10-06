@@ -34,6 +34,7 @@ done
 wait
 curl -fsS "$API/merchant/payment-intents/$ID" -H "Authorization: Bearer $API_KEY" | jq -c '{status, refunded_amount, refunds: (.refunds | length)}'
 echo "saldo Rina: $(balance "$RINA_TOKEN")  (harus 49000000: bayar 100rb, kembali 90rb)"
+expect "saldo Rina" "$(balance "$RINA_TOKEN")" 49000000
 
 echo "== 2. Ops menyelesaikan payout UNKNOWN"
 curl -fsS -X PUT "$MOCK/admin/scenario" -H 'Content-Type: application/json' -d '{"charges":"ok","payout_status_query":"disabled"}' >/dev/null

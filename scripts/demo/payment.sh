@@ -43,6 +43,7 @@ done
 wait
 
 echo "saldo Rina: $(balance "$RINA_TOKEN")  (harus 2500000: terdebet SEKALI)"
+expect "saldo Rina" "$(balance "$RINA_TOKEN")" 2500000
 curl -fsS "$API/merchant/payment-intents/$ID" -H "Authorization: Bearer $API_KEY" | jq -c '{status, payer}'
 if [ -n "$SECRET" ]; then
   sleep 2

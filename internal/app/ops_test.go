@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 // ---------------------------------------------------------------- helpers
@@ -292,5 +295,61 @@ func TestOps_ReplayDeadWebhookAndRetryJob(t *testing.T) {
 	e.drain(t, e.newWorker(t), 3)
 	if s.count() != before {
 		t.Fatalf("retried job must not deliver again: %d → %d", before, s.count())
+	}
+}
+
+// LI-14 (traceability): request_id yang dikembalikan ke client = correlation_id journal-nya, dan ops bisa
+// menelusuri dari objek bisnis ke journal + entries + pemilik akun.
+func TestTrace_RequestIDToJournal(t *testing.T) {
+	e := newEnv(t)
+	ops := opsToken(t, e)
+	rina, rinaID := login(t, e, "rina@example.com")
+	login(t, e, "andi@example.com")
+	seedTopup(t, e, rinaID, 50_000)
+	r, tr := e.transfer(t, rina, newKey(), transferBody("andi@example.com", "1000"))
+	requestID := r.Header.Get("X-Request-Id")
+	if r.StatusCode != http.StatusCreated || requestID == "" {
+		t.Fatalf("transfer: %d, X-Request-Id=%q", r.StatusCode, requestID)
+	}
+	_, hits := e.do(t, http.MethodGet, "/api/v1/ops/transactions/search?q="+tr["id"].(string), ops, nil)
+	data, _ := hits["data"].([]any)
+	if len(data) != 1 {
+		t.Fatalf("search by transfer id: %v", hits)
+	}
+	hit := data[0].(map[string]any)
+	if hit["correlation_id"] != requestID {
+		t.Fatalf("journal correlation_id %v != response X-Request-Id %s", hit["correlation_id"], requestID)
+	}
+	journalID := hit["journal_ids"].([]any)[0].(string)
+	_, j := e.do(t, http.MethodGet, "/api/v1/ops/journals/"+journalID, ops, nil)
+	if j["correlation_id"] != requestID || len(j["entries"].([]any)) != 2 {
+		t.Fatalf("journal detail: %v", j)
+	}
+}
+
+// bola_transfer / bola_topup / bola_payout (LI-15): resource milik user lain → 404 yang sama persis dengan
+// ID yang tidak ada (penyerang tidak bisa membedakan "ada tapi bukan milikmu" dari "tidak ada").
+func TestBOLA_TransferTopupPayout(t *testing.T) {
+	e := newEnv(t)
+	rina, rinaID := login(t, e, "rina@example.com")
+	eve, _ := login(t, e, "eve@example.com")
+	login(t, e, "andi@example.com")
+	seedTopup(t, e, rinaID, 10_000_000)
+	_, tr := e.transfer(t, rina, newKey(), transferBody("andi@example.com", "1000"))
+	_, tp := e.createTopup(t, rina, newKey(), "5000000")
+	_, po := e.createPayout(t, rina, "1000000", "9900001234")
+	for name, path := range map[string]string{
+		"transfer": "/api/v1/transfers/" + tr["id"].(string),
+		"topup":    "/api/v1/topups/" + tp["id"].(string),
+		"payout":   "/api/v1/payouts/" + po["id"].(string),
+	} {
+		if r, _ := e.do(t, http.MethodGet, path, rina, nil); r.StatusCode != http.StatusOK {
+			t.Fatalf("%s: owner must see it, got %d", name, r.StatusCode)
+		}
+		r, b := e.do(t, http.MethodGet, path, eve, nil)
+		r2, b2 := e.do(t, http.MethodGet, path[:strings.LastIndex(path, "/")+1]+uuid.NewString(), eve, nil)
+		if r.StatusCode != http.StatusNotFound || r2.StatusCode != http.StatusNotFound || b["code"] != b2["code"] || b["title"] != b2["title"] {
+			t.Fatalf("%s: other user's resource must look exactly like a missing one: %d %v vs %d %v", name, r.StatusCode, b, r2.StatusCode, b2)
+		}
 	}
 }

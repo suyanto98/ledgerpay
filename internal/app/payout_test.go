@@ -444,3 +444,47 @@ func TestTopupRecover_StuckCreated_Completed(t *testing.T) {
 		t.Fatalf("later client retry must reuse the recovered charge: %d %v (charges %d)", r.StatusCode, b, e.mock.ChargeCount())
 	}
 }
+
+// Kill switch (docs/design/26-deploy-migrations-backup.md §4.3): payout.submit dimatikan → dana tetap
+// ditahan dan job tetap queued (tidak hilang, tidak dead); dinyalakan lagi → payout diproses normal.
+// Top-up dimatikan → POST /topups 503, GET tetap jalan.
+func TestKillSwitch_PayoutSubmitAndTopup(t *testing.T) {
+	e := newEnv(t)
+	rina, rinaID := login(t, e, "rina@example.com")
+	seedTopup(t, e, rinaID, 10_000_000)
+	_, po := e.createPayout(t, rina, "2000000", "9900001234")
+	id := po["id"].(string)
+	off := e.deps
+	off.DisablePayoutSubmit = true
+	w := app.NewWorker(off, app.WorkerConfig{ID: "ks-" + uuid.NewString()[:6], Lease: 30 * time.Second})
+	_ = w.RunOnce(context.Background())
+	var status string
+	_ = e.pool.QueryRow(context.Background(), `SELECT status FROM jobs WHERE kind = 'payout.submit'`).Scan(&status)
+	if s, _, _ := e.payoutRow(t, id); s != "PENDING" || status != "queued" {
+		t.Fatalf("payout.submit disabled: payout %s, job %s (want PENDING, queued)", s, status)
+	}
+	if balanceOf(t, e, rina) != "8000000" {
+		t.Fatal("funds must stay held while the switch is off")
+	}
+	e.drain(t, e.newWorker(t), 3) // switch kembali on
+	if s, _, _ := e.payoutRow(t, id); s != "SUCCEEDED" {
+		t.Fatalf("after re-enabling: payout %s, want SUCCEEDED", s)
+	}
+
+	d := e.deps
+	d.DisableTopup = true
+	srv := httptest.NewServer(app.APIRouter(d))
+	t.Cleanup(srv.Close)
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, srv.URL+"/api/v1/topups", strings.NewReader(`{"amount":"5000000","currency":"IDR"}`))
+	req.Header.Set("Authorization", "Bearer "+rina)
+	req.Header.Set("Idempotency-Key", newKey())
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("topup disabled: want 503, got %d", resp.StatusCode)
+	}
+}

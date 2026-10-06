@@ -28,6 +28,7 @@ import (
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/clock"
 	"ledgerpay/internal/platform/db"
+	"ledgerpay/internal/platform/faults"
 	"ledgerpay/internal/platform/httpx"
 	"ledgerpay/internal/platform/idgen"
 	"ledgerpay/internal/platform/metrics"
@@ -232,6 +233,7 @@ func (p *Processor) process(ctx context.Context, ev store.ClaimEventsRow) {
 		p.finish(ctx, ev, func(context.Context, pgx.Tx) (string, string, string, error) { return "DEAD", "", dead, nil })
 		return
 	}
+	faults.Check(ctx, p.pool, "inbox.before_apply") // demo: mati setelah verify, sebelum kredit
 	if err := testhook.Pause(ctx, "inbox.before_apply"); err != nil {
 		p.fail(ctx, ev, err)
 		return

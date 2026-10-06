@@ -261,6 +261,7 @@ func TestRefund_DriftDetectedByLedgerVerify(t *testing.T) {
 	if v := verify(); v != 0 {
 		t.Fatalf("refund drift = %v on a healthy database", v)
 	}
+	e.allowBrokenLedger() // drift sengaja disuntikkan di bawah
 	if _, err := e.pool.Exec(context.Background(), `UPDATE payment_intents SET refunded_amount = 40000 WHERE id = $1`, id); err != nil {
 		t.Fatal(err)
 	}

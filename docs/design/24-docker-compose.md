@@ -503,6 +503,12 @@ Test:
 - `TestBuild_DemoEndpointsAbsentWithoutDemoMode`: binary release + `DEMO_MODE=true` → `/api/v1/demo/*` 404, dan simbol paket `demo` tidak ada di binary (`go tool nm`).
 - `TestBuild_NoTesthooksInRelease`: sama untuk build tag `testhooks` (Step 7).
 
+### 9.1a Catatan implementasi (Sprint 10, LedgerPay)
+- Tiga lapis sesuai tabel: kode di file `//go:build demo` (`internal/app/demo_routes.go`, `internal/platform/faults/faults_demo.go`); rute hanya kalau `DEMO_MODE=true` + `DEMO_TOKEN` (≥ 24 karakter, start gagal tanpa itu); `X-Demo-Token` constant-time, salah → 404.
+- Permukaan: `POST/DELETE /api/v1/demo/faults` saja. `POST /demo/reset` **tidak** dibuat: setiap skrip demo membuat user sendiri dan me-reset mock, jadi tidak perlu endpoint yang menghapus data.
+- Titik fault: `payout.after_bank_call`, `inbox.before_apply` (`os.Exit(137)`, sekali pakai). Demo C memakainya kalau token tersedia, dan kembali ke `docker kill` kalau tidak.
+- Image dev compose = image demo (`BUILD_TAGS=demo`); image yang di-deploy (`scripts/build-images.sh`, `compose.prod.yml`) juga varian demo, sesuai amandemen S8. Binary release (tanpa tag) dibuktikan tidak memuat kode demo maupun test hook (`go tool nm`).
+
 ### 9.2 Migrasi demo dan tabel `demo_faults`
 
 - Direktori terpisah: `db/migrations_demo/`, dengan tabel versi goose terpisah (`goose_demo_version`). Subcommand `migrate up` di image demo menjalankan `migrations/` **lalu** `migrations_demo/`. Image release tidak memuat direktorinya (Dockerfile menyalin hanya jika `BUILD_TAGS=demo`).

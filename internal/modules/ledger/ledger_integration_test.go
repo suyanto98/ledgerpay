@@ -366,3 +366,62 @@ func TestLedger_SystemAccountNotLocked(t *testing.T) {
 		t.Fatalf("second top-up blocked by the first (system account locked?): %v", err)
 	}
 }
+
+// LI-02 lapis terakhir: kalau validasi saldo di aplikasi hilang (bug, akses langsung lewat role
+// aplikasi), database tetap menolak saldo negatif dan perubahan langsung pada journal.
+func TestLedger_AppValidationRemoved_DBStillRejects(t *testing.T) {
+	f, _ := newFixture(t)
+	ctx := context.Background()
+	_, wallet := f.newWallet(t)
+	if err := f.post(t, topup(f, wallet, 1_000)); err != nil {
+		t.Fatal(err)
+	}
+	_, err := f.pool.Exec(ctx, `UPDATE accounts SET balance = balance - 5000 WHERE id = $1`, wallet)
+	if code, constraint := pgCode(err); code != "23514" || constraint != "ck_accounts_balance_non_negative" {
+		t.Fatalf("negative balance via the app role: want 23514 ck_accounts_balance_non_negative, got %s %s (%v)", code, constraint, err)
+	}
+	if !errors.Is(db.MapError(err), apperr.ErrInsufficientBalance) {
+		t.Fatalf("the DB rejection must map to INSUFFICIENT_BALANCE, got %v", db.MapError(err))
+	}
+	if _, err := f.pool.Exec(ctx, `UPDATE journal_entries SET amount = amount + 1 WHERE account_id = $1`, wallet); err == nil {
+		t.Fatal("editing a journal entry through the app role must be rejected (append-only)")
+	}
+	assertInvariants(t, f.pool)
+}
+
+// Mode lock wallet (docs/design/19-tx-concurrency.md, ADR-L03): FOR NO KEY UPDATE tidak memblok cek FK
+// (FOR KEY SHARE) dari transaksi lain, sehingga insert yang hanya MERUJUK akun itu (entries, payout,
+// top-up) tidak antre di belakang transfer. Sanity: FOR UPDATE memblok, jadi test ini membedakan keduanya.
+func TestAccountsLock_TopupInsertNotBlockedByTransfer(t *testing.T) {
+	f, _ := newFixture(t)
+	ctx := context.Background()
+	_, wallet := f.newWallet(t)
+	keyShareWaits := func(mode string) bool {
+		t.Helper()
+		holder, err := f.pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = holder.Rollback(ctx) }()
+		if _, err := holder.Exec(ctx, `SELECT id FROM accounts WHERE id = $1 `+mode, wallet); err != nil {
+			t.Fatal(err)
+		}
+		other, err := f.pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = other.Rollback(ctx) }()
+		if _, err := other.Exec(ctx, `SET LOCAL lock_timeout = '100ms'`); err != nil {
+			t.Fatal(err)
+		}
+		_, err = other.Exec(ctx, `SELECT 1 FROM accounts WHERE id = $1 FOR KEY SHARE`, wallet) // yang dilakukan cek FK
+		code, _ := pgCode(err)
+		return code == "55P03" // lock_not_available
+	}
+	if keyShareWaits("FOR NO KEY UPDATE") {
+		t.Fatal("FOR NO KEY UPDATE must not block FK checks (FOR KEY SHARE) from other transactions")
+	}
+	if !keyShareWaits("FOR UPDATE") {
+		t.Fatal("sanity: FOR UPDATE should block FOR KEY SHARE (otherwise this test proves nothing)")
+	}
+}

@@ -55,7 +55,15 @@ type Config struct {
 	// Hanya perf env (load test mengukur kapasitas mentah, docs/design/23-performance-plan.md §5 LP-9):
 	// semua tier rate limit dimatikan dan pprof dipasang di port ops internal. Ditolak di demo/production.
 	RateLimitDisabled bool `env:"RATE_LIMIT_DISABLED"`
-	PprofEnabled      bool `env:"PPROF_ENABLED"`
+	// Kill switch env (docs/design/26-deploy-migrations-backup.md §4.3): false = matikan jalur itu tanpa build ulang.
+	PayoutSubmitEnabled    bool `env:"LP_PAYOUT_SUBMIT_ENABLED" envDefault:"true"`
+	WebhookDeliveryEnabled bool `env:"LP_WEBHOOK_DELIVERY_ENABLED" envDefault:"true"`
+	TopupEnabled           bool `env:"LP_TOPUP_ENABLED" envDefault:"true"`
+	// Mode demo (O15): endpoint /api/v1/demo/* HANYA di binary build tag `demo` DAN kalau DEMO_MODE=true;
+	// setiap request wajib header X-Demo-Token. DEMO_MODE=true tanpa token (≥ 24 karakter) = gagal start.
+	DemoMode     bool   `env:"DEMO_MODE"`
+	DemoToken    string `env:"DEMO_TOKEN"`
+	PprofEnabled bool   `env:"PPROF_ENABLED"`
 
 	// Payment provider (mock-provider di V1, ADR-L05).
 	ProviderBaseURL        string   `env:"PROVIDER_BASE_URL"`                         // contoh http://mock-provider:9090
@@ -108,6 +116,9 @@ func (c *Config) validateShared() []error {
 		errs = append(errs, errors.New("WEBHOOK_EGRESS_ALLOW_CIDRS hanya boleh di APP_ENV dev/test (SSRF, C-44)"))
 	}
 	c.RequireHTTPSHooks = !c.Dev()
+	if c.DemoMode && len(c.DemoToken) < 24 {
+		errs = append(errs, errors.New("DEMO_MODE=true membutuhkan DEMO_TOKEN minimal 24 karakter"))
+	}
 	if (c.RateLimitDisabled || c.PprofEnabled) && !c.Dev() && c.AppEnv != "perf" {
 		errs = append(errs, errors.New("RATE_LIMIT_DISABLED / PPROF_ENABLED hanya boleh di APP_ENV dev/test/perf"))
 	}

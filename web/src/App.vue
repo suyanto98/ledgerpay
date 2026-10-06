@@ -18,6 +18,7 @@ async function logout() {
       <RouterLink to="/transfer">Transfer</RouterLink>
       <RouterLink to="/topup">Top-up</RouterLink>
       <RouterLink to="/payout">Tarik saldo</RouterLink>
+      <RouterLink v-if="auth.isOps" to="/ops">Ops</RouterLink>
       <span class="spacer" />
       <button class="link" data-test="logout" @click="logout">Keluar</button>
     </template>

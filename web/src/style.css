@@ -20,3 +20,5 @@ td, th { padding: 8px 4px; border-bottom: 1px solid #eee; text-align: left; }
 
 .amount { font-size: 1.75rem; font-weight: 600; margin: 0.25rem 0; }
 .muted { color: #6b7280; font-size: 0.9rem; }
+
+.row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }

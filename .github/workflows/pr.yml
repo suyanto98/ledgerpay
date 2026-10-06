@@ -58,6 +58,8 @@ jobs:
           go-version-file: go.mod
       - name: Integration tests (Postgres via testcontainers, race detector)
         run: go test -race -count=1 -tags testhooks ./internal/...
+      - name: Demo build (tag demo — guard + fault injection)
+        run: go test -race -count=1 -tags demo ./internal/app/ -run TestDemo
 
   migration:
     runs-on: ubuntu-latest
@@ -91,6 +93,24 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: shellcheck + promtool (check + unit tests)
         run: make lint-shell test-alerts
+
+  # DoD S2/S3: dependency dengan CVE yang bisa diperbaiki dan secret di SELURUH history gagal di PR.
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # gitleaks memindai semua commit, bukan hanya diff
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: govulncheck (hanya kerentanan yang benar-benar terpanggil)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          "$(go env GOPATH)/bin/govulncheck" ./...
+      - name: gitleaks (seluruh history)
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 git /repo --log-opts=--all --redact --config /repo/.gitleaks.toml
 
   lint-openapi:
     runs-on: ubuntu-latest

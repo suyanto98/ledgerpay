@@ -324,5 +324,10 @@ func Stats(ctx context.Context, q db.DBTX) error {
 		return db.MapError(err)
 	}
 	metrics.ReconOpenItems.WithLabelValues().Set(float64(n))
+	last, err := store.New(q).LastCompletedRun(ctx)
+	if err != nil {
+		return db.MapError(err)
+	}
+	metrics.ReconLastCompleted.WithLabelValues().Set(last)
 	return nil
 }

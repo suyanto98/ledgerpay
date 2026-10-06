@@ -27,7 +27,7 @@ services:
     deploy: { resources: { limits: { memory: 2g } } }
 
   migrate:
-    build: { context: ../.., dockerfile: deploy/Dockerfile, target: ledgerpay, args: { VERSION: "${LP_VERSION:?}" } }
+    build: { context: ../.., dockerfile: deploy/Dockerfile, target: ledgerpay, args: { VERSION: "${LP_VERSION:?}", BUILD_TAGS: demo } }
     image: ${LP_IMAGE_PREFIX:-}ledgerpay-app:${LP_VERSION:?}
     command: ["migrate", "up"]
     env_file: ${LP_ENV_DIR:?}/migrate.env

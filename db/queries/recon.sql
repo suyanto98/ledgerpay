@@ -101,3 +101,7 @@ FROM recon_items WHERE id = @id;
 
 -- name: OpenItemsCount :one
 SELECT count(*)::bigint FROM recon_items WHERE resolution = 'OPEN';
+
+-- name: LastCompletedRun :one
+-- Gauge "recon terakhir yang sukses" (alert ReconStale). 0 kalau belum pernah ada.
+SELECT coalesce(extract(epoch FROM max(finished_at)), 0)::float8 FROM recon_runs WHERE status = 'COMPLETED';

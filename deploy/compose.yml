@@ -24,7 +24,7 @@ services:
       retries: 30
 
   migrate:
-    build: { context: .., dockerfile: deploy/Dockerfile, target: ledgerpay }
+    build: { context: .., dockerfile: deploy/Dockerfile, target: ledgerpay, args: { BUILD_TAGS: demo } }
     command: ["migrate", "up"]
     environment:
       MIGRATE_DATABASE_URL: postgres://ledgerpay_owner:owner-dev@postgres:5432/ledgerpay?sslmode=disable
@@ -33,7 +33,7 @@ services:
     restart: "no"
 
   api:
-    build: { context: .., dockerfile: deploy/Dockerfile, target: ledgerpay }
+    build: { context: .., dockerfile: deploy/Dockerfile, target: ledgerpay, args: { BUILD_TAGS: demo } }
     command: ["api"]
     environment:
       APP_ENV: dev
@@ -55,6 +55,9 @@ services:
       PII_KEYRING: '{"v1":"ZGV2LW9ubHktcGlpLWVuY3J5cHRpb24ta2V5LTMyYiE="}'   # dev saja (32 byte)
       PII_ACTIVE_KEY_VERSION: v1
       OTEL_EXPORTER_OTLP_ENDPOINT: ${LP_OTLP_ENDPOINT:-}   # diisi `make up-obs` (Jaeger)
+      # Image dev = image demo (build tag `demo`): /api/v1/demo/faults untuk Demo C deterministik.
+      DEMO_MODE: "true"
+      DEMO_TOKEN: dev-only-demo-token-0123456789
     ports:
       - "127.0.0.1:${LP_HTTP_PORT:-8080}:8080"   # API (ubah LP_HTTP_PORT jika 8080 terpakai)
       - "127.0.0.1:${LP_OPS_PORT:-9090}:9090"    # ops (health) — di demo/prod tidak dipublish
@@ -67,7 +70,7 @@ services:
 
   # Pemroses latar: inbox webhook (Sprint 5); job runner menyusul (Sprint 6).
   worker:
-    build: { context: .., dockerfile: deploy/Dockerfile, target: ledgerpay }
+    build: { context: .., dockerfile: deploy/Dockerfile, target: ledgerpay, args: { BUILD_TAGS: demo } }
     command: ["worker"]
     environment:
       APP_ENV: dev

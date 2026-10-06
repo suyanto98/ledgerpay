@@ -360,6 +360,18 @@ func (q *Queries) InsertRun(ctx context.Context, arg InsertRunParams) (uuid.UUID
 	return id, err
 }
 
+const lastCompletedRun = `-- name: LastCompletedRun :one
+SELECT coalesce(extract(epoch FROM max(finished_at)), 0)::float8 FROM recon_runs WHERE status = 'COMPLETED'
+`
+
+// Gauge "recon terakhir yang sukses" (alert ReconStale). 0 kalau belum pernah ada.
+func (q *Queries) LastCompletedRun(ctx context.Context) (float64, error) {
+	row := q.db.QueryRow(ctx, lastCompletedRun)
+	var column_1 float64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const listItems = `-- name: ListItems :many
 SELECT id, recon_run_id, source, object_type, internal_id, external_ref, provider_ref, category, internal_amount, external_amount,
        internal_status, external_status, currency, resolution, resolution_action, resolution_note, resolved_by, resolved_at,

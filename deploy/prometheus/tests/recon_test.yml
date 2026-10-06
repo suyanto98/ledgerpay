@@ -1,0 +1,45 @@
+# promtool test rules untuk alert rekonsiliasi (make test-alerts).
+rule_files: [../rules/ledgerpay.yml]
+evaluation_interval: 1m
+tests:
+  - interval: 1h
+    input_series:
+      - series: ledgerpay_recon_last_completed_timestamp_seconds
+        values: "0x40"
+    alert_rule_test:
+      - { eval_time: 30h, alertname: ReconStale, exp_alerts: [] }
+      - eval_time: 31h
+        alertname: ReconStale
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "No completed reconciliation run for more than 30 hours"
+              runbook: "docs/runbook.md#reconstale"
+  - interval: 1m
+    input_series:
+      - series: 'ledgerpay_recon_runs_total{status="completed"}'
+        values: "0+1x10"
+      - series: 'ledgerpay_recon_runs_total{status="failed"}'
+        values: "0 0 0 1 1 1"
+    alert_rule_test:
+      - { eval_time: 2m, alertname: ReconRunFailed, exp_alerts: [] }
+      - eval_time: 4m
+        alertname: ReconRunFailed
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "A reconciliation run failed (malformed file, provider unreachable, or error)"
+              runbook: "docs/runbook.md#reconrunfailed"
+  - interval: 1m # per menit: sampel per jam dianggap basi setelah 5 menit dan mereset status pending
+    input_series:
+      - series: ledgerpay_recon_open_items
+        values: "1x1560"
+    alert_rule_test:
+      - { eval_time: 23h, alertname: ReconItemsUnresolved, exp_alerts: [] }
+      - eval_time: 25h
+        alertname: ReconItemsUnresolved
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "Reconciliation items have been waiting for ops for more than 24 hours"
+              runbook: "docs/runbook.md#reconitemsunresolved"

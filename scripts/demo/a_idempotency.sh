@@ -23,4 +23,5 @@ echo; echo "== 1) transfer Rp50.000 dengan key $K"; post 5000000
 echo "== 2) kirim ULANG persis sama (client timeout lalu retry)"; post 5000000
 echo "== 3) key sama, jumlah beda"; post 6000000
 echo; echo "saldo akhir Rina: $(balance "$TOKEN")  (harus 5000000: terdebet SEKALI)"
+expect "saldo akhir Rina" "$(balance "$TOKEN")" 5000000
 verify

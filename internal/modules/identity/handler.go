@@ -186,7 +186,16 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, u)
+	// roles dari token yang sudah diverifikasi: dipakai SPA untuk menampilkan menu ops. Otorisasi
+	// sebenarnya tetap di server (RequireRole), bukan di UI.
+	roles := p.Roles
+	if roles == nil {
+		roles = []string{}
+	}
+	httpx.WriteJSON(w, http.StatusOK, struct {
+		User
+		Roles []string `json:"roles"`
+	}{u, roles})
 }
 
 func meta(r *http.Request) RequestMeta {

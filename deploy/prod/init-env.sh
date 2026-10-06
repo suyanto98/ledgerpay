@@ -14,7 +14,7 @@ rand() { head -c "$1" /dev/urandom | base64 | tr -d '\n=+/' | head -c "$2"; }   
 key32() { local k; k=$(head -c 32 /dev/urandom | base64 | tr -d '\n'); [ "$(printf %s "$k" | base64 -d | wc -c)" = 32 ] || exit 1; printf %s "$k"; }
 
 PG_SUPER=$(rand 48 40); PG_OWNER=$(rand 48 40); PG_APP=$(rand 48 40); PG_BACKUP=$(rand 48 40)
-JWT=$(key32); PII=$(key32)
+JWT=$(key32); PII=$(key32); DEMO_TOKEN=$(rand 48 40)
 MOCK_API=$(rand 48 40); WHSEC=$(rand 48 40); GRAFANA=$(rand 48 32)
 APP_DSN="postgres://ledgerpay_app:${PG_APP}@postgres:5432/ledgerpay?sslmode=disable"
 
@@ -47,6 +47,9 @@ PROVIDER_CALLBACK_URL=http://api:8080/api/v1/webhooks/provider
 PII_KEYRING={"v1":"${PII}"}
 PII_ACTIVE_KEY_VERSION=v1
 RATE_LIMIT_MONEY_WRITE_PER_MIN=600
+# Toolbar demo (O15): presenter menempelkan token ini di tab; TIDAK PERNAH masuk bundle SPA.
+DEMO_MODE=true
+DEMO_TOKEN=${DEMO_TOKEN}
 OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
 E
 w worker.env <<E

@@ -91,6 +91,7 @@ var (
 	LedgerLockWait = histogram("ledgerpay_ledger_lock_wait_seconds", "Time PostJournal spends acquiring wallet row locks.",
 		[]float64{0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5}, "purpose")
 	ReconRuns              = counter("ledgerpay_recon_runs_total", "Reconciliation runs by result.", "status")
+	ReconLastCompleted     = gauge("ledgerpay_recon_last_completed_timestamp_seconds", "Finish time of the latest COMPLETED reconciliation run (0 = never).")
 	ReconOpenItems         = gauge("ledgerpay_recon_open_items", "Reconciliation items waiting for ops (OPEN).")
 	PayoutUnknown          = gauge("ledgerpay_payout_unknown", "Payouts currently UNKNOWN.")
 	PayoutUnknownOldest    = gauge("ledgerpay_payout_unknown_oldest_age_seconds", "Age of the oldest UNKNOWN payout.")

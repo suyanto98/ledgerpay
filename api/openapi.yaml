@@ -1218,6 +1218,8 @@ components:
         email: { type: string, format: email }
         display_name: { type: string }
         created_at: { type: string, format: date-time }
+        roles: { type: array, items: { type: string, enum: [OPS] }, description: 'From the verified access token; UI hint only, the server enforces roles.' }
+
     Wallet:
       type: object
       required: [account_id, currency, balance, status, as_of]

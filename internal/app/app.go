@@ -65,6 +65,14 @@ type Deps struct {
 	Keyring          *crypto.Keyring // PII at-rest (rekening payout, secret webhook merchant)
 	Egress           egress.Policy   // webhook keluar ke merchant (anti-SSRF)
 	PayoutSafeWindow time.Duration
+
+	// Kill switch (docs/design/26-deploy-migrations-backup.md §4.3), dibalik supaya nilai nol = aktif.
+	DisablePayoutSubmit    bool // lane money berhenti meng-claim payout.submit; POST /payouts tetap menahan dana
+	DisableWebhookDelivery bool // lane webhook-out berhenti; event menumpuk aman di jobs
+	DisableTopup           bool // POST /topups → 503; inbox tetap memproses webhook yang masuk
+
+	DemoMode  bool   // hanya berpengaruh di binary build tag `demo` (O15)
+	DemoToken string // header X-Demo-Token
 }
 
 // ValidateAPI memastikan dependency wajib API terisi. Dipanggil main saat START: wiring yang lupa
@@ -176,9 +184,10 @@ func APIRouter(d Deps) http.Handler {
 		merchantH.OpsRoutes(opsAll)
 		opsH.Routes(opsRead, opsWrite)
 		reconH.Routes(opsRead, opsWrite)
-		topupH.Routes(read, money)
+		topupH.Routes(read, money.With(killSwitch(d.DisableTopup, "topup")))
 		payoutH.Routes(read, money)
-		inboxH.Routes(v1) // publik: autentikasi = tanda tangan HMAC provider
+		inboxH.Routes(v1)            // publik: autentikasi = tanda tangan HMAC provider
+		registerDemoRoutes(money, d) // build tag `demo` + DEMO_MODE + X-Demo-Token; no-op di build release
 	})
 	return r
 }
@@ -219,4 +228,21 @@ func OpsRouter(pool *pgxpool.Pool) http.Handler {
 	})
 	r.Handle("/metrics", metrics.Handler())
 	return r
+}
+
+// killSwitch: fitur dimatikan lewat konfigurasi (tanpa build) → 503 SERVICE_UNAVAILABLE. Dipakai saat
+// insiden (contoh: provider bermasalah) supaya tidak ada request baru yang masuk ke jalur itu.
+func killSwitch(disabled bool, feature string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		if !disabled {
+			return next
+		}
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet { // baca status tetap jalan
+				next.ServeHTTP(w, r)
+				return
+			}
+			httpx.WriteError(w, r, apperr.ErrUnavailable.WithDetail(feature+" is temporarily disabled"))
+		})
+	}
 }

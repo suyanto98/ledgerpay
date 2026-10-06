@@ -7,27 +7,27 @@ groups:
             / sum by (service) (rate(app_http_requests_total[5m])) > 0.02
         for: 5m
         labels: { severity: critical }
-        annotations: { summary: "More than 2% of requests fail with 5xx" }
+        annotations: { summary: "More than 2% of requests fail with 5xx", runbook: "docs/runbook.md#high5xxratio" }
       - alert: TransferLatencySLO
         expr: histogram_quantile(0.95, sum by (le) (rate(app_http_request_duration_seconds_bucket{route="/v1/transfers",method="POST"}[10m]))) > 0.2
         for: 10m
         labels: { severity: warning }
-        annotations: { summary: "p95 POST /v1/transfers above 200 ms" }
+        annotations: { summary: "p95 POST /v1/transfers above 200 ms", runbook: "docs/runbook.md#transferlatencyslo" }
       - alert: DBPoolSaturated
         expr: max by (service) (app_db_pool_acquired_conns / app_db_pool_max_conns) > 0.9
         for: 5m
         labels: { severity: warning }
-        annotations: { summary: "DB pool above 90% for 5 minutes" }
+        annotations: { summary: "DB pool above 90% for 5 minutes", runbook: "docs/runbook.md#dbpoolsaturated" }
       - alert: ServiceNotReady
         expr: min by (service) (app_ready) == 0 or up{job=~"ledgerpay-.*"} == 0
         for: 2m
         labels: { severity: critical }
-        annotations: { summary: "{{ $labels.job }} is not ready or not scraped" }
+        annotations: { summary: "{{ $labels.job }} is not ready or not scraped", runbook: "docs/runbook.md#servicenotready" }
       - alert: OutboxLagHigh
         expr: max(app_outbox_lag_seconds) > 30
         for: 5m
         labels: { severity: warning }
-        annotations: { summary: "Side effects delayed more than 30s after commit" }
+        annotations: { summary: "Side effects delayed more than 30s after commit", runbook: "docs/runbook.md#outboxlaghigh" }
   # Backup (docs/design/26-deploy-migrations-backup.md §5.3). Metrik didorong backup.sh ke Pushgateway.
   - name: backup
     rules:
@@ -37,18 +37,18 @@ groups:
         labels: { severity: warning }
         annotations:
           summary: "No successful backup of {{ $labels.db }} for more than 26 hours"
-          runbook: "docs/design/26-deploy-migrations-backup.md §5 — check /var/log/ledgerpay-backup.log on the VM"
+          runbook: "docs/runbook.md#backupstale"
       - alert: BackupMissing
         expr: absent(app_backup_last_success_timestamp_seconds)
         for: 1h
         labels: { severity: warning }
         annotations:
           summary: "No backup metric at all (backup never ran, or Pushgateway lost its state)"
-          runbook: "docs/design/26-deploy-migrations-backup.md §5 — run deploy/prod/run-backup.sh manually"
+          runbook: "docs/runbook.md#backupmissing"
       - alert: BackupSizeDrop
         expr: max by (db) (app_backup_size_bytes) < 0.5 * max by (db) (max_over_time(app_backup_size_bytes[2d] offset 1d))
         for: 0m
         labels: { severity: warning }
         annotations:
           summary: "Backup of {{ $labels.db }} shrank by more than 50% (possible empty or partial dump)"
-          runbook: "docs/design/26-deploy-migrations-backup.md §5 — run scripts/restore-drill.sh on the latest file"
+          runbook: "docs/runbook.md#backupsizedrop"

@@ -39,5 +39,7 @@ curl -fsS -X POST "$API/ops/recon-items/$ITEM/resolve" -H "Authorization: Bearer
   | jq -c '{resolution, resolution_action}'
 echo "payout: $(curl -fsS "$API/payouts/$P" -H "Authorization: Bearer $RINA_TOKEN" | jq -c '{status, display_status}')"
 echo "bank:   $(curl -fsS "$MOCK/admin/transfers?idempotency_key=$P" | jq -c '{transfers_executed}')  ← tetap 1"
+expect "status payout" "$(curl -fsS "$API/payouts/$P" -H "Authorization: Bearer $RINA_TOKEN" | jq -r .status)" SUCCEEDED
+expect "transfer di bank" "$(curl -fsS "$MOCK/admin/transfers?idempotency_key=$P" | jq -r .transfers_executed)" 1
 curl -fsS -X PUT "$MOCK/admin/scenario" -H 'Content-Type: application/json' -d '{"charges":"ok"}' >/dev/null
 verify

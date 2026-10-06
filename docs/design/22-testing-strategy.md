@@ -147,77 +147,74 @@ Kolom **CI**: `U` unit · `I` integration · `C` contract · `M` migration · `X
 
 ### 4.1 LedgerPay — unit / domain / property
 
+> **Sinkronisasi M4 (Sprint 10):** tabel 4.1–4.3 sekarang memuat test yang **ada di kode** (diperiksa
+> `TestTraceability_DocsReferenceExistingTests`). Rencana awal yang belum punya test dikumpulkan di §4.3a,
+> ditulis sebagai teks biasa, bukan nama test.
+
 | Test | Membuktikan | Trace | CI |
 |---|---|---|---|
 | `TestJournal_Validate` (tabel kasus) | Journal tidak seimbang / 1 entry / amount ≤ 0 / campur currency ditolak di APP | LI-01, LI-11 | U |
 | `TestJournalPurpose_Templates` | Kombinasi purpose × arah akun yang tidak sah ditolak | LI-01, LI-06 | U |
-| `TestMoney_*` (overflow, currency mismatch, parse) | Aritmetika uang aman; tidak ada float | LI-11 | U |
-| `TestStateMachine_{TopUp,PaymentIntent,Payout,Inbox}` | Semua pasangan from × to: hanya transisi sah yang diterima | LI-07 | U |
-| `TestPolicy_*` | Principal hanya pada resource miliknya | LI-15 | U |
-| `TestWebhookSignature_*` | HMAC benar/salah, constant-time, window timestamp | T-LP, C-32 | U |
-| `TestProperty_JournalAlwaysBalanced` | Journal acak hasil builder selalu seimbang; journal tidak seimbang selalu ditolak | LI-01 | U/N |
-| `TestProperty_RandomTransfersConserveTotal` | Urutan transfer/top-up/payout acak (di DB, iterasi kecil) → Σ semua saldo user + sistem konstan, `balance == Σ entries` di setiap langkah | LI-01, LI-03 | I/N |
+| `TestParseAmount` | Parse nominal string → minor unit; tanpa float, tolak format/overflow | LI-11 | U |
+| `TestOpenAPI_MoneyFieldsUseMoneySchema` | Setiap field uang di kontrak memakai schema `Money` (string) | LI-11 | U |
+| `TestVerify`, `TestVerify_TamperedTimestampFails` | Signature webhook: HMAC benar/salah, constant-time, window timestamp | T-LP, C-32 | U |
+| `TestRecon_ClassifiesAllCategories`, `TestRecon_ParseRejectsMalformedFiles`, `TestRecon_CutoffWindow` | Classifier rekonsiliasi (fungsi murni) untuk 5 kategori; file rusak ditolak utuh; jendela cut-off | LI-12 | U |
+| `TestProperty_JournalAlwaysBalanced` | Journal acak hasil builder selalu seimbang; journal tidak seimbang selalu ditolak | LI-01 | U |
+| `TestProperty_RandomTransfersConserveTotal`, `TestProperty_LedgerConservesMoney` | Urutan operasi acak di DB → Σ saldo konstan, `balance == Σ entries` | LI-01, LI-03 | I |
 
 ### 4.2 LedgerPay — integration & concurrency
 
-| Test (kanonik) | Alias Step 3 | Membuktikan | Trace | CI |
-|---|---|---|---|---|
-| `TestTransfer_IdempotentReplay` | — | Replay identik, payload beda → 422, key per client | LI-05, FS-01 | I |
-| `TestTransfer_RejectedResultIsReplayed` | — | 422 domain disimpan dan di-replay | LI-05, FS-01 | I |
-| `TestIdempotency_ConcurrentSameKey_OneEffect` | — | Dua request bersamaan dengan key sama → satu efek | LI-05, race (c) | I |
-| `TestIdempotency_FirstTxRolledBack_SecondProceeds` | — | Insert pertama rollback → request kedua diproses normal | LI-05 | I |
-| `TestTransfer_ConcurrentDoubleSpend_100x` | `TestTransfer_100ParallelFromSameWallet` | Tepat 10 dari 100 berhasil, saldo 0, ledger seimbang | LI-02, FS-02, race (a), **Demo B** | I |
-| `TestTransfer_NaiveImplementation_Overdraws` | — | Test di atas sensitif terhadap race (pembanding naif harus gagal) | LI-02 | I |
-| `TestTransfer_OppositeDirections_NoDeadlock` | `TestTransfer_OppositeDirectionNoDeadlock` | 50 pasang A→B/B→A, `db_deadlock_total = 0` | race (b) | I |
-| `TestLedger_AppValidationRemoved_DBStillRejects` | — | Defense in depth: validasi saldo dimatikan via hook → `CHECK` menolak | LI-02 | I |
-| `TestJournal_UnbalancedRejectedAtCommit` | — | Deferred trigger menolak journal tidak seimbang / 1 entry | LI-01 | I |
-| `TestLedger_AppendOnly` | — | UPDATE/DELETE `journals`/`journal_entries` sebagai role app → gagal | LI-04 | I |
-| `TestLedger_DoubleReversalRejected` | — | Reversal kedua → `23505` → `409 ALREADY_REVERSED` | LI-04 | I |
-| `TestLedgerVerify_DetectsInjectedDrift` | — | Job verifikasi mendeteksi drift yang disuntikkan (sebagai owner) dan menaikkan metrik | LI-03 | I |
-| `TestRefund_ConcurrentExceedingAmount` | `TestRefund_ParallelExceedingAmount` | 5 × 30.000 atas 100.000 → tepat 3 sukses | LI-08, race (d) | I |
-| `TestConfirm_ParallelTabs_OnePayment` | — | Dua konfirmasi dengan key berbeda → satu sukses, satu `409 INVALID_STATE_TRANSITION` | LI-13 | I |
-| `TestConfirm_VsExpirySweeper` | — | Konfirmasi vs sweeper, kedua urutan | race (e) | I |
-| `TestInbox_LeaseExpired_ProcessedOnce` | — | Event diproses dua worker setelah lease habis → satu journal | LI-09, race (f) | I |
-| `TestWebhook_DuplicateEvents_CreditOnce` | — | 3 event paralel + 1 ulangan → satu kredit | LI-09, FS-06 | I |
-| `TestWebhook_BadSignature_401` / `TestWebhook_StaleTimestamp_400` | — | Webhook palsu / replay ditolak tanpa efek | T-LP, FS-06 | I |
-| `TestWebhook_AmountMismatch_Dead` | — | Amount/currency event ≠ top-up → `DEAD` + alert | T-LP | I |
-| `TestWebhook_VerifyByFetch_MismatchNotCredited` | — | Provider menyatakan charge belum sukses → tidak dikredit (amandemen ADR-L08) | T-LP | I |
-| `TestTopup_LateWebhookAfterExpiry_Credited` | `TestWebhook_LateSuccessAfterExpired_Credits` | `EXPIRED` status lunak | FS-07, race (h) | I |
-| `TestWebhook_OutOfOrder_NoRegression` | — | Event lama setelah final → no-op | FS-07 | I |
-| `TestWebhook_FinalStateConflict_FlagsRecon` | — | Konflik final → `PROCESSED/CONFLICT` + recon item | FS-07, O2 | I |
-| `TestTopUp_ProviderTimeout_RetryResumesFromRecoveryPoint` | — | Retry melanjutkan dari `topups.recovery_point` | FS-05, FS-10 | I |
-| `TestTopupRecover_StuckCreated_Completed` | — | Sweep `topup.recover` menyelesaikan top-up tanpa client retry | FS-10 | I |
-| `TestPayout_TimeoutAfterProcess_ResolvesViaStatusQuery` | — | Timeout → `UNKNOWN` → status query → `SUCCEEDED`, satu settle | LI-10, FS-05 | I |
-| `TestPayoutStatusCheck_VsOpsResolve` | — | Status check vs resolve manual → satu journal settle | LI-07, race (g) | I |
-| `TestPayout_MismatchedProviderResponse_Unknown` | — | Respons sukses dengan amount/id berbeda → `UNKNOWN` + reconciliation | amandemen ADR-L06 | I |
-| `TestPaymentIntent_RetryAfterClientTimeout` | — | Merchant retry dengan key sama → satu intent | FS-09 | I |
-| `TestPaymentIntent_DuplicateMerchantOrder_409` | — | `merchant_order_id` ganda → `409 DUPLICATE_MERCHANT_ORDER` | LI-13 | I |
-| `TestMerchantWebhook_RetryBackoffThenDead` / `TestMerchantWebhook_StableEventID` | — | Retry 7 attempt sesuai jadwal lalu dead; event id stabil | FS-09 | I |
-| `TestJobRunner_LeaseExpiry_Reclaims` | — | Lease habis → job diambil ulang | FS-08, ADR-006 | I |
-| `TestJobRunner_FencedCompletion_ZombieRollsBack` | — | `CompleteInTx` 0 baris → tx bisnis rollback | ADR-006 | I |
-| `TestJobRunner_PermanentError_DeadImmediately` | — | `jobs.Permanent` → dead tanpa menghabiskan attempt | Step 7 `03` | I |
-| `TestScheduler_DedupeKey_NoDoubleSchedule` | — | Dua replika worker → satu job per bucket waktu | Step 7 `03` | I |
-| `TestRecon_ClassifiesAllCategories` / `TestRecon_Rerun_Idempotent` | — | Klasifikasi 5 kategori; recon ulang tidak menduplikasi; `PROVIDER_SETTLEMENT` tidak dobel | LI-06, LI-12 | I |
-| `TestAccountsLock_TopupInsertNotBlockedByTransfer` | — | `FOR NO KEY UPDATE`: INSERT entry tidak terblok (< 100 ms) | Step 7 §4 | I |
-| `TestPool_Exhaustion_Returns503` | — | Pool habis → `503 SERVICE_UNAVAILABLE` | Step 7 §6 | I |
-| `TestTrace_RequestToJournalToAudit` | — | Dari `request_id` bisa ditelusuri journal → entries → audit | LI-14 | I |
-| `TestBOLA/<resource>` | — | User/merchant lain → 404 untuk wallet, transfer, top-up, payout, intent, refund | LI-15, T-LP | I |
+| Test | Membuktikan | Trace | CI |
+|---|---|---|---|
+| `TestTransfer_IdempotentReplay`, `TestTransfer_DomainRejectionIsReplayed`, `TestTransfer_ValidationNotStored` | Replay identik, payload beda → 422; 422 domain disimpan; error validasi tidak disimpan | LI-05, FS-01 | I |
+| `TestIdempotency_ConcurrentSameKey_OneEffect`, `TestIdempotency_FirstTxRolledBack_SecondProceeds`, `TestIdempotency_SameKeyStillRunning_RequestInProgress` | Key sama bersamaan → satu efek; rollback pertama → kedua diproses; masih berjalan → 409 | LI-05, race (c) | I |
+| `TestTransfer_ConcurrentDoubleSpend_100x` | Tepat 10 dari 100 berhasil, saldo 0 | LI-02, FS-02, race (a), **Demo B** | I |
+| `TestTransfer_NaiveImplementation_Overdraws` | Pembanding naif HARUS overdraw (test concurrency di atas sensitif) | LI-02 | I |
+| `TestTransfer_OppositeDirections_NoDeadlock`, `TestTransfer_LockTimeout_ResourceBusy` | A→B/B→A tanpa deadlock; lock_timeout → 409 `RESOURCE_BUSY` | race (b) | I |
+| `TestLedger_AppValidationRemoved_DBStillRejects` | Validasi aplikasi dilewati → `CHECK` saldo dan append-only tetap menolak | LI-02, LI-04 | I |
+| `TestJournal_UnbalancedRejectedAtCommit`, `TestLedger_AppendOnly`, `TestLedger_DoubleReversalRejected`, `TestLedger_SameSourcePostedOnce` | Deferred trigger; UPDATE/DELETE ditolak; reversal sekali; satu journal per (source, purpose) | LI-01, LI-04, LI-06 | I |
+| `TestLedger_SystemAccountNotLocked`, `TestAccountsLock_TopupInsertNotBlockedByTransfer` | Akun sistem tidak di-lock; `FOR NO KEY UPDATE` tidak memblok cek FK (sanity: `FOR UPDATE` memblok) | ADR-L03, ADR-L07 | I |
+| `TestMetrics_LedgerVerifyPublishesInvariantGauges`, `TestRefund_DriftDetectedByLedgerVerify` | `ledger.verify` mendeteksi drift saldo dan drift refund yang disuntikkan | LI-03, LI-08 | I |
+| `TestRefund_ParallelExceedingAmount`, `TestRefund_ParallelWaitOnIntentLock` | 5 × 30.000 atas 100.000 → tepat 3 sukses dengan kode `REFUND_EXCEEDS_PAYMENT` (mutasi "tanpa lock intent" tertangkap) | LI-08, race (d) | I |
+| `TestRefund_PartialThenFull`, `TestRefund_ExceedsAndReplay`, `TestRefund_MerchantInsufficientAndUnpaid`, `TestRefund_BOLA_MerchantToMerchant` | Status refund, replay, saldo merchant, BOLA | LF-16 | I |
+| `TestConfirm_ParallelTabs_OnePayment`, `TestConfirm_SecondTabWaitsForIntentLock`, `TestConfirm_VsExpirySweeper` | Satu pembayaran per intent; urutan lock; konfirmasi vs sweeper | LI-13, race (e) | I |
+| `TestInbox_LeaseExpired_ProcessedOnce`, `TestTopup_DuplicateWebhook_OneJournal` | Webhook diproses sekali walaupun dobel / lease habis | LI-09, FS-06, race (f) | I |
+| `TestWebhook_BadSignatureRejected`, `TestWebhook_ReplayOutsideWindowRejected`, `TestInbox_VerifyByFetch_ForgedWebhookNoCredit` | Webhook palsu / replay / tidak terverifikasi provider → tanpa kredit | T-LP, FS-06 | I |
+| `TestTopup_LateWebhookAfterExpiry_Credited`, `TestTopup_OutOfOrderAndConflict_NeverReversed` | `EXPIRED` status lunak; event lama/konflik tidak membalik status final | FS-07, race (h) | I |
+| `TestTopUp_ProviderTimeout_RetryResumesFromRecoveryPoint`, `TestTopupRecover_StuckCreated_Completed`, `TestSweep_TopupExpire_ChecksProviderFirst` | Recovery point; sweeper menyelesaikan/menanyakan provider dulu | FS-05, FS-10 | I |
+| `TestPayout_TimeoutAfterProcess_ResolvesViaStatusQuery`, `TestPayout_TimeoutBeforeProcess_ResubmitOnlyAfterSafeWindow`, `TestPayout_MismatchedProviderResponse_Unknown`, `TestPayout_StatusChecksExhausted_NeedsReconciliation` | Payout hasil tak diketahui (ADR-L06) | LI-10, FS-05 | I |
+| `TestPayoutStatusCheck_VsOpsResolve`, `TestOpsResolve_VsStatusCheck` | Status check vs resolve manual, kedua urutan → satu journal | LI-07, race (g) | I |
+| `TestOps_ResolutionRequiresEvidence`, `TestOps_ResolveUnknownPayout_SettledAndAudited`, `TestOps_RoleRequiredAndNoSelfServiceKeys` | Aksi ops wajib bukti, ter-audit, hanya role OPS | LF-18, T-LP-16 | I |
+| `TestRecon_DemoD_StatusMismatchResolvedWithEvidence`, `TestRecon_TopupSettlementPostedOnceAcrossRuns`, `TestRecon_MockMismatchScenarios`, `TestRecon_MalformedFileAndConcurrentRuns`, `TestRecon_ConcurrentDifferentFiles_OneSettlementJournal` | Recon end-to-end, file sama tidak diproses ulang, `PROVIDER_SETTLEMENT` sekali per top-up, lock per tanggal | LI-06, LI-12, **Demo D** | I |
+| `TestPaymentIntent_DuplicateMerchantOrder_409` | Order ganda → 409 + id yang ada; key sama (retry setelah timeout) → replay 201 | LI-13, FS-09 | I |
+| `TestMerchantWebhook_RetryBackoffThenDead`, `TestMerchantWebhook_EgressBlocksMetadataURL` | 7 percobaan → DEAD dengan event id stabil; egress guard SSRF | FS-09, C-44 | I |
+| `TestJobRunner_LeaseExpiry_Reclaims`, `TestJobRunner_FencedCompletion_ZombieRollsBack`, `TestJobRunner_PermanentError_DeadImmediately`, `TestScheduler_DedupeKey_NoDoubleSchedule` | Lease, fencing, permanent error, scheduler tanpa leader election | FS-08, ADR-006 | I |
+| `TestTrace_RequestIDToJournal`, `TestOps_SearchAndJournalDetail` | `X-Request-Id` = `correlation_id` journal; ops menelusuri objek → journal → entries | LI-14 | I |
+| `TestWallet_TransactionDetailBOLA`, `TestBOLA_TransferTopupPayout`, `TestPaymentIntent_BOLA_MerchantToMerchant`, `TestRefund_BOLA_MerchantToMerchant` | Resource orang lain → 404 identik dengan ID acak | LI-15, T-LP | I |
+| `TestContract_MoneyIsString` | Semua respons yang memuat uang (wallet, riwayat, transfer, intent, refund, payout, saldo merchant, 422) memakai string | LI-11 | I |
+| `TestKillSwitch_PayoutSubmitAndTopup` | Kill switch env: payout.submit berhenti tanpa kehilangan job; top-up → 503 | OP6 | I |
+| Cek invariant otomatis di `t.Cleanup` setiap test `internal/app` (`allowBrokenLedger` hanya untuk test drift) | Tidak ada test yang berakhir dengan ledger rusak tanpa ketahuan | DoD C2 | I |
 
 ### 4.3 LedgerPay — chaos & E2E
 
 | Test | Membuktikan | Trace | CI |
 |---|---|---|---|
-| `TestTransfer_ConnectionDropBeforeCommit` | Koneksi putus sebelum COMMIT → tidak ada efek, retry aman | FS-03 | X |
-| `TestTransfer_CommitOutcomeUnknown` | Hook `testhooks` (Step 12: pengganti Toxiproxy) memutus koneksi tepat setelah COMMIT → client 503 → retry key sama → replay, 1 journal | FS-03 | X |
-| `TestConfirm_CrashAfterCommit` | API panic setelah commit sebelum response → retry → replay | FS-04 | X |
-| `TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend` | Alias `TestPayout_WorkerKilledAfterBankAccepted`. Mock bank mencatat tepat 1 transfer | LI-10, FS-08, **Demo C** | X |
-| `TestPayoutSubmit_CrashBeforeBankCall_ResubmitAfterSafeWindow` | Jalur `NOT_FOUND` + safe window, key sama | LI-10 | X |
-| `TestPartial/<checkpoint>` | Kill di setiap checkpoint bernomor (top-up, payout, payment) → semua objek berakhir terminal/dapat dilanjutkan + invariant checker hijau | FS-10 | X |
-| `E2E_RegisterTopupTransfer` | Register → top-up (checkout mock) → transfer → saldo & riwayat benar | LF-01/02/04/07 | E |
-| `E2E_MerchantCheckout` | Merchant membuat intent → user bayar → status & webhook merchant palsu menerima event | LF-10, LF-15 | E |
-| `E2E_PayoutUnknownResolved` | Payout `0408` → "Sedang diproses" → selesai otomatis | LF-11 | E |
-| `E2E_OpsTraceAndResolve` | Ops mencari transaksi dari request_id, menyelesaikan mismatch dengan bukti | LF-17/18, LI-14 | E |
-| `e2e_xss_payload_rendered_as_text`, `e2e_token_not_in_web_storage` | XSS & penyimpanan token | T-SH | E |
+| `TestTransfer_ConnectionDropBeforeCommit` | Koneksi putus sebelum COMMIT → tidak ada efek, retry aman | FS-03, FS-04 | X |
+| `TestTransfer_CommitOutcomeUnknown` | Koneksi putus tepat setelah COMMIT → client 503 → retry key sama → replay, 1 journal | FS-03, FS-04 | X |
+| `TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend` | Worker "mati" setelah bank menerima → mock bank mencatat tepat 1 transfer | LI-10, FS-08, **Demo C** | X |
+| `TestDemo_FaultsGuardedAndFireOnce` (`-tags demo`) | Fault demo sekali pakai di `payout.after_bank_call` (exit 137) + tiga lapis guard | O15, **Demo C** | X |
+| E2E `money-flow.spec.ts` | Register → top-up via checkout mock → transfer → payout → login ulang | LF-01/02/04/07/11 | E |
+| E2E `checkout.spec.ts` | Link checkout merchant → login → bayar → refund → saldo kembali | LF-10, LF-14, LF-16 | E |
+| E2E `ops.spec.ts` | Payout macet → recon → `STATUS_MISMATCH` → ops resolve dengan bukti | LF-17/18, **Demo D** | E |
+
+### 4.3a Rencana yang belum punya test (jujur)
+| Rencana | Kenapa belum | Mitigasi saat ini |
+|---|---|---|
+| Crash API setelah commit konfirmasi pembayaran, sebelum respons | Pola yang sama sudah diuji untuk transfer (koneksi putus setelah COMMIT) | Idempotency yang sama dipakai confirm |
+| Kill di setiap checkpoint bernomor (top-up, payout, payment) | Butuh harness subprocess; Demo C + fault demo meliput titik payout | Recovery point + sweeper diuji per jalur |
+| Webhook dengan nominal/currency berbeda dari top-up → DEAD | Belum ditulis | verify-by-fetch memakai data provider, bukan payload webhook |
+| Pool habis → 503 | Belum ditulis | Acquire timeout dikonfigurasi; LP-2 eksplorasi menunjukkan latensi naik, bukan error |
+| Unit test state machine per pasangan from × to | Transisi dijaga guard SQL + trigger, diuji lewat skenario integrasi | Trigger status final payout/intent |
 
 ### 4.4 PayRun — unit / domain / golden / property
 
@@ -359,20 +356,20 @@ Status awal semua baris: **planned**. Sejak Sprint 5, baris yang sudah punya tes
 | Invariant | Test |
 |---|---|
 | LI-01 Journal seimbang | `TestJournal_Validate`, `TestProperty_JournalAlwaysBalanced`, `TestJournal_UnbalancedRejectedAtCommit` |
-| LI-02 Saldo ≥ 0 | `TestTransfer_ConcurrentDoubleSpend_100x`, `TestTransfer_NaiveImplementation_Overdraws`, `TestLedger_AppValidationRemoved_DBStillRejects` |
-| LI-03 Saldo = Σ entries | `TestProperty_RandomTransfersConserveTotal`, `TestLedgerVerify_DetectsInjectedDrift` |
+| LI-02 Saldo ≥ 0 | `TestTransfer_ConcurrentDoubleSpend_100x`, `TestTransfer_NaiveImplementation_Overdraws`, `TestLedger_AppValidationRemoved_DBStillRejects` — **implemented (S3, S10)** |
+| LI-03 Saldo = Σ entries | `TestProperty_RandomTransfersConserveTotal`, `TestMetrics_LedgerVerifyPublishesInvariantGauges` |
 | LI-04 Append-only, reversal sekali | `TestLedger_AppendOnly`, `TestLedger_DoubleReversalRejected` |
-| LI-05 Satu key satu efek | `TestTransfer_IdempotentReplay`, `TestTransfer_RejectedResultIsReplayed`, `TestIdempotency_ConcurrentSameKey_OneEffect`, `TestIdempotency_FirstTxRolledBack_SecondProceeds`, `idempotency_cross_client_isolated` |
-| LI-06 Satu journal per (source, purpose) | `TestJournalPurpose_Templates`, `TestInbox_LeaseExpired_ProcessedOnce`, `TestRecon_Rerun_Idempotent` |
-| LI-07 Transisi sah | `TestStateMachine_{TopUp,PaymentIntent,Payout,Inbox}`, `TestPayoutStatusCheck_VsOpsResolve` |
-| LI-08 Σ refund ≤ amount | `TestRefund_ConcurrentExceedingAmount` |
+| LI-05 Satu key satu efek | `TestTransfer_IdempotentReplay`, `TestTransfer_DomainRejectionIsReplayed`, `TestIdempotency_ConcurrentSameKey_OneEffect`, `TestIdempotency_FirstTxRolledBack_SecondProceeds` |
+| LI-06 Satu journal per (source, purpose) | `TestLedger_SameSourcePostedOnce`, `TestInbox_LeaseExpired_ProcessedOnce`, `TestRecon_TopupSettlementPostedOnceAcrossRuns` |
+| LI-07 Transisi sah | `TestTopup_OutOfOrderAndConflict_NeverReversed`, `TestConfirm_ParallelTabs_OnePayment`, `TestPayoutStatusCheck_VsOpsResolve`, `TestOpsResolve_VsStatusCheck` (unit state machine per pasangan: §4.3a) |
+| LI-08 Σ refund ≤ amount | `TestRefund_ParallelExceedingAmount`, `TestRefund_ParallelWaitOnIntentLock`, `TestRefund_DriftDetectedByLedgerVerify` — **implemented (S8)** |
 | LI-09 Event webhook sekali | `TestTopup_DuplicateWebhook_OneJournal`, `TestInbox_LeaseExpired_ProcessedOnce` — **implemented (S5)** |
 | LI-10 Payout ke bank sekali | `TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend`, `TestPayout_TimeoutBeforeProcess_ResubmitOnlyAfterSafeWindow`, `TestPayout_TimeoutAfterProcess_ResolvesViaStatusQuery` — **implemented (S6)** |
-| LI-11 Integer minor unit | `TestMoney_*`, contract test uang-sebagai-string (`TestContract_MoneyIsString`) |
-| LI-12 Liability cocok aset (eventual) | `TestRecon_ClassifiesAllCategories`, `TestRecon_Rerun_Idempotent` |
+| LI-11 Integer minor unit | `TestParseAmount`, `TestJournal_Validate`, `TestContract_MoneyIsString`, `TestOpenAPI_MoneyFieldsUseMoneySchema` — **implemented (S10)** |
+| LI-12 Liability cocok aset (eventual) | `TestRecon_ClassifiesAllCategories`, `TestRecon_DemoD_StatusMismatchResolvedWithEvidence`, `TestRecon_MalformedFileAndConcurrentRuns` — **implemented (S9)** |
 | LI-13 Intent dibayar sekali | `TestConfirm_ParallelTabs_OnePayment`, `TestPaymentIntent_DuplicateMerchantOrder_409` |
-| LI-14 Traceability | `TestTrace_RequestToJournalToAudit`, `E2E_OpsTraceAndResolve` |
-| LI-15 Ownership | `TestBOLA/<resource>`, `TestPolicy_*` |
+| LI-14 Traceability | `TestTrace_RequestIDToJournal`, `TestOps_SearchAndJournalDetail`, E2E `ops.spec.ts` — **implemented (S8–S10)** |
+| LI-15 Ownership | `TestWallet_TransactionDetailBOLA`, `TestBOLA_TransferTopupPayout`, `TestPaymentIntent_BOLA_MerchantToMerchant`, `TestRefund_BOLA_MerchantToMerchant`, `TestOps_RoleRequiredAndNoSelfServiceKeys` |
 
 ### 5.2 PayRun invariants
 
@@ -403,12 +400,12 @@ Status awal semua baris: **planned**. Sejak Sprint 5, baris yang sudah punya tes
 | Skenario | Test |
 |---|---|
 | FS-01 Duplicate request | `TestTransfer_IdempotentReplay`, `TestTransfer_DomainRejectionIsReplayed`, `TestPaymentIntent_DuplicateMerchantOrder_409` — **implemented (S3–S4)** |
-| FS-02 Concurrent payment | `TestTransfer_ConcurrentDoubleSpend_100x`, `TestTransfer_OppositeDirections_NoDeadlock`, `TestConfirm_ParallelTabs_OnePayment`, `TestConfirm_SecondTabWaitsForIntentLock` — **implemented (S3–S4)**; `TestRefund_ConcurrentExceedingAmount` planned (S6) |
+| FS-02 Concurrent payment | `TestTransfer_ConcurrentDoubleSpend_100x`, `TestTransfer_OppositeDirections_NoDeadlock`, `TestConfirm_ParallelTabs_OnePayment`, `TestConfirm_SecondTabWaitsForIntentLock` — **implemented (S3–S4)**; `TestRefund_ParallelExceedingAmount` — **implemented (S8)** |
 | FS-03 Database failure | `TestTransfer_CommitOutcomeUnknown`, `TestTransfer_ConnectionDropBeforeCommit` — **implemented (S5)** |
 | FS-04 Server crash | `TestTransfer_ConnectionDropBeforeCommit` (crash sebelum COMMIT → rollback), `TestTransfer_CommitOutcomeUnknown` (crash setelah COMMIT, sebelum respons → replay) — **implemented (S5)** |
 | FS-05 Provider timeout | `TestTopUp_ProviderTimeout_RetryResumesFromRecoveryPoint` — **implemented (S5)**; `TestPayout_TimeoutAfterProcess_ResolvesViaStatusQuery`, `TestPayout_MismatchedProviderResponse_Unknown`, `TestPayout_TimeoutBeforeProcess_ResubmitOnlyAfterSafeWindow`, `TestPayout_StatusChecksExhausted_NeedsReconciliation` — **implemented (S6)** |
 | FS-06 Webhook duplicate | `TestTopup_DuplicateWebhook_OneJournal`, `TestWebhook_BadSignatureRejected`, `TestWebhook_ReplayOutsideWindowRejected`, `TestInbox_VerifyByFetch_ForgedWebhookNoCredit` — **implemented (S5)** |
-| FS-07 Webhook terlambat / tidak berurutan | `TestTopup_LateWebhookAfterExpiry_Credited`, `TestTopup_OutOfOrderAndConflict_NeverReversed` — **implemented (S5)**; recon item untuk CONFLICT planned (S9) |
+| FS-07 Webhook terlambat / tidak berurutan | `TestTopup_LateWebhookAfterExpiry_Credited`, `TestTopup_OutOfOrderAndConflict_NeverReversed` — **implemented (S5)**; recon item untuk CONFLICT: belum (backlog) |
 | FS-08 Worker crash | `TestInbox_LeaseExpired_ProcessedOnce` — **implemented (S5)**; `TestPayoutSubmit_CrashAfterBankAccepted_NoDoubleSend`, `TestJobRunner_LeaseExpiry_Reclaims`, `TestJobRunner_FencedCompletion_ZombieRollsBack` — **implemented (S6)** |
 | FS-09 Network timeout | `TestMerchantWebhook_RetryBackoffThenDead` (termasuk event id stabil), `TestPaymentIntent_DuplicateMerchantOrder_409` (retry merchant dengan key sama → replay) — **implemented (S4, S6)** |
 | FS-10 Partial processing | `TestTopUp_ProviderTimeout_RetryResumesFromRecoveryPoint` — **implemented (S5)**; `TestTopupRecover_StuckCreated_Completed` — **implemented (S6)** |
@@ -436,7 +433,7 @@ Status awal semua baris: **planned**. Sejak Sprint 5, baris yang sudah punya tes
 | T-SH supply chain / container | Job CI (gosec, govulncheck, osv-scanner, trivy, gitleaks, `compose_hardening_check`, `pinned_actions_check`) |
 | T-LP double spend / idempotency / amount | §4.2 (LI-02, LI-05, LI-11) |
 | T-LP BOLA / enumerasi | `TestBOLA/<resource>`, `TestTransfer_InvalidRecipientGeneric` |
-| T-LP webhook forgery / replay / tampering | `TestWebhook_BadSignature_401`, `TestWebhook_StaleTimestamp_400`, `TestWebhook_AmountMismatch_Dead`, `TestWebhook_VerifyByFetch_MismatchNotCredited` |
+| T-LP webhook forgery / replay / tampering | `TestWebhook_BadSignatureRejected`, `TestWebhook_ReplayOutsideWindowRejected`, `TestInbox_VerifyByFetch_ForgedWebhookNoCredit` |
 | T-LP SSRF | `webhook_egress_blocks_private_ip`, `webhook_egress_blocks_metadata_ip`, `webhook_egress_no_redirect`, `webhook_egress_dns_rebinding_pinned_ip` |
 | T-LP API key / ops insider | `api_key_hashed_at_rest`, `api_key_slot_limit`, `ops_route_rejects_user_role`, `ops_resolution_requires_evidence`, `ops_action_audited` |
 | T-LP demo/admin endpoint terekspos | `TestBuild_DemoEndpointsAbsentWithoutDemoMode`, `mock_admin_requires_token` |

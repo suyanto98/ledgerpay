@@ -18,7 +18,7 @@ tests:
           - exp_labels: { severity: critical }
             exp_annotations:
               summary: "Ledger invariant violated (drift / unbalanced journal / global imbalance / refund drift)"
-              runbook: "docs/design/21-observability.md §8.1 — freeze payouts, run ledger-verify, compare journals"
+              runbook: "docs/runbook.md#ledgerinvariantviolated"
       - { eval_time: 4m, alertname: LedgerInvariantViolated, exp_alerts: [] }
 
   # LI-08: refund drift sendirian (gauge ledger lain 0) tetap memicu alert yang sama.
@@ -36,7 +36,7 @@ tests:
           - exp_labels: { severity: critical }
             exp_annotations:
               summary: "Ledger invariant violated (drift / unbalanced journal / global imbalance / refund drift)"
-              runbook: "docs/design/21-observability.md §8.1 — freeze payouts, run ledger-verify, compare journals"
+              runbook: "docs/runbook.md#ledgerinvariantviolated"
       - { eval_time: 2m, alertname: LedgerInvariantViolated, exp_alerts: [] }
 
   - interval: 1m
@@ -51,4 +51,4 @@ tests:
           - exp_labels: { severity: warning }
             exp_annotations:
               summary: "A payout has been UNKNOWN for more than 1 hour"
-              runbook: "docs/design/21-observability.md §8.2 — check bank status query, resolve via ops"
+              runbook: "docs/runbook.md#payoutunknowntooold"

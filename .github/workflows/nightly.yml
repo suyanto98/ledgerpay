@@ -36,6 +36,19 @@ jobs:
         if: failure()
         run: docker compose -f deploy/compose.yml logs --no-color api worker mock-provider | tail -300
 
+  # DoD C5: property test panjang (journal selalu seimbang; versi DB berjalan di CI biasa dengan iterasi kecil).
+  property-long:
+    if: github.event_name == 'schedule' && github.event.schedule == '0 19 * * *' || inputs.job == 'demo-verify'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: 1.000.000 iterasi journal acak
+        run: go test ./internal/modules/ledger/ -run TestProperty_JournalAlwaysBalanced -rapid.checks=1000000 -timeout 25m
+
   restore-drill:
     if: (github.event_name == 'schedule' && github.event.schedule == '0 20 * * 1' || inputs.job == 'restore-drill') && vars.BACKUP_REMOTE != ''
     runs-on: ubuntu-latest

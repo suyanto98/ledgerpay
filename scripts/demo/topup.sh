@@ -36,6 +36,7 @@ T=$(topup 1111100); ID=$(echo "$T" | jq -r .id); CH=$(echo "$T" | jq -r .checkou
 pay "$CH"; wait_status "$ID" SUCCEEDED; sleep 0.5
 curl -fsS "$MOCK/admin/deliveries" | jq -c "[.[] | select(.charge_id==\"$CH\") | {event_id, status}]"
 echo "saldo: $(balance "$TOKEN")  (harus 11111100 = Rp100.000 + Rp11.111: dikreditkan SEKALI walau webhook datang 3×)"
+expect "saldo setelah webhook 3×" "$(balance "$TOKEN")" 11111100
 
 echo; echo "== 3) webhook dengan signature palsu"
 curl -fsS -X PUT "$MOCK/admin/scenario" -d '{"charges":"ok","webhooks":["webhook_bad_signature"]}' >/dev/null

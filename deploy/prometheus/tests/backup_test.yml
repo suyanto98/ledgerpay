@@ -15,7 +15,7 @@ tests:
           - exp_labels: { severity: warning, db: ledgerpay }
             exp_annotations:
               summary: "No successful backup of ledgerpay for more than 26 hours"
-              runbook: "docs/design/26-deploy-migrations-backup.md §5 — check /var/log/ledgerpay-backup.log on the VM"
+              runbook: "docs/runbook.md#backupstale"
       - { eval_time: 27h, alertname: BackupMissing, exp_alerts: [] }
 
   # Tidak ada metrik sama sekali → BackupMissing setelah 1 jam.
@@ -31,7 +31,7 @@ tests:
           - exp_labels: { severity: warning }
             exp_annotations:
               summary: "No backup metric at all (backup never ran, or Pushgateway lost its state)"
-              runbook: "docs/design/26-deploy-migrations-backup.md §5 — run deploy/prod/run-backup.sh manually"
+              runbook: "docs/runbook.md#backupmissing"
 
   # Ukuran dump turun dari 10 MB ke 1 MB → BackupSizeDrop.
   - interval: 6h
@@ -46,4 +46,4 @@ tests:
           - exp_labels: { severity: warning, db: ledgerpay }
             exp_annotations:
               summary: "Backup of ledgerpay shrank by more than 50% (possible empty or partial dump)"
-              runbook: "docs/design/26-deploy-migrations-backup.md §5 — run scripts/restore-drill.sh on the latest file"
+              runbook: "docs/runbook.md#backupsizedrop"

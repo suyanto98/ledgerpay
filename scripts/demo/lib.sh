@@ -20,3 +20,9 @@ credit() { $COMPOSE exec -T api /app/ledgerpay demo-credit "$1" "$2" >/dev/null;
 balance() { curl -fsS "$API/wallet" -H "Authorization: Bearer $1" | jq -r .balance; }
 
 verify() { $COMPOSE exec -T api /app/ledgerpay ledger-verify; }
+
+# expect <label> <got> <want>: asersi demo. Gagal → exit 1, sehingga `make demo-verify` (nightly) merah
+# saat demo tidak lagi membuktikan apa yang dijanjikan, bukan hanya mencetak angka yang salah.
+expect() {
+  if [ "$2" = "$3" ]; then echo "  ✓ $1 = $3"; else echo "  ✗ $1: got '$2', want '$3'" >&2; exit 1; fi
+}

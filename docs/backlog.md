@@ -135,7 +135,7 @@
 - [x] Secret produksi: diputuskan Sprint 8 — tetap di VM (diunggah sekali), CI tidak memegang secret aplikasi (ADR-013 catatan S8)
 - [ ] Konfigurasi deploy ada di repo aplikasi (`deploy/prod/`), bukan repo infra terpisah seperti di desain: cukup untuk satu VM, dicatat sebagai deviasi
 - [ ] Rollback = deploy ulang SHA sebelumnya (downtime API beberapa detik saat recreate); blue/green tidak dikerjakan
-- [ ] Toolbar demo / `DEMO_TOKEN` untuk demo publik (skenario mock dari UI) — Sprint 8
+- [x] Mode demo (`DEMO_MODE` + `DEMO_TOKEN`, build tag `demo`, `demo_faults`) — selesai Sprint 10; toolbar di UI tidak dibuat (presenter memakai curl/skrip)
 - [ ] Metrik counter (mis. `payouts_total{submitted}`) hilang saat proses restart; dashboard memakai `increase()`/gauge dari DB, jangan membaca nilai mentah counter
 
 ## Sprint 8 — DevOps ✅ (deploy sungguhan ditunda sampai aplikasi siap)
@@ -152,8 +152,8 @@
 ## Catatan dari Sprint 8 (dibawa ke sprint berikutnya)
 - [ ] **Workflow CD belum pernah berjalan di GitHub** (repo masih lokal). Diuji: actionlint + simulasi lokal (registry lokal, deploy pull-mode, rollback). Saat repo di-push: set variable `DEPLOY_ENABLED`, `DEPLOY_HOST`, `PUBLIC_DOMAIN`, secret `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`; untuk drill `BACKUP_REMOTE`, `BACKUP_S3_*`, `BACKUP_READ_*`, `RESTORE_DRILL_AGE_KEY`
 - [ ] Offsite backup belum diuji ke bucket sungguhan (R2/B2); rclone hanya dijalankan kalau `LP_BACKUP_REMOTE` di-set
-- [ ] `demo-verify` masih skeleton: asersi sebagian besar lewat `set -e` + `curl -f` + `ledger-verify`; Demo B belum meng-assert "tepat 10 sukses" secara eksplisit
-- [ ] Ops console **UI** belum ada (API saja); dijadwalkan bersama recon di S10
+- [x] `demo-verify` dengan asersi eksplisit di setiap demo (`expect` di `scripts/demo/lib.sh`) — selesai Sprint 10
+- [x] Ops console **UI** minimal (antrean recon + payout menggantung) — selesai Sprint 10
 - [ ] `GET /payouts` (list user) dan `GET /merchant/payment-intents` (list) masih belum
 - [ ] Notifikasi nightly gagal: hanya email bawaan GitHub (issue otomatis `nightly-failure` belum)
 - [ ] Pencarian ops `merchant_order_id` tanpa `merchant_id` tidak memakai indeks (uq parsial berawalan merchant_id): belum diukur
@@ -177,3 +177,23 @@
 - [ ] Alert untuk item recon OPEN yang menumpuk / run harian yang gagal belum dibuat (gauge sudah ada)
 - [ ] LP-4 memakai 1.000 payer (desain 5.000): login 5.000 user = 5.000 hash argon2 di setup k6
 - [ ] Ide LP-2 (belum diukur): kurangi round trip per transfer (±10 statement) dengan `pgx.Batch`/fungsi SQL
+
+## Sprint 10 — Documentation + Demo · M4 ✅ (kode)
+- [x] Mode demo tiga lapis + `demo_faults` (migrasi demo terpisah), Demo C deterministik (fault `payout.after_bank_call`, exit 137)
+- [x] `TestBuild_DemoEndpointsAbsentWithoutDemoMode`, `TestBuild_NoTesthooksInRelease` (`go tool nm`), job CI tag `demo`
+- [x] Halaman Ops di SPA (antrean recon + payout menggantung, resolve dengan bukti), `/me` mengembalikan `roles`, E2E `ops.spec.ts`
+- [x] Dashboard *Integrity & Recon*, alert `ReconStale`/`ReconRunFailed`/`ReconItemsUnresolved` (+ test promtool), `docs/runbook.md` untuk semua 16 alert
+- [x] `TestTraceability_DocsReferenceExistingTests` + sinkronisasi katalog/matriks test dengan kode (rencana tanpa test ditulis jujur)
+- [x] Test baru: DB menolak saldo negatif, mode lock vs cek FK, request id → journal, BOLA transfer/top-up/payout, uang-selalu-string (runtime + OpenAPI), kill switch
+- [x] Cek invariant otomatis di akhir setiap test integrasi `internal/app`
+- [x] Kill switch env (`LP_PAYOUT_SUBMIT_ENABLED`, `LP_WEBHOOK_DELIVERY_ENABLED`, `LP_TOPUP_ENABLED`)
+- [x] Keamanan: govulncheck (Go 1.26.6, `moby/go-archive` v0.3.0 → 0 kerentanan terpanggil), gitleaks seluruh history (k6 `setup_data` dibuang), job CI `security`, Dependabot, image Go di-pin
+- [x] `make demo-verify` dengan asersi; `docs/demo-script.md`, `docs/dod-audit.md`, `make api-docs`, `make cover`, README final
+
+## Catatan dari Sprint 10 (sisa setelah M4 kode)
+- [ ] **Deploy publik + video + URL** (pemilik project, saat aplikasi dianggap siap); lalu DoD C3 (INV = 0 selama 7 hari), DM1 (7 malam `demo-verify`), D3 (drill di env sungguhan), T3/S2/S3/OP3 di GitHub Actions
+- [ ] **Sebelum push pertama**: email git pribadi, nama di LICENSE, path module Go. Kalau riwayat ditulis ulang (ganti email), perbarui hash commit di `.gitleaks.toml` (atau buang `setup_data` dari riwayat sekalian)
+- [ ] Angka performa di VM target dengan k6 terpisah; ulangi E-1
+- [ ] `make seed` untuk satu dataset demo bersama (DoD D4 sebagian)
+- [ ] Chaos dengan toxiproxy / kill di setiap checkpoint (DoD F3 sebagian; §4.3a strategi testing)
+- [ ] Toolbar demo di UI (token di memori tab), `POST /demo/reset`

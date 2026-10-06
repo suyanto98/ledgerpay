@@ -13,7 +13,9 @@ build() { # <name> <dockerfile> [extra args...]
   echo "built ${PREFIX}ledgerpay-$name:$SHA"
   if [ "$PUSH" = --push ]; then docker push -q "${PREFIX}ledgerpay-$name:$SHA" >/dev/null && echo "pushed ${PREFIX}ledgerpay-$name:$SHA"; fi
 }
-build app deploy/Dockerfile --target ledgerpay --build-arg "VERSION=$SHA"
+# Image yang di-deploy ke VM demo publik = varian demo (amandemen roadmap S8: image release dibangun
+# dan dipindai, tidak di-push). Endpoint demo tetap mati kecuali DEMO_MODE=true + DEMO_TOKEN.
+build app deploy/Dockerfile --target ledgerpay --build-arg "VERSION=$SHA" --build-arg BUILD_TAGS=demo
 build mock deploy/Dockerfile --target mock-provider
 build edge deploy/prod/edge.Dockerfile
 build backup deploy/backup/Dockerfile

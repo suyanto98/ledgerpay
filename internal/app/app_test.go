@@ -21,6 +21,7 @@ import (
 	"ledgerpay/internal/mockprovider"
 	"ledgerpay/internal/modules/identity"
 	"ledgerpay/internal/modules/ledger"
+	"ledgerpay/internal/modules/payment"
 	"ledgerpay/internal/modules/payout"
 	"ledgerpay/internal/modules/recon"
 	"ledgerpay/internal/modules/topup"
@@ -44,7 +45,12 @@ type env struct {
 	mock    *mockprovider.Server // payment provider tiruan, in-process
 	mockSrv *httptest.Server
 	deps    app.Deps
+	broken  *bool // allowBrokenLedger: test ini sengaja merusak ledger (verifier diuji)
 }
+
+// allowBrokenLedger mematikan cek invariant otomatis di akhir test: HANYA untuk test yang sengaja
+// menyuntikkan drift untuk membuktikan bahwa verifier mendeteksinya.
+func (e env) allowBrokenLedger() { *e.broken = true }
 
 const testWebhookSecret = "whsec_test"
 
@@ -112,11 +118,27 @@ func newEnvTiers(t *testing.T, tiers *ratelimit.Tiers, opts ...dbtest.Option) en
 		t.Fatal(err)
 	}
 	api = app.APIRouter(deps)
-	e := env{srv: srv, ops: httptest.NewServer(app.OpsRouter(tdb.App)), pool: tdb.App, clk: clk, mock: mock, mockSrv: mockSrv, deps: deps}
+	e := env{srv: srv, ops: httptest.NewServer(app.OpsRouter(tdb.App)), pool: tdb.App, clk: clk, mock: mock, mockSrv: mockSrv, deps: deps, broken: new(bool)}
 	t.Cleanup(mockSrv.Close)
 	t.Cleanup(mock.Close) // LIFO: webhook yang masih terjadwal dihentikan SEBELUM server API ditutup
 	t.Cleanup(e.srv.Close)
 	t.Cleanup(e.ops.Close)
+	// DoD C2: setiap test integrasi berakhir dengan invariant checker (LI-01, LI-03, LI-08), bukan hanya
+	// test yang ingat memanggilnya. Didaftarkan terakhir → berjalan pertama, sebelum DB dihapus.
+	t.Cleanup(func() {
+		if *e.broken || t.Failed() {
+			return
+		}
+		rep, err := ledger.Verify(context.Background(), e.pool)
+		if err != nil {
+			t.Errorf("invariant checker: %v", err)
+			return
+		}
+		drift, err := payment.RefundDrift(context.Background(), e.pool)
+		if err != nil || !rep.OK() || len(drift) > 0 {
+			t.Errorf("ledger invariant violated at the end of the test: %s; refund drift %v (%v)", rep, drift, err)
+		}
+	})
 	return e
 }
 
