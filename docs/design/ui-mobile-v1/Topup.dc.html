@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>LedgerPay — Top-up</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D5BD8}a:hover{color:#0B2559}
+button,input{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F5F9; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A; display: flex; flex-direction: column">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #E3E7EF; padding: 12px 8px; display: flex; align-items: center; gap: 4px">
+    <a href="Main.dc.html" aria-label="Kembali" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #0F172A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></a>
+    <h1 style="margin: 0; font-size: 17px; font-weight: 700">Top-up saldo</h1>
+  </header>
+
+  <div style="padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+    <div style="background: #FFFFFF; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+      <label for="amt" style="font-size: 13px; font-weight: 600; color: #3A4458">Nominal top-up</label>
+      <div style="display: flex; align-items: baseline; gap: 8px; border-bottom: 2px solid #1D5BD8; padding-bottom: 6px">
+        <span style="font-size: 22px; font-weight: 700; color: #5B6478">Rp</span>
+        <input id="amt" type="text" inputmode="numeric" value="100.000" style="flex: 1; min-width: 0; border: none; outline: none; font-size: 32px; font-weight: 800; letter-spacing: -0.5px; color: #0F172A; background: transparent; cursor: text; font-variant-numeric: tabular-nums">
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{presets}}" as="p" hint-placeholder-count="6">
+          <button type="button" style="height: 44px; border-radius: 12px; border: {{p.border}}; background: {{p.bg}}; color: {{p.fg}}; font-size: 13px; font-weight: 700">{{p.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <fieldset style="margin: 0; border: none; padding: 0; display: flex; flex-direction: column; gap: 10px">
+      <legend style="font-size: 13px; font-weight: 600; color: #3A4458; padding: 0; margin-bottom: 10px">Metode pembayaran</legend>
+      <sc-for list="{{methods}}" as="m" hint-placeholder-count="3">
+        <label style="display: flex; align-items: center; gap: 12px; background: #FFFFFF; border-radius: 16px; padding: 14px 16px; border: {{m.border}}; cursor: pointer">
+          <span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FD; color: #1D5BD8; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800">{{m.mark}}</span>
+          <span style="display: flex; flex-direction: column; gap: 2px; flex: 1">
+            <span style="font-size: 14px; font-weight: 700">{{m.title}}</span>
+            <span style="font-size: 12px; color: #5B6478">{{m.sub}}</span>
+          </span>
+          <input type="radio" name="method" checked="{{m.checked}}" style="width: 20px; height: 20px; accent-color: #1D5BD8">
+        </label>
+      </sc-for>
+    </fieldset>
+
+    <div style="flex: 1"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 4px">
+      <span style="font-size: 13px; color: #5B6478">Saldo setelah top-up</span>
+      <span style="font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums">Rp 150.000</span>
+    </div>
+    <a href="Main.dc.html" style="height: 54px; border-radius: 14px; background: #1D5BD8; color: #FFFFFF; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-decoration: none; margin-bottom: 12px">Lanjut ke pembayaran</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const on = { border: '1.5px solid #1D5BD8', bg: '#EAF0FD', fg: '#123E8C' };
+    const off = { border: '1px solid #D5DBE6', bg: '#FFFFFF', fg: '#3A4458' };
+    const presets = ['50rb', '100rb', '200rb', '500rb', '1jt', '2jt'].map((label) => ({ label, ...(label === '100rb' ? on : off) }));
+    const methods = [
+      { mark: 'VA', title: 'Virtual Account', sub: 'Transfer dari bank mana pun', checked: true },
+      { mark: 'QR', title: 'QRIS', sub: 'Bayar lewat aplikasi e-wallet', checked: false },
+      { mark: 'RT', title: 'Gerai retail', sub: 'Bayar tunai di kasir', checked: false },
+    ].map((m) => ({ ...m, border: m.checked ? '1.5px solid #1D5BD8' : '1px solid #E3E7EF' }));
+    return { presets, methods };
+  }
+}
+</script>
+</body>
+</html>

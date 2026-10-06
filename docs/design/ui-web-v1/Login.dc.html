@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>LedgerPay Web — Masuk</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D5BD8}a:hover{color:#0B2559}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #FFFFFF; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A; display: flex; flex-wrap: wrap">
+  <section style="flex: 1 1 420px; background: #0B2559; color: #FFFFFF; padding: 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 40px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 40px; height: 40px; border-radius: 12px; background: #FFFFFF; color: #0B2559; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"></path><path d="M8 14l4-4 3 3 5-5"></path></svg></span>
+      <span style="font-size: 20px; font-weight: 800">LedgerPay</span>
+    </div>
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 32px; max-width: 480px">
+      <h1 style="margin: 0; font-size: 40px; line-height: 1.15; font-weight: 800; letter-spacing: -0.8px">Uangmu tetap tepat, bahkan saat jaringan tidak.</h1>
+      <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 20px">
+        <li style="display: flex; gap: 14px; align-items: flex-start">
+          <span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+          <span style="display: flex; flex-direction: column; gap: 2px"><strong style="font-size: 15px">Sekali kirim, sekali terpotong</strong><span style="font-size: 14px; color: #C9D4EC; line-height: 1.5">Transfer yang terkirim ulang karena timeout tidak memotong saldo dua kali.</span></span>
+        </li>
+        <li style="display: flex; gap: 14px; align-items: flex-start">
+          <span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path></svg></span>
+          <span style="display: flex; flex-direction: column; gap: 2px"><strong style="font-size: 15px">Saldo tidak pernah minus</strong><span style="font-size: 14px; color: #C9D4EC; line-height: 1.5">Transaksi bersamaan dari satu wallet diproses berurutan dengan aman.</span></span>
+        </li>
+        <li style="display: flex; gap: 14px; align-items: flex-start">
+          <span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"></path><path d="M8 14l4-4 3 3 5-5"></path></svg></span>
+          <span style="display: flex; flex-direction: column; gap: 2px"><strong style="font-size: 15px">Dicocokkan setiap hari</strong><span style="font-size: 14px; color: #C9D4EC; line-height: 1.5">Catatan kami direkonsiliasi dengan data bank setiap hari.</span></span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section style="flex: 1 1 420px; padding: 48px 24px; box-sizing: border-box; display: flex; align-items: center; justify-content: center">
+    <form style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 20px">
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px">
+        <h2 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.4px">Masuk</h2>
+        <p style="margin: 0; font-size: 15px; color: #5B6478">Selamat datang kembali. Masukkan email dan kata sandimu.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="email" style="font-size: 13px; font-weight: 600; color: #3A4458">Email</label>
+        <input id="email" type="email" value="rina@contoh.id" style="height: 52px; box-sizing: border-box; border: 1.5px solid #1D5BD8; border-radius: 14px; padding: 0 16px; font-size: 15px; color: #0F172A; outline: none; box-shadow: 0 0 0 4px #EAF0FD">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <label for="pw" style="font-size: 13px; font-weight: 600; color: #3A4458">Kata sandi</label>
+          <a href="#" style="font-size: 13px; font-weight: 600; text-decoration: none">Lupa kata sandi?</a>
+        </div>
+        <div style="position: relative">
+          <input id="pw" type="password" value="rahasia123" style="width: 100%; height: 52px; box-sizing: border-box; border: 1.5px solid #D5DBE6; border-radius: 14px; padding: 0 52px 0 16px; font-size: 15px; color: #0F172A; outline: none">
+          <button type="button" aria-label="Tampilkan kata sandi" style="position: absolute; right: 4px; top: 4px; width: 44px; height: 44px; border: none; background: transparent; color: #5B6478; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+        </div>
+      </div>
+      <a href="Dashboard.dc.html" style="height: 54px; border-radius: 14px; background: #1D5BD8; color: #FFFFFF; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-decoration: none; margin-top: 8px">Masuk</a>
+      <p style="margin: 8px 0 0; text-align: center; font-size: 14px; color: #5B6478">Belum punya akun? <a href="#" style="font-weight: 700; text-decoration: none">Daftar sekarang</a></p>
+    </form>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

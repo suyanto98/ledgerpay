@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>LedgerPay — Tarik dana</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D5BD8}a:hover{color:#0B2559}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F5F9; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A; display: flex; flex-direction: column">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #E3E7EF; padding: 12px 8px; display: flex; align-items: center; gap: 4px">
+    <a href="Main.dc.html" aria-label="Kembali" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #0F172A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></a>
+    <h1 style="margin: 0; font-size: 17px; font-weight: 700">Status tarik dana</h1>
+  </header>
+
+  <div style="padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+    <div style="background: #FFFFFF; border-radius: 20px; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 13px; color: #5B6478">Tarik dana ke rekening</span>
+          <span style="font-size: 28px; font-weight: 800; letter-spacing: -0.5px; font-variant-numeric: tabular-nums">Rp 25.000</span>
+        </div>
+        <span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #FFF1D6; color: #7A4300">Diproses bank</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; background: #F3F5F9">
+        <span style="width: 40px; height: 40px; border-radius: 12px; background: #FFFFFF; color: #0B2559; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18M5 10V20M19 10V20M9 10v10M15 10v10M3 20h18M12 3l9 5H3z"></path></svg></span>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 14px; font-weight: 700">Rina Andriani</span>
+          <span style="font-size: 12px; color: #5B6478">[NAMA BANK] · •••• 4821</span>
+        </div>
+      </div>
+    </div>
+
+    <section aria-label="Tahapan" style="background: #FFFFFF; border-radius: 20px; padding: 20px; display: flex; flex-direction: column">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+        <div style="display: flex; gap: 14px">
+          <div style="display: flex; flex-direction: column; align-items: center; width: 24px">
+            <span style="width: 24px; height: 24px; border-radius: 50%; background: {{s.dotBg}}; border: {{s.dotBorder}}; box-sizing: border-box; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+              <sc-if value="{{s.done}}" hint-placeholder-val="{{true}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if>
+            </span>
+            <span style="width: 2px; flex: 1; min-height: 20px; background: {{s.line}}"></span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 18px">
+            <span style="font-size: 14px; font-weight: 700; color: {{s.titleColor}}">{{s.title}}</span>
+            <span style="font-size: 12px; line-height: 1.45; color: #5B6478">{{s.sub}}</span>
+          </div>
+        </div>
+      </sc-for>
+    </section>
+
+    <div style="display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: #EAF0FD">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#123E8C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path></svg>
+      <span style="font-size: 12px; line-height: 1.5; color: #123E8C">Dana tidak akan terkirim dua kali. Jika bank lambat merespons, kami cek statusnya otomatis sebelum mencoba lagi.</span>
+    </div>
+
+    <div style="flex: 1"></div>
+    <a href="Main.dc.html" style="height: 54px; border-radius: 14px; background: #FFFFFF; border: 1.5px solid #D5DBE6; box-sizing: border-box; color: #0B2559; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-decoration: none; margin-bottom: 12px">Kembali ke Beranda</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const done = { done: true, dotBg: '#16A06A', dotBorder: 'none', line: '#16A06A', titleColor: '#0F172A' };
+    const now = { done: false, dotBg: '#FFFFFF', dotBorder: '6px solid #E08A00', line: '#E3E7EF', titleColor: '#0F172A' };
+    const todo = { done: false, dotBg: '#FFFFFF', dotBorder: '2px solid #C3CAD6', line: 'transparent', titleColor: '#5B6478' };
+    return {
+      steps: [
+        { ...done, title: 'Permintaan diterima', sub: 'Hari ini · 08.15 — saldo dicadangkan' },
+        { ...done, title: 'Dikirim ke bank', sub: 'Hari ini · 08.15' },
+        { ...now, title: 'Menunggu konfirmasi bank', sub: 'Biasanya kurang dari 30 menit' },
+        { ...todo, title: 'Dana masuk ke rekening', sub: 'Kamu akan mendapat notifikasi' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

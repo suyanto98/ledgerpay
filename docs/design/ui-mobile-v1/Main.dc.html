@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>LedgerPay — Beranda</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D5BD8}a:hover{color:#0B2559}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F5F9; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="background: {{accent}}; padding: 20px 20px 96px; color: #FFFFFF; display: flex; flex-direction: column; gap: 20px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <div style="width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.16); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px">RA</div>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 13px; opacity: 0.8">Selamat pagi,</span>
+          <span style="font-size: 17px; font-weight: 700">Rina Andriani</span>
+        </div>
+      </div>
+      <button aria-label="Notifikasi" style="width: 44px; height: 44px; border-radius: 50%; border: none; background: rgba(255,255,255,0.12); color: #FFFFFF; display: flex; align-items: center; justify-content: center; position: relative">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+        <span style="position: absolute; top: 10px; right: 11px; width: 8px; height: 8px; border-radius: 50%; background: #F5A524"></span>
+      </button>
+    </div>
+  </div>
+
+  <div style="margin: -84px 16px 0; background: #FFFFFF; border-radius: 20px; padding: 20px; box-shadow: 0 8px 24px rgba(11,37,89,0.10); display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 13px; color: #5B6478; font-weight: 500">Saldo aktif</span>
+        <span style="font-size: 30px; font-weight: 800; letter-spacing: -0.5px; font-variant-numeric: tabular-nums">Rp 50.000</span>
+        <span style="font-size: 12px; color: #5B6478">Wallet 8810 2241 0193 · IDR</span>
+      </div>
+      <button aria-label="Sembunyikan saldo" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #E3E7EF; background: #FFFFFF; color: #3A4458; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      </button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; border-top: 1px solid #EEF1F6; padding-top: 16px">
+      <a href="Topup.dc.html" style="text-decoration: none; color: #0F172A; display: flex; flex-direction: column; align-items: center; gap: 8px">
+        <span style="width: 48px; height: 48px; border-radius: 14px; background: #EAF0FD; color: #1D5BD8; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg></span>
+        <span style="font-size: 12px; font-weight: 600">Top-up</span>
+      </a>
+      <a href="Transfer.dc.html" style="text-decoration: none; color: #0F172A; display: flex; flex-direction: column; align-items: center; gap: 8px">
+        <span style="width: 48px; height: 48px; border-radius: 14px; background: #EAF0FD; color: #1D5BD8; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"></path></svg></span>
+        <span style="font-size: 12px; font-weight: 600">Transfer</span>
+      </a>
+      <a href="Payout.dc.html" style="text-decoration: none; color: #0F172A; display: flex; flex-direction: column; align-items: center; gap: 8px">
+        <span style="width: 48px; height: 48px; border-radius: 14px; background: #EAF0FD; color: #1D5BD8; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18M5 10V20M19 10V20M9 10v10M15 10v10M3 20h18M12 3l9 5H3z"></path></svg></span>
+        <span style="font-size: 12px; font-weight: 600">Tarik dana</span>
+      </a>
+      <a href="#riwayat" style="text-decoration: none; color: #0F172A; display: flex; flex-direction: column; align-items: center; gap: 8px">
+        <span style="width: 48px; height: 48px; border-radius: 14px; background: #EAF0FD; color: #1D5BD8; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
+        <span style="font-size: 12px; font-weight: 600">Riwayat</span>
+      </a>
+    </div>
+  </div>
+
+  <div style="margin: 16px 16px 0; padding: 14px 16px; border-radius: 16px; background: #FFF6E5; border: 1px solid #F6DFAF; display: flex; gap: 12px; align-items: center">
+    <span style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: #FDEBC4; color: #8A4B00; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
+    <div style="display: flex; flex-direction: column; gap: 2px; flex: 1">
+      <span style="font-size: 13px; font-weight: 700; color: #5C3300">Tarik dana sedang diproses</span>
+      <span style="font-size: 12px; color: #6B4510">Rp 25.000 ke rekening •••• 4821. Kami kabari begitu bank mengonfirmasi.</span>
+    </div>
+  </div>
+
+  <div id="riwayat" style="margin: 20px 16px 0; display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0">
+    <div style="display: flex; justify-content: space-between; align-items: center">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700">Transaksi terakhir</h2>
+      <a href="#riwayat" style="font-size: 13px; font-weight: 600; text-decoration: none">Lihat semua</a>
+    </div>
+    <div style="background: #FFFFFF; border-radius: 16px; padding: 4px 16px; display: flex; flex-direction: column">
+      <sc-for list="{{txns}}" as="t" hint-placeholder-count="4">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: {{t.border}}">
+          <span style="width: 40px; height: 40px; border-radius: 12px; background: {{t.iconBg}}; color: {{t.iconFg}}; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0">{{t.mark}}</span>
+          <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0">
+            <span style="font-size: 14px; font-weight: 600">{{t.title}}</span>
+            <span style="font-size: 12px; color: #5B6478">{{t.sub}}</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px">
+            <span style="font-size: 14px; font-weight: 700; color: {{t.amtColor}}; font-variant-numeric: tabular-nums">{{t.amount}}</span>
+            <span style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{t.chipBg}}; color: {{t.chipFg}}">{{t.status}}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <nav aria-label="Navigasi utama" style="background: #FFFFFF; border-top: 1px solid #E3E7EF; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 8px 8px 20px">
+    <a href="Main.dc.html" style="text-decoration: none; color: {{accent}}; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Beranda</a>
+    <a href="Transfer.dc.html" style="text-decoration: none; color: #5B6478; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; font-size: 11px; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"></path></svg>Transfer</a>
+    <a href="#riwayat" style="text-decoration: none; color: #5B6478; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; font-size: 11px; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>Riwayat</a>
+    <a href="Login.dc.html" style="text-decoration: none; color: #5B6478; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; font-size: 11px; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Akun</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#0B2559","options":["#0B2559","#123E8C","#0E3B43","#2A1F5C"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ok = { chipBg: '#E3F4EC', chipFg: '#0B6640' };
+    const wait = { chipBg: '#FFF1D6', chipFg: '#7A4300' };
+    const out = '#0F172A', inc = '#0B6640';
+    const rows = [
+      { mark: 'BS', title: 'Transfer ke Budi Santoso', sub: 'Hari ini · 09.42', amount: '− Rp 50.000', amtColor: out, status: 'Berhasil', iconBg: '#EAF0FD', iconFg: '#1D5BD8', ...ok },
+      { mark: 'TD', title: 'Tarik dana ke •••• 4821', sub: 'Hari ini · 08.15', amount: '− Rp 25.000', amtColor: out, status: 'Diproses', iconBg: '#FFF1D6', iconFg: '#7A4300', ...wait },
+      { mark: 'TU', title: 'Top-up Virtual Account', sub: 'Kemarin · 19.03', amount: '+ Rp 100.000', amtColor: inc, status: 'Berhasil', iconBg: '#E3F4EC', iconFg: '#0B6640', ...ok },
+      { mark: 'RF', title: 'Refund Toko Kopi Senja', sub: '3 Okt · 14.20', amount: '+ Rp 18.000', amtColor: inc, status: 'Berhasil', iconBg: '#E3F4EC', iconFg: '#0B6640', ...ok },
+    ];
+    return {
+      accent: this.props.accent ?? '#0B2559',
+      txns: rows.map((r, i) => ({ ...r, border: i === rows.length - 1 ? 'none' : '1px solid #EEF1F6' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

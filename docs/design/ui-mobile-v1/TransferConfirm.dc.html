@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>LedgerPay — Konfirmasi transfer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D5BD8}a:hover{color:#0B2559}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F5F9; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A; display: flex; flex-direction: column">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #E3E7EF; padding: 12px 8px; display: flex; align-items: center; gap: 4px">
+    <a href="Transfer.dc.html" aria-label="Kembali" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #0F172A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></a>
+    <h1 style="margin: 0; font-size: 17px; font-weight: 700">Konfirmasi transfer</h1>
+  </header>
+
+  <div style="padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+    <div style="background: #FFFFFF; border-radius: 20px; padding: 24px 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+      <span style="font-size: 13px; color: #5B6478; font-weight: 500">Kamu akan mengirim</span>
+      <span style="font-size: 34px; font-weight: 800; letter-spacing: -0.6px; font-variant-numeric: tabular-nums">Rp 50.000</span>
+      <span style="font-size: 13px; color: #5B6478">ke <strong style="color: #0F172A">Budi Santoso</strong></span>
+    </div>
+
+    <dl style="margin: 0; background: #FFFFFF; border-radius: 20px; padding: 6px 20px; display: flex; flex-direction: column">
+      <div style="display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid #EEF1F6"><dt style="font-size: 13px; color: #5B6478">Dari</dt><dd style="margin: 0; font-size: 14px; font-weight: 600; text-align: right">Wallet 8810 2241 0193</dd></div>
+      <div style="display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid #EEF1F6"><dt style="font-size: 13px; color: #5B6478">Ke</dt><dd style="margin: 0; font-size: 14px; font-weight: 600; text-align: right">budi@contoh.id</dd></div>
+      <div style="display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid #EEF1F6"><dt style="font-size: 13px; color: #5B6478">Catatan</dt><dd style="margin: 0; font-size: 14px; font-weight: 600; text-align: right">Patungan makan siang</dd></div>
+      <div style="display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid #EEF1F6"><dt style="font-size: 13px; color: #5B6478">Biaya</dt><dd style="margin: 0; font-size: 14px; font-weight: 600; color: #0B6640; text-align: right">Gratis</dd></div>
+      <div style="display: flex; justify-content: space-between; gap: 16px; padding: 14px 0"><dt style="font-size: 14px; font-weight: 700">Total</dt><dd style="margin: 0; font-size: 16px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums">Rp 50.000</dd></div>
+    </dl>
+
+    <div style="display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: #EAF0FD">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#123E8C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v4h1"></path></svg>
+      <span style="font-size: 12px; line-height: 1.5; color: #123E8C">Aman meski tombol tertekan dua kali atau koneksi putus: transfer ini hanya diproses sekali dan saldo terpotong sekali.</span>
+    </div>
+
+    <div style="flex: 1"></div>
+    <a href="TransferSuccess.dc.html" style="height: 54px; border-radius: 14px; background: #1D5BD8; color: #FFFFFF; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>Kirim sekarang</a>
+    <a href="Transfer.dc.html" style="height: 48px; border-radius: 14px; color: #1D5BD8; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-decoration: none; margin-bottom: 4px">Ubah detail</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

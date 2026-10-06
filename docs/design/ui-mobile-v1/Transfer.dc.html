@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>LedgerPay — Transfer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D5BD8}a:hover{color:#0B2559}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F5F9; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A; display: flex; flex-direction: column">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #E3E7EF; padding: 12px 8px; display: flex; align-items: center; gap: 4px">
+    <a href="Main.dc.html" aria-label="Kembali" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #0F172A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></a>
+    <h1 style="margin: 0; font-size: 17px; font-weight: 700">Transfer</h1>
+  </header>
+
+  <div style="padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label for="to" style="font-size: 13px; font-weight: 600; color: #3A4458">Kirim ke</label>
+      <div style="height: 52px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; background: #FFFFFF; border: 1.5px solid #D5DBE6; border-radius: 14px; padding: 0 14px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5B6478" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input id="to" type="text" placeholder="Email atau nomor wallet" style="flex: 1; border: none; outline: none; font-size: 15px; background: transparent; color: #0F172A">
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span style="font-size: 13px; font-weight: 600; color: #3A4458">Penerima terakhir</span>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{recent}}" as="r" hint-placeholder-count="4">
+          <button type="button" style="border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0; color: #0F172A">
+            <span style="width: 52px; height: 52px; border-radius: 50%; background: {{r.bg}}; color: {{r.fg}}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; box-shadow: {{r.ring}}">{{r.mark}}</span>
+            <span style="font-size: 12px; font-weight: 600">{{r.name}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid #EEF1F6">
+        <span style="width: 44px; height: 44px; border-radius: 50%; background: #EAF0FD; color: #1D5BD8; display: flex; align-items: center; justify-content: center; font-weight: 700">BS</span>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 15px; font-weight: 700">Budi Santoso</span>
+          <span style="font-size: 12px; color: #5B6478">budi@contoh.id · Wallet LedgerPay</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="amt" style="font-size: 13px; font-weight: 600; color: #3A4458">Nominal</label>
+        <div style="display: flex; align-items: baseline; gap: 8px; border-bottom: 2px solid #1D5BD8; padding-bottom: 6px">
+          <span style="font-size: 22px; font-weight: 700; color: #5B6478">Rp</span>
+          <input id="amt" type="text" inputmode="numeric" value="50.000" style="flex: 1; min-width: 0; border: none; outline: none; font-size: 32px; font-weight: 800; letter-spacing: -0.5px; color: #0F172A; background: transparent; font-variant-numeric: tabular-nums">
+        </div>
+        <span style="font-size: 12px; color: #5B6478">Saldo tersedia Rp 50.000</span>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap">
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 13px; font-weight: 600; color: #3A4458">Rp 10.000</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 13px; font-weight: 600; color: #3A4458">Rp 25.000</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border-radius: 999px; border: 1.5px solid #1D5BD8; background: #EAF0FD; font-size: 13px; font-weight: 700; color: #123E8C">Rp 50.000</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="note" style="font-size: 13px; font-weight: 600; color: #3A4458">Catatan (opsional)</label>
+        <input id="note" type="text" value="Patungan makan siang" style="height: 48px; box-sizing: border-box; border: 1.5px solid #D5DBE6; border-radius: 12px; padding: 0 14px; font-size: 14px; color: #0F172A; outline: none">
+      </div>
+    </div>
+    <div style="flex: 1"></div>
+    <a href="TransferConfirm.dc.html" style="height: 54px; border-radius: 14px; background: #1D5BD8; color: #FFFFFF; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-decoration: none; margin-bottom: 12px">Lanjutkan</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const base = { bg: '#EAF0FD', fg: '#1D5BD8', ring: 'none' };
+    return {
+      recent: [
+        { ...base, mark: 'BS', name: 'Budi', ring: '0 0 0 3px #FFFFFF, 0 0 0 5px #1D5BD8' },
+        { ...base, mark: 'SW', name: 'Sari', bg: '#E3F4EC', fg: '#0B6640' },
+        { ...base, mark: 'DP', name: 'Dewi', bg: '#FFF1D6', fg: '#7A4300' },
+        { ...base, mark: 'AK', name: 'Agus', bg: '#EEE8FB', fg: '#4B2A9A' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
