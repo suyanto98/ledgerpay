@@ -25,11 +25,13 @@ onMounted(async () => {
     <h3>Riwayat</h3>
     <p v-if="txs.length === 0">Belum ada transaksi.</p>
     <table v-else>
+      <tbody>
       <tr v-for="t in txs" :key="t.id">
         <td>{{ new Date(t.created_at).toLocaleString('id-ID') }}</td>
         <td>{{ labels[t.type] ?? t.type }}</td>
         <td :class="t.direction === 'IN' ? 'in' : 'out'">{{ t.direction === 'IN' ? '+' : '−' }}{{ formatMinor(t.amount) }}</td>
       </tr>
+      </tbody>
     </table>
   </div>
 </template>

@@ -84,7 +84,8 @@ const money = (v: string | null) => (v === null ? '—' : formatMinor(v))
     </p>
     <p v-if="items.length === 0" class="muted">Tidak ada item terbuka.</p>
     <table v-else>
-      <tr><th>Kategori</th><th>Objek</th><th>Kita</th><th>Provider</th><th></th></tr>
+      <thead><tr><th>Kategori</th><th>Objek</th><th>Kita</th><th>Provider</th><th></th></tr></thead>
+      <tbody>
       <tr v-for="it in items" :key="it.id" data-test="recon-item">
         <td>{{ it.category }}</td>
         <td>{{ it.object_type }} <span class="muted">{{ (it.internal_id ?? it.external_ref ?? '').slice(0, 8) }}</span></td>
@@ -92,6 +93,7 @@ const money = (v: string | null) => (v === null ? '—' : formatMinor(v))
         <td>{{ it.external_status ?? '—' }} {{ money(it.external_amount) }}</td>
         <td><button v-for="a in itemActions(it)" :key="a" class="link" @click="open('item', it.id, a)">{{ a }}</button></td>
       </tr>
+      </tbody>
     </table>
   </div>
 
@@ -99,7 +101,8 @@ const money = (v: string | null) => (v === null ? '—' : formatMinor(v))
     <h2>Payout menggantung</h2>
     <p v-if="payouts.length === 0" class="muted">Tidak ada payout UNKNOWN/SUBMITTED.</p>
     <table v-else>
-      <tr><th>Payout</th><th>User</th><th>Nominal</th><th>Status</th><th></th></tr>
+      <thead><tr><th>Payout</th><th>User</th><th>Nominal</th><th>Status</th><th></th></tr></thead>
+      <tbody>
       <tr v-for="p in payouts" :key="p.id">
         <td class="muted">{{ p.id.slice(0, 8) }}</td><td>{{ p.user.email }}</td><td>{{ formatMinor(p.amount) }}</td><td>{{ p.status }}</td>
         <td>
@@ -107,6 +110,7 @@ const money = (v: string | null) => (v === null ? '—' : formatMinor(v))
           <button class="link" @click="open('payout', p.id, 'FAILED')">Tandai gagal</button>
         </td>
       </tr>
+      </tbody>
     </table>
   </div>
 
