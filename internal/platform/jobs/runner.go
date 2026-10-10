@@ -92,33 +92,52 @@ func (r *Runner) LastLoop() time.Time {
 func (r *Runner) MaxAttempts(kind string) int { return r.kinds[kind].MaxAttempts }
 
 // Run mengklaim dan mengerjakan job sampai ctx selesai, lalu menunggu job in-flight (graceful shutdown).
+//
+// Saat semua slot terpakai, loop menunggu sinyal "slot kosong" (bukan tidur selama interval). Ditemukan di
+// load test PayRun PR-1 (skeleton 0.0.11): tidur satu interval setiap kali kapasitas penuh membatasi
+// throughput ke ±concurrency job per interval berapa pun cepatnya job. Di LedgerPay itu berarti antrean
+// payout/webhook yang ramai diproses jauh di bawah kemampuan worker. Interval hanya dipakai kalau antrean
+// kosong (klaim mengembalikan lebih sedikit dari slot yang tersedia).
 func (r *Runner) Run(ctx context.Context, interval time.Duration) {
 	sem := make(chan struct{}, r.concurrency)
+	freed := make(chan struct{}, r.concurrency)
 	var wg sync.WaitGroup
 	log := observability.Logger(ctx)
 	for ctx.Err() == nil {
 		r.lastLoop.Store(time.Now().UnixNano()) //nolint:forbidigo // heartbeat teknis
 		free := r.concurrency - len(sem)
-		n := 0
-		if free > 0 { // jangan klaim melebihi kapasitas: lease bisa habis selagi job menunggu di memori
-			claimed, err := r.claim(ctx, free)
-			if err != nil && ctx.Err() == nil {
-				log.Error("jobs.claim_failed", "err", err.Error())
+		if free == 0 { // kapasitas penuh: tunggu satu job selesai (atau heartbeat readiness tiap interval)
+			select {
+			case <-ctx.Done():
+			case <-freed:
+			case <-time.After(interval):
 			}
-			n = len(claimed)
-			for _, j := range claimed {
-				sem <- struct{}{}
-				wg.Add(1)
-				go func() {
-					defer func() { <-sem; wg.Done() }()
-					r.process(ctx, j)
-				}()
-			}
-		}
-		if n > 0 {
 			continue
 		}
-		select {
+		// Jangan klaim melebihi kapasitas: lease bisa habis selagi job menunggu di memori.
+		claimed, err := r.claim(ctx, free)
+		if err != nil && ctx.Err() == nil {
+			log.Error("jobs.claim_failed", "err", err.Error())
+		}
+		for _, j := range claimed {
+			sem <- struct{}{}
+			wg.Add(1)
+			go func() {
+				defer func() {
+					<-sem
+					select { // non-blocking: loop yang sedang mengklaim akan melihat slot kosong di iterasi berikutnya
+					case freed <- struct{}{}:
+					default:
+					}
+					wg.Done()
+				}()
+				r.process(ctx, j)
+			}()
+		}
+		if len(claimed) == free {
+			continue // antrean mungkin masih berisi: klaim lagi begitu ada slot
+		}
+		select { // antrean kosong (atau klaim gagal): tunggu interval
 		case <-ctx.Done():
 		case <-time.After(interval):
 		}
