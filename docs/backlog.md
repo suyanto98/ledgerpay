@@ -12,11 +12,11 @@
 - [ ] Branch protection (menunggu remote GitHub)
 
 ## Sprint 1 — Foundation · 🏁 M1 ✅
-- [x] `go.mod` + `cmd/ledgerpay` (subcommand `api`, `migrate`, `healthcheck`; `worker`/`seed` saat dibutuhkan, S2/S6)
-- [x] `internal/platform/config` (env, fail fast)
-- [x] `internal/platform/db`: pool, `WithTx` + retry `40001`/`40P01`, pemetaan nama constraint → error, `testdb` (pola spike, role `ledgerpay_app`)
-- [x] `internal/platform/httpx`: chi, request ID, recover, slog JSON, RFC 9457, decoder strict, batas body
-- [x] `internal/platform/observability`: logger + redaction allowlist; health `/healthz` + `/readyz` (port internal, versi DB ≥ minimum)
+- [x] `go.mod` + `backend/cmd/ledgerpay` (subcommand `api`, `migrate`, `healthcheck`; `worker`/`seed` saat dibutuhkan, S2/S6)
+- [x] `backend/internal/platform/config` (env, fail fast)
+- [x] `backend/internal/platform/db`: pool, `WithTx` + retry `40001`/`40P01`, pemetaan nama constraint → error, `testdb` (pola spike, role `ledgerpay_app`)
+- [x] `backend/internal/platform/httpx`: chi, request ID, recover, slog JSON, RFC 9457, decoder strict, batas body
+- [x] `backend/internal/platform/observability`: logger + redaction allowlist; health `/healthz` + `/readyz` (port internal, versi DB ≥ minimum)
 - [x] Migrasi awal: schema, role `ledgerpay_owner`/`ledgerpay_app`, `users` (+ `role`), `refresh_tokens`, `audit_log`, `set_updated_at`, `forbid_update_delete`
 - [x] Auth: register, login (argon2id), `GET /me`; JWT HS256 + `kid`
 - [x] Catalogue test: setiap FK punya index (Step 12 C4)
@@ -42,7 +42,7 @@
 - [ ] Job terjadwal `ledger.verify` yang memanggil `ledger.Verify` dan mengisi metrik invariant (Sprint 6/7)
 
 ## Sprint 3 — Critical Business Logic · 🏁 M2 ✅
-- [x] Migrasi `idempotency_keys` + modul idempotency pola (a) (`internal/platform/idempotency`, SAVEPOINT untuk menyimpan 422)
+- [x] Migrasi `idempotency_keys` + modul idempotency pola (a) (`backend/internal/platform/idempotency`, SAVEPOINT untuk menyimpan 422)
 - [x] `POST /transfers`, `GET /transfers/{id}` dengan lock `ORDER BY id FOR NO KEY UPDATE`
 - [x] `lock_timeout` 2 dtk → `RESOURCE_BUSY` / `REQUEST_IN_PROGRESS`
 - [x] Harness concurrency (barrier, build tag `testhooks`); Demo A & B sebagai test otomatis + `make demo-a` / `make demo-b`
@@ -57,7 +57,7 @@
 
 ## Sprint 4 — Security ✅
 - [x] Refresh token: rotasi, reuse detection (revoke family + audit), grace 10 dtk, batas family 30 hari, logout, CSRF (`X-Requested-With` + cek `Origin`)
-- [x] Rate limiter in-memory per tier (`internal/platform/ratelimit`) + trusted proxy (`httpx.ClientIP`); lockout bertahap 1→15 menit; semaphore argon2 (4 paralel, antre 2 dtk → 503)
+- [x] Rate limiter in-memory per tier (`backend/internal/platform/ratelimit`) + trusted proxy (`httpx.ClientIP`); lockout bertahap 1→15 menit; semaphore argon2 (4 paralel, antre 2 dtk → 503)
 - [x] Security header middleware; audit `auth.login_failed` / `auth.refresh_reuse_detected` / `auth.logged_out`
 - [x] Merchant + API key (slot 1/2, SHA-256, prefix lookup, constant-time compare), endpoint ops create/revoke, middleware API key di `/merchant/*`; CLI `merchant-create`, `grant-ops`
 - [x] Payment intent: create (idempotent, `DUPLICATE_MERCHANT_ORDER` + `existing_resource_id`), GET merchant, GET user (capability URL), confirm (lock intent → wallet, guard status, expiry `now()` awal tx); fungsi sweeper `payment.ExpireDue`
@@ -76,11 +76,11 @@
 
 
 ## Sprint 5 — Testing ✅
-- [x] `mock-provider` (service terpisah, `cmd/mock-provider`): charges + idempotency, halaman checkout, webhook bertanda tangan, skenario global/per-request/magic amount, `/admin/*`
+- [x] `mock-provider` (service terpisah, `backend/cmd/mock-provider`): charges + idempotency, halaman checkout, webhook bertanda tangan, skenario global/per-request/magic amount, `/admin/*`
 - [x] Top-up `POST /topups` pola recovery point (idempotency `Reserve`/`Complete`), `GET /topups/{id}`
 - [x] `webhook_inbox` + endpoint (HMAC, window 5 menit, dedupe) + worker (claim dengan lease, fencing, transisi monoton, verify-by-fetch, backoff → DEAD); subcommand `ledgerpay worker`
 - [x] Test FS-03/04/06/07/10 + lease kedaluwarsa (`testhooks`), matriks traceability diperbarui
-- [x] Vue SPA minimal di `web/` (login/daftar, wallet, transfer, top-up) + Playwright E2E (`web/e2e`), job CI `frontend` dan `e2e`
+- [x] Vue SPA minimal di `frontend/` (login/daftar, wallet, transfer, top-up) + Playwright E2E (`frontend/e2e`), job CI `frontend` dan `e2e`
 - [x] `make demo-topup`, `make web`, `make web-check`, `make test-e2e`
 
 ## Catatan dari Sprint 5 (dibawa ke sprint berikutnya)
@@ -96,7 +96,7 @@
 - [x] Worker belum punya endpoint health/metrics (compose: healthcheck dimatikan) — selesai Sprint 7
 
 ## Sprint 6 — Background Processing ✅
-- [x] Job runner `internal/platform/jobs`: claim SKIP LOCKED + lease, heartbeat, backoff + jitter, dead + `OnDead` di tx yang sama, `CompleteInTx` dengan fencing, `Permanent`, panic recovery, lane (bulkhead), scheduler tanpa leader election
+- [x] Job runner `backend/internal/platform/jobs`: claim SKIP LOCKED + lease, heartbeat, backoff + jitter, dead + `OnDead` di tx yang sama, `CompleteInTx` dengan fencing, `Permanent`, panic recovery, lane (bulkhead), scheduler tanpa leader election
 - [x] Payout: migrasi `payouts` (rekening AES-GCM), `POST /payouts` (hold + outbox), `GET /payouts/{id}`, `payout.submit` (SUBMITTED dicommit sebelum bank), `payout.status_check` (30s…6h → `needs_reconciliation`), respons tak cocok → UNKNOWN, resubmit hanya setelah safe window
 - [x] Mock bank (`/v1/payouts`, status query, `/admin/transfers`, magic 0408/0409/0503/0422, `response_mismatch`)
 - [x] Sweeper terjadwal: `topup.recover`, `topup.expire_sweep` (cek provider dulu), `intent.expire_sweep` (+ webhook `payment.expired`), `ledger.verify`, cleanup jobs & idempotency
@@ -116,7 +116,7 @@
 - [ ] Konfigurasi webhook merchant hanya lewat CLI (belum ada rotasi secret dual-window, §6.2)
 
 ## Sprint 7 — Observability · M3 ✅
-- [x] Metrik Prometheus (`internal/platform/metrics`, registry sendiri): HTTP per route template, error per kode, rate limit, retry/deadlock/lock timeout DB, pool collector, job queue (depth, oldest, lag outbox, dead, fenced, lease lost), outbound per target, auth, idempotency, hasil bisnis (transfer/payment/topup/payout), inbox, webhook keluar
+- [x] Metrik Prometheus (`backend/internal/platform/metrics`, registry sendiri): HTTP per route template, error per kode, rate limit, retry/deadlock/lock timeout DB, pool collector, job queue (depth, oldest, lag outbox, dead, fenced, lease lost), outbound per target, auth, idempotency, hasil bisnis (transfer/payment/topup/payout), inbox, webhook keluar
 - [x] Gauge invarian ledger dari `ledger.verify` (drift akun, journal tidak seimbang, imbalance global, timestamp sukses); gauge payout `UNKNOWN` + umur tertua dari query DB (bukan counter per proses)
 - [x] Tracing OpenTelemetry → Jaeger: span HTTP bernama route template, span DB dengan nama query sqlc (tanpa SQL/parameter), outbound; `jobs.trace_parent` (migrasi 00007) → span job root baru dengan link ke request
 - [x] Worker ops server (`/healthz`, `/readyz` berbasis heartbeat lane, `/metrics`); healthcheck compose worker aktif lagi
@@ -185,7 +185,7 @@
 - [x] Dashboard *Integrity & Recon*, alert `ReconStale`/`ReconRunFailed`/`ReconItemsUnresolved` (+ test promtool), `docs/runbook.md` untuk semua 16 alert
 - [x] `TestTraceability_DocsReferenceExistingTests` + sinkronisasi katalog/matriks test dengan kode (rencana tanpa test ditulis jujur)
 - [x] Test baru: DB menolak saldo negatif, mode lock vs cek FK, request id → journal, BOLA transfer/top-up/payout, uang-selalu-string (runtime + OpenAPI), kill switch
-- [x] Cek invariant otomatis di akhir setiap test integrasi `internal/app`
+- [x] Cek invariant otomatis di akhir setiap test integrasi `backend/internal/app`
 - [x] Kill switch env (`LP_PAYOUT_SUBMIT_ENABLED`, `LP_WEBHOOK_DELIVERY_ENABLED`, `LP_TOPUP_ENABLED`)
 - [x] Keamanan: govulncheck (Go 1.26.6, `moby/go-archive` v0.3.0 → 0 kerentanan terpanggil), gitleaks seluruh history (k6 `setup_data` dibuang), job CI `security`, Dependabot, image Go di-pin
 - [x] `make demo-verify` dengan asersi; `docs/demo-script.md`, `docs/dod-audit.md`, `make api-docs`, `make cover`, README final

@@ -20,7 +20,7 @@ go.work.sum
 
 # Node / web
 node_modules/
-web/dist/
+frontend/dist/
 .vite/
 playwright-report/
 test-results/

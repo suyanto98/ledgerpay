@@ -65,12 +65,12 @@ demo-verify: ## Semua demo headless (nightly CI); berhenti di kegagalan pertama
 	  && ./scripts/demo/topup.sh && ./scripts/demo/ops.sh && ./scripts/demo/d_reconciliation.sh \
 	  && ./scripts/demo/c_payout_recovery.sh
 
-api-docs: ## Dokumentasi API statis dari api/openapi.yaml → build/api.html
-	mkdir -p build && npx --yes @redocly/cli@1 build-docs api/openapi.yaml -o build/api.html
+api-docs: ## Dokumentasi API statis dari backend/api/openapi.yaml → build/api.html
+	mkdir -p build && cd backend && npx --yes @redocly/cli@1 build-docs api/openapi.yaml -o ../build/api.html
 
 cover: ## Laporan coverage (indikatif, bukan gate) → build/coverage.html
-	mkdir -p build && go test -tags testhooks -coverprofile=build/coverage.out ./internal/... >/dev/null && \
-	  go tool cover -func=build/coverage.out | tail -1 && go tool cover -html=build/coverage.out -o build/coverage.html
+	mkdir -p build && cd backend && go test -tags testhooks -coverprofile=../build/coverage.out ./internal/... >/dev/null && \
+	  go tool cover -func=../build/coverage.out | tail -1 && go tool cover -html=../build/coverage.out -o ../build/coverage.html
 
 # ------------------------------------------------------------------ perf (docs/design/23-performance-plan.md)
 PERF = docker compose -p ledgerpay-perf -f deploy/compose.yml -f deploy/perf/compose.perf.yml
@@ -89,16 +89,16 @@ perf-down: ## Hentikan perf env DAN hapus datanya
 
 # ------------------------------------------------------------------ build & test
 build: ## Build binary ke bin/ledgerpay
-	CGO_ENABLED=0 go build -trimpath -o bin/ledgerpay ./cmd/ledgerpay
+	cd backend && CGO_ENABLED=0 go build -trimpath -o ../bin/ledgerpay ./cmd/ledgerpay
 
 test: ## Unit test (tanpa Docker), dengan race detector
-	go test -race -short ./...
+	cd backend && go test -race -short ./...
 
 test-integration: ## Integration test (butuh Docker), termasuk test interleaving (build tag testhooks)
-	go test -race -count=1 -tags testhooks ./...
+	cd backend && go test -race -count=1 -tags testhooks ./...
 
 test-concurrency: ## Ulangi test concurrency 20× untuk mendeteksi flaky (sebelum merge, roadmap S3)
-	go test -race -count=20 -tags testhooks -run 'Concurrent|Deadlock|Idempotency|LockTimeout|Naive|Confirm|Parallel|LeaseExpired|CommitOutcome|ConnectionDrop|Payout|JobRunner|MerchantWebhook' ./internal/app/ ./internal/modules/transfer/ ./internal/platform/jobs/
+	cd backend && go test -race -count=20 -tags testhooks -run 'Concurrent|Deadlock|Idempotency|LockTimeout|Naive|Confirm|Parallel|LeaseExpired|CommitOutcome|ConnectionDrop|Payout|JobRunner|MerchantWebhook' ./internal/app/ ./internal/modules/transfer/ ./internal/platform/jobs/
 
 # ------------------------------------------------------------------ observability
 up-obs: ## Stack + Prometheus/Pushgateway/Grafana/Jaeger (Grafana http://localhost:3000, Jaeger http://localhost:16686)
@@ -113,31 +113,31 @@ test-alerts: ## Validasi + unit test alert rules Prometheus (promtool)
 
 # ------------------------------------------------------------------ frontend
 web: ## Jalankan Vue SPA (Vite) di http://localhost:5173, /api di-proxy ke LP_HTTP_PORT
-	cd web && yarn install --frozen-lockfile && yarn dev
+	cd frontend && yarn install --frozen-lockfile && yarn dev
 
 web-check: ## Typecheck + unit test + build frontend
-	cd web && yarn install --frozen-lockfile && yarn typecheck && yarn test:unit && yarn build
+	cd frontend && yarn install --frozen-lockfile && yarn typecheck && yarn test:unit && yarn build
 
 test-e2e: ## Playwright E2E (stack harus jalan: make up)
-	cd web && yarn install --frozen-lockfile && yarn e2e
+	cd frontend && yarn install --frozen-lockfile && yarn e2e
 
 # ------------------------------------------------------------------ lint & codegen
 lint: lint-go lint-api lint-actions lint-shell ## Semua lint
 
 lint-go: ## golangci-lint (gosec, depguard, ...)
-	golangci-lint run ./...
+	cd backend && golangci-lint run ./...
 
 lint-shell: ## shellcheck semua skrip (deploy + demo)
 	docker run --rm -v "$$PWD:/w:ro" -w /w koalaman/shellcheck:stable -x -S warning scripts/*.sh scripts/demo/*.sh deploy/prod/*.sh deploy/backup/*.sh
 
 lint-api: ## Lint kontrak OpenAPI
-	$(REDOCLY) lint api/openapi.yaml
+	cd backend && $(REDOCLY) lint api/openapi.yaml
 
 lint-actions: ## Lint workflow GitHub Actions
 	actionlint
 
 gen: ## Generate kode dari SQL (sqlc)
-	sqlc generate
+	cd backend && sqlc generate
 
 gen-check: gen ## Pastikan kode hasil generate sudah di-commit (dipakai CI)
-	git diff --exit-code -- internal/
+	git diff --exit-code -- backend/internal/

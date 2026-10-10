@@ -84,7 +84,7 @@ Full list with tests: [traceability matrix](docs/design/22-testing-strategy.md#5
 
 ## Run it
 
-Requirements: Go (toolchain from `go.mod`), Docker with Compose, Node 22 + Yarn (SPA), `jq`.
+Requirements: Go (toolchain from `backend/go.mod`), Docker with Compose, Node 22 + Yarn (SPA), `jq`. Layout: Go module in `backend/`, Vue SPA in `frontend/`; run `make` targets from the repo root, plain `go` commands from `backend/`.
 
 ```bash
 make up                 # postgres + migrations + api + worker + mock-provider (LP_HTTP_PORT=18080 if 8080 is taken)
@@ -182,19 +182,21 @@ Threat model: [docs/design/16-security-threat-model.md](docs/design/16-security-
 ## Project structure
 
 ```text
-cmd/ledgerpay        api · worker · migrate · admin CLI (one binary)
-cmd/mock-provider    mock payment gateway + bank
-internal/modules     identity · ledger · wallet · transfer · merchant · payment · topup · inbox · payout · webhookout · ops
-internal/platform    db · idempotency · jobs · auth · ratelimit · egress · crypto · metrics · tracing · …
-db/migrations        goose migrations (embedded)
-web/                 Vue SPA + Playwright
-deploy/              compose (dev + prod), Caddy, backup image, Prometheus rules, Grafana dashboards, VM scripts
-docs/                ADRs, design documents, backlog
+backend/                   Go module (go.mod, sqlc.yaml, .golangci.yml)
+  cmd/ledgerpay            api · worker · migrate · admin CLI (one binary)
+  cmd/mock-provider        mock payment gateway + bank
+  internal/modules         identity · ledger · wallet · transfer · merchant · payment · topup · inbox · payout · webhookout · ops
+  internal/platform        db · idempotency · jobs · auth · ratelimit · egress · crypto · metrics · tracing · …
+  db/migrations            goose migrations (embedded)
+  api/                     openapi.yaml
+frontend/                  Vue SPA + Playwright
+deploy/                    compose (dev + prod), Caddy, backup image, Prometheus rules, Grafana dashboards, VM scripts
+docs/                      ADRs, design documents, backlog
 ```
 
 ## Docs
 
-[Design documents](docs/design/) · [ADRs](docs/adr/) · [OpenAPI](api/openapi.yaml) (`make api-docs` for HTML) · [Demo script](docs/demo-script.md) · [Runbook](docs/runbook.md) · [Performance](docs/performance.md) · [DoD audit](docs/dod-audit.md) · [Backlog](docs/backlog.md)
+[Design documents](docs/design/) · [ADRs](docs/adr/) · [OpenAPI](backend/api/openapi.yaml) (`make api-docs` for HTML) · [Demo script](docs/demo-script.md) · [Runbook](docs/runbook.md) · [Performance](docs/performance.md) · [DoD audit](docs/dod-audit.md) · [Backlog](docs/backlog.md)
 
 ## License
 

@@ -6,7 +6,8 @@
 
 FROM golang:1.26.6-alpine AS build
 WORKDIR /src
-COPY . .
+# Context = akar repo; hanya Go module (backend/) yang masuk ke stage build.
+COPY backend/ .
 ARG VERSION=dev
 # BUILD_TAGS=demo → image demo (endpoint /api/v1/demo/* + titik fault + migrasi demo, O15). Image
 # release dibangun TANPA tag: kode demo tidak ada di binary-nya (TestBuild_DemoEndpointsAbsentWithoutDemoMode).

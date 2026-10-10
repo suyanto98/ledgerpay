@@ -1,5 +1,7 @@
 # LedgerPay — Documentation
 
+> **Layout (2026-10-10):** Go module in `backend/` (`cmd/`, `internal/`, `db/`, `api/`), Vue SPA in `frontend/` (same convention as PayRun). Design documents written earlier refer to the old top-level paths (`internal/…`, `web/…`); read them as `backend/internal/…` and `frontend/…`.
+
 Design documents were written before coding, step by step (product → architecture → domain → database → API → security → transactions → observability/testing → DevOps → roadmap → final review). This folder contains the subset relevant to LedgerPay.
 
 > **Living docs.** If implementation proves a design wrong, the PR that changes behaviour also updates the doc or adds an ADR amendment.

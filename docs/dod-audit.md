@@ -30,7 +30,7 @@ ditandai sebagian dengan alasan. Yang tersisa terutama membutuhkan environment p
 | P3 | P2/P3 didaftar eksplisit | ✅ | README "Deliberately not built" |
 | P4 | Tidak ada fitur di luar matrix tanpa catatan | ✅ | Tambahan di luar matrix tercatat: demo mode (O15), kill switch (§4.3 desain), seed perf, `GET /ops/webhook-deliveries`, `GET /ops/payouts/{id}` (backlog/ADR) |
 | C1 | Setiap LI-01…LI-15 punya test | ✅ | Matriks §5.1, dijaga `TestTraceability_DocsReferenceExistingTests` |
-| C2 | Invariant checker di `t.Cleanup` | ✅ | Semua test `internal/app` (cek otomatis + `allowBrokenLedger` hanya untuk test drift); package ledger memanggil `assertInvariants` |
+| C2 | Invariant checker di `t.Cleanup` | ✅ | Semua test `backend/internal/app` (cek otomatis + `allowBrokenLedger` hanya untuk test drift); package ledger memanggil `assertInvariants` |
 | C3 | Metrik INV = 0 selama 7 hari di env demo | ⏳ | Butuh env demo yang hidup 7 hari. Alert + dashboard siap |
 | C5 | Property test 1 juta iterasi di nightly | ⚠️ | Job `property-long` (1 juta iterasi, journal seimbang) ditulis; property berbasis DB tetap iterasi kecil di CI biasa. Belum pernah berjalan di GitHub |
 | V1 | Validasi strict | ✅ | `TestIdentity_RegisterRejectsUnknownFields`, batas body `TestHTTP_UnsupportedMediaTypeAndBodyLimit` |

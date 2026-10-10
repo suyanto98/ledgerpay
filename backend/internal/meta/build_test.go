@@ -20,7 +20,7 @@ func symbols(t *testing.T, tags string) string {
 	}
 	args = append(args, "./cmd/ledgerpay")
 	build := exec.CommandContext(t.Context(), "go", args...)
-	build.Dir = repoRoot(t)
+	build.Dir = moduleRoot(t)
 	build.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("go build -tags %q: %v\n%s", tags, err, out)
@@ -32,13 +32,20 @@ func symbols(t *testing.T, tags string) string {
 	return string(out)
 }
 
-func repoRoot(t *testing.T) string {
+// moduleRoot: folder Go module (backend/): go build, api/, internal/.
+func moduleRoot(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
 	}
 	return root
+}
+
+// repoRoot: akar repo (README, docs/, deploy/, perf/, frontend/).
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	return filepath.Dir(moduleRoot(t))
 }
 
 // TestBuild_DemoEndpointsAbsentWithoutDemoMode (docs/design/24-docker-compose.md §9): kode endpoint demo
@@ -77,7 +84,7 @@ func TestBuild_NoTesthooksInRelease(t *testing.T) {
 // TestOpenAPI_MoneyFieldsUseMoneySchema (LI-11): di kontrak, setiap field uang memakai schema Money
 // (string minor unit), bukan integer/number.
 func TestOpenAPI_MoneyFieldsUseMoneySchema(t *testing.T) {
-	spec := read(t, repoRoot(t), "api/openapi.yaml")
+	spec := read(t, moduleRoot(t), "api/openapi.yaml")
 	field := regexp.MustCompile(`^\s+(amount|balance|[a-z_]+_amount):\s*(.*)$`)
 	checked := 0
 	lines := strings.Split(spec, "\n")
