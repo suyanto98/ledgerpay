@@ -11,6 +11,7 @@ import (
 // Seed perf memakai COPY dengan trigger dimatikan, jadi gate invariant WAJIB lolos lewat role aplikasi;
 // saldo tidak boleh negatif (seed menghormati LI-02); seed ke DB yang sudah berisi ditolak.
 func TestSeed_SmallProfilePassesGate(t *testing.T) {
+	dbtest.SkipIfShort(t)
 	d := dbtest.New(t)
 	ctx := context.Background()
 	p := app.SeedProfile{Name: "test", Users: 300, Merchants: 5, Journals: 3_000}
