@@ -9,7 +9,7 @@ useDefault = true
 [[allowlists]]
 description = "expired dev-key JWTs in k6 summaries committed in Sprint 9"
 condition = "AND"
-commits = ["e4c3e00160bc1ab3f7209298ca5dc3546cb3e706"]
+commits = ["f7db4a22c980a4097f9c850ab6157917599056f0"]
 paths = ['''perf/results/.*/k6-summary\.json''']
 
 # Idempotency-Key bukan rahasia (dikirim client sebagai pengenal niat); contoh nilainya ada di test/dokumen.
