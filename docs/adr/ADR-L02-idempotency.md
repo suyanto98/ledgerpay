@@ -25,8 +25,8 @@ Pertanyaan yang harus dijawab desain:
 
 **Opsi C**, dengan dua pola.
 
-### Skema (ringkas; final di Step 4)
-`idempotency_keys(id, client_type, client_id, endpoint, key, request_hash, response_status, response_body, resource_type, resource_id, created_at, expires_at)`, `uq_idempotency_keys_scope UNIQUE (client_type, client_id, endpoint, key)` (final di Step 4 `01-shared-tables.md`).
+### Skema (ringkas; final di desain database)
+`idempotency_keys(id, client_type, client_id, endpoint, key, request_hash, response_status, response_body, resource_type, resource_id, created_at, expires_at)`, `uq_idempotency_keys_scope UNIQUE (client_type, client_id, endpoint, key)` (final di `07-db-shared-tables.md`).
 
 - `client_id` = user ID (JWT) atau merchant ID (API key). Key milik client A tidak pernah bentrok dengan client B.
 - `request_hash` = SHA-256 dari `method + path + canonical JSON body` (key diurutkan, whitespace dihilangkan).

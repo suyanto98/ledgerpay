@@ -68,7 +68,7 @@ ditandai sebagian dengan alasan. Yang tersisa terutama membutuhkan environment p
 | OP6 | Kill switch | ✅ | `TestKillSwitch_PayoutSubmitAndTopup` (`LP_PAYOUT_SUBMIT_ENABLED`, `LP_WEBHOOK_DELIVERY_ENABLED`, `LP_TOPUP_ENABLED`) |
 | PF1 | Laporan baseline jujur | ✅ | `docs/performance.md` (laptop, dengan batasan) |
 | PF2 | Keputusan E-1 | ✅ | Laporan + ADR-L07 |
-| PF3 | Perf smoke nightly | ⏳ | Ditunda setelah M4 (amandemen Step 12) |
+| PF3 | Perf smoke nightly | ⏳ | Ditunda setelah M4 (amandemen final review) |
 | DC1 | README lengkap | ✅ | README |
 | DC2 | ADR mutakhir | ✅ | Catatan implementasi di ADR-006, ADR-013, ADR-L06, ADR-L07 + catatan di dokumen desain |
 | DC3 | Diagram arsitektur | ✅ | README (mermaid) + `docs/design/03-architecture.md` |

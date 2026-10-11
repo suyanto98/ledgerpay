@@ -1,6 +1,6 @@
-# Step 3.3 — LedgerPay: Failure Scenarios
+# LedgerPay: Failure Scenarios
 
-> Referensi: glosarium & ID invariant di [`00-index.md`](00-index.md); ADR-L02 (idempotency), ADR-L03 (locking), ADR-L05 (mock provider), ADR-L06 (payout), ADR-L08 (inbox), ADR-006 (job runner), ADR-011 (transaksi).
+> Referensi: glosarium & ID invariant di `00-index.md`; ADR-L02 (idempotency), ADR-L03 (locking), ADR-L05 (mock provider), ADR-L06 (payout), ADR-L08 (inbox), ADR-006 (job runner), ADR-011 (transaksi).
 > Format setiap skenario: **Request → Failure → Detection → Handling → Recovery → Final State**.
 > Skenario dipicu secara deterministik lewat mock provider (`PUT /admin/scenario`, header `X-Mock-Scenario`, atau *magic values*) dan *fault injection* di test harness (kill proses, putus koneksi DB).
 
@@ -90,7 +90,7 @@ Timeline dengan desain final (ADR-L03):
 - Setelah DB pulih, readiness hijau dan traffic kembali. Job dengan lease kedaluwarsa diambil ulang (ADR-006).
 
 **Invariant yang dijaga:** LI-05, LI-06, LI-01, LI-03.
-**Test:** chaos `TestTransfer_ConnectionDropBeforeCommit` dan `TestTransfer_CommitOutcomeUnknown` (memutus koneksi tepat setelah `COMMIT` lewat test hook; Toxiproxy **opsional, dihapus di Step 12 (S11)**) → retry client dengan key sama → 1 efek.
+**Test:** chaos `TestTransfer_ConnectionDropBeforeCommit` dan `TestTransfer_CommitOutcomeUnknown` (memutus koneksi tepat setelah `COMMIT` lewat test hook; Toxiproxy **opsional, dihapus di final review (S11)**) → retry client dengan key sama → 1 efek.
 
 ---
 
@@ -242,7 +242,7 @@ Timeline dengan desain final (ADR-L03):
 |---|---|---|---|---|
 | FS-01 Duplicate request | Unique `(client_type, client_id, endpoint, key)` + `request_hash` | Otomatis (replay) | LI-05, LI-06 | Integration |
 | FS-02 Concurrent payment | Row lock terurut + validasi setelah lock + `CHECK` | Otomatis (antre / 422 / retry `40P01`) | LI-02, LI-03, LI-08 | Concurrency |
-| FS-03 Database failure | Error koneksi / commit tidak diketahui; `/readyz` | Otomatis (retry client + replay) | LI-05, LI-06 | Chaos (test hook; Toxiproxy opsional, dihapus Step 12 S11) |
+| FS-03 Database failure | Error koneksi / commit tidak diketahui; `/readyz` | Otomatis (retry client + replay) | LI-05, LI-06 | Chaos (test hook; Toxiproxy opsional, dihapus final review S11) |
 | FS-04 API crash | Koneksi client putus; tx atomik | Otomatis (retry client + replay) | LI-05, LI-13 | Chaos (hook) |
 | FS-05 Provider timeout | HTTP timeout → `UNKNOWN` | Otomatis (status query), fallback manual (recon/ops) | LI-10, LI-07 | Integration (mock scenario) |
 | FS-06 Webhook duplicate | Unique inbox + guard status + unique journal source | Otomatis (no-op) | LI-09, LI-06 | Integration |

@@ -1,7 +1,7 @@
-# Step 2.1 — LedgerPay: Feature Matrix & Feature Specification
+# LedgerPay: Feature Matrix & Feature Specification
 
-> Referensi: [Step 1 LedgerPay](../step-01-product-and-system-strategy/01-ledgerpay.md) (workflow W1–W5, business rules BR1–BR10, challenges C1–C11).
-> Skala dan arti prioritas: lihat [`00-index.md`](00-index.md).
+> Referensi: [strategi produk LedgerPay](01-product-strategy.md) (workflow W1–W5, business rules BR1–BR10, challenges C1–C11).
+> Skala dan arti prioritas: lihat `00-index.md`.
 
 ---
 
@@ -26,9 +26,9 @@
 | LF-15 | Outbound webhook ke merchant (signed, retry, DLQ) | 4 | 4 | 5 | 4 | **P1** |
 | LF-16 | Refund (partial/full) | 4 | 3 | 4 | 3 | **P1** |
 | LF-17 | Reconciliation harian + antrean mismatch | 5 | 4 | 5 | 5 | **P1** |
-| LF-18 | Ops console (investigasi + resolusi ter-audit) | 4 | 3 | 4 | 4 | **P1** (rute `/ops/*` + role OPS minimal untuk API key merchant sudah P0 di S4; Step 12) |
+| LF-18 | Ops console (investigasi + resolusi ter-audit) | 4 | 3 | 4 | 4 | **P1** (rute `/ops/*` + role OPS minimal untuk API key merchant sudah P0 di S4; final review) |
 | LF-19 | Business-invariant metrics + dashboard | 3 | 3 | 5 | 4 | **P1** |
-| LF-20 | Rate limiting (login, endpoint uang, API key) | 3 | 2 | 5 | 2 | **P1** (dinaikkan dari P2 di Step 6: kontrol MVP C-07) |
+| LF-20 | Rate limiting (login, endpoint uang, API key) | 3 | 2 | 5 | 2 | **P1** (dinaikkan dari P2 di threat model: kontrol MVP C-07) |
 | LF-21 | Batas saldo & batas transaksi yang dapat dikonfigurasi | 3 | 2 | 3 | 2 | **P2** |
 | LF-22 | PIN transaksi / step-up auth | 3 | 3 | 4 | 2 | **P2** |
 | LF-23 | Fee transaksi (journal 3 kaki) | 3 | 3 | 3 | 2 | **P3** |
@@ -58,7 +58,7 @@
 ## 2. Feature Specification (P0 & P1)
 
 Format per fitur: **Tujuan · User story · Acceptance criteria · Business rules · Edge cases · Dependency · Bukti (test/demo)**.
-Detail tabel, endpoint, dan isolation level **tidak** ditulis di sini. Bagian itu masuk Step 4 (database), Step 5 (API), dan Step 7 (transaction).
+Detail tabel, endpoint, dan isolation level **tidak** ditulis di sini. Bagian itu masuk desain database (database), kontrak API (API), dan desain transaksi & concurrency (transaction).
 
 ---
 
@@ -75,7 +75,7 @@ Detail tabel, endpoint, dan isolation level **tidak** ditulis di sini. Bagian it
 5. Pesan error login tidak membedakan "email tidak ada" dari "password salah".
 
 **Business rules:** email unik (case-insensitive); password minimal 10 karakter.
-**Edge cases:** register paralel dengan email yang sama → satu berhasil, satu 409 (unique constraint); refresh paralel dari dua tab → satu berhasil, yang lain ditolak tanpa memicu false-positive reuse detection (grace window singkat, diputuskan di Step 6).
+**Edge cases:** register paralel dengan email yang sama → satu berhasil, satu 409 (unique constraint); refresh paralel dari dua tab → satu berhasil, yang lain ditolak tanpa memicu false-positive reuse detection (grace window singkat, diputuskan di threat model).
 **Dependency:** skeleton (DB, HTTP, config).
 **Bukti:** integration test rotasi dan reuse detection.
 
@@ -166,7 +166,7 @@ Detail tabel, endpoint, dan isolation level **tidak** ditulis di sini. Bagian it
 **Acceptance criteria**
 1. Service terpisah dengan API: buat sesi pembayaran (top-up), halaman checkout hosted, payout submit, payout status query, settlement report harian (CSV), dan admin skenario.
 2. Webhook ditandatangani HMAC-SHA256 + timestamp.
-3. Skenario yang bisa diinjeksi: `timeout_after_process`, `timeout_before_process`, `error_5xx`, `decline`, `webhook_duplicate:<n>`, `webhook_delay:<dur>`, `webhook_out_of_order`, `webhook_bad_signature`, `settlement_mismatch:<…>` (nama kanonik ADR-L05; daftar lengkap di Step 5 `03-ledgerpay-external-contracts.md` §1.7). Skenario bisa diatur per request (header `X-Mock-Scenario` dari test harness), lewat *magic values* (misalnya nomor rekening berakhiran `0408` memicu timeout; berguna untuk E2E yang lewat LedgerPay), atau global (admin toggle untuk demo).
+3. Skenario yang bisa diinjeksi: `timeout_after_process`, `timeout_before_process`, `error_5xx`, `decline`, `webhook_duplicate:<n>`, `webhook_delay:<dur>`, `webhook_out_of_order`, `webhook_bad_signature`, `settlement_mismatch:<…>` (nama kanonik ADR-L05; daftar lengkap di `14-api-external-contracts.md` §1.7). Skenario bisa diatur per request (header `X-Mock-Scenario` dari test harness), lewat *magic values* (misalnya nomor rekening berakhiran `0408` memicu timeout; berguna untuk E2E yang lewat LedgerPay), atau global (admin toggle untuk demo).
 4. Payout idempoten berdasarkan idempotency key dari LedgerPay (perilaku provider nyata).
 5. State mock disimpan (SQLite atau schema Postgres terpisah) sehingga status query dan settlement report konsisten.
 
@@ -191,7 +191,7 @@ Detail tabel, endpoint, dan isolation level **tidak** ditulis di sini. Bagian it
 **Business rules:** BR7, BR10.
 **Edge cases:** webhook datang **sebelum** response `POST /topups` diterima client; webhook untuk TopUp yang tidak dikenal → disimpan dan ditandai untuk investigasi, bukan dibuang.
 **Dependency:** LF-03, LF-05, LF-06, LF-08.
-**Bukti:** test failure scenario #6 dan #7 (Step 3).
+**Bukti:** test failure scenario #6 dan #7 (desain domain).
 
 ---
 
@@ -286,7 +286,7 @@ Detail tabel, endpoint, dan isolation level **tidak** ditulis di sini. Bagian it
 3. Request ID dikembalikan di header response dan di body error RFC 9457.
 4. Tidak ada token, password, atau API key di log (redaction diuji).
 
-Detail lengkap di Step 8 (Observability).
+Detail lengkap di desain observability & testing (Observability).
 
 ---
 
@@ -332,7 +332,7 @@ Detail lengkap di Step 8 (Observability).
 2. Matching berdasarkan provider reference: `MATCHED`, `MISSING_INTERNAL`, `MISSING_EXTERNAL`, `AMOUNT_MISMATCH`, `STATUS_MISMATCH`.
 3. Hasil per run tersimpan (jumlah per kategori, durasi). Mismatch masuk antrean investigasi.
 4. Recon run idempoten: menjalankan ulang untuk tanggal yang sama menghasilkan hasil yang sama (bukan duplikat).
-5. Transaksi di dekat batas hari (cut-off) ditangani dengan toleransi window (diputuskan di Step 3).
+5. Transaksi di dekat batas hari (cut-off) ditangani dengan toleransi window (diputuskan di desain domain).
 
 **Dependency:** LF-06, LF-07, LF-11. **Bukti:** **Demo D**.
 
@@ -356,7 +356,7 @@ Detail lengkap di Step 8 (Observability).
 1. Metrik minimal: `ledger_balance_drift_total`, `ledger_unbalanced_journal_total` (harus selalu 0), `payout_unknown_total` + umur tertua, `outbox_lag_seconds`, `job_dead_total`, `webhook_delivery_failure_total`, `recon_mismatch_total`, `idempotency_replay_total`, serta latency dan error rate per endpoint.
 2. Dashboard Grafana (di-provision dari file) dan aturan alert sederhana.
 
-Detail di Step 8.
+Detail di desain observability & testing.
 
 ---
 
@@ -375,4 +375,4 @@ Detail di Step 8.
 | Worker / server crash | LF-08, LF-11 |
 | Partial processing | LF-05 (recovery point), LF-08 |
 
-> 10 failure scenario lengkap (Request → Failure → Detection → Handling → Recovery → Final State) dikerjakan di **Step 3**.
+> 10 failure scenario lengkap (Request → Failure → Detection → Handling → Recovery → Final State) dikerjakan di **Desain domain**.

@@ -24,7 +24,7 @@ Ada tiga jenis client: SPA Vue (kedua project), server merchant (LedgerPay, mach
 | Idempotency | Header `Idempotency-Key` wajib untuk endpoint yang mengubah uang/state penting. Semantik lengkap ada di [ADR-L02](ADR-L02-idempotency.md) (dan ADR-P05 untuk payroll run). Response replay memakai header `Idempotent-Replayed: true` |
 | Pagination | **Cursor-based** (`?limit=50&cursor=<opaque>`), cursor = encode `(created_at, id)` |
 | Tracing | Header `X-Request-ID` diterima/di-generate dan dikembalikan |
-| Uang di JSON | **Selalu string**, tidak pernah JSON number: LedgerPay `"amount": "5000000"` (minor unit, [ADR-L04](ADR-L04-money-representation.md)); PayRun `"amount": "4250000.00"` (decimal, [ADR-P06](ADR-P06-decimal-rounding.md)). Alasannya: JavaScript number kehilangan presisi di atas 2^53, dan float tidak boleh menyentuh uang |
+| Uang di JSON | **Selalu string**, tidak pernah JSON number: LedgerPay `"amount": "5000000"` (minor unit, [ADR-L04](ADR-L04-money-representation.md)); PayRun `"amount": "4250000.00"` (decimal, ADR-P06). Alasannya: JavaScript number kehilangan presisi di atas 2^53, dan float tidak boleh menyentuh uang |
 | 404 vs 403 | Resource yang tidak boleh *diketahui* user → 404; resource yang terlihat tetapi aksinya tidak diizinkan → 403 ([ADR-010](ADR-010-authorization.md)) |
 
 Contoh error:
@@ -42,9 +42,9 @@ Contoh error:
 
 ## Reason
 
-- Demo (Step 1 Demo A/B) dijalankan dengan curl/k6. REST membuatnya bisa dibaca di layar.
+- Demo (strategi produk Demo A/B) dijalankan dengan curl/k6. REST membuatnya bisa dibaca di layar.
 - Merchant persona (Budi) mengharapkan pola API seperti PG nyata.
-- Spec-first memaksa desain kontrak terjadi **sebelum** coding (Step 5), sesuai keinginan user, dan mencegah drift.
+- Spec-first memaksa desain kontrak terjadi **sebelum** coding (kontrak API), sesuai keinginan user, dan mencegah drift.
 - `code` yang stabil memisahkan pesan untuk manusia dari logika client.
 - **Cursor vs offset:** riwayat transaksi terus bertambah. Offset menjadi lambat (`OFFSET 100000` tetap memindai baris) dan tidak stabil (baris baru menggeser halaman sehingga ada item dobel/terlewat). Cursor pada index `(created_at, id)` konstan dan stabil.
 

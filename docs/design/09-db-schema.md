@@ -1,8 +1,8 @@
-# Step 4.3 — LedgerPay: Spesifikasi Skema
+# LedgerPay: Spesifikasi Skema
 
-> Bagian dari [Step 4 — Database Design](00-index.md). ERD dan keputusan pemodelan D1–D8: [`02-ledgerpay-erd.md`](02-ledgerpay-erd.md).
+> Bagian dari desain database — Database Design. ERD dan keputusan pemodelan D1–D8: [`08-db-erd.md`](08-db-erd.md).
 > Schema `ledgerpay`. Semua tabel di bawah dimiliki `ledgerpay_owner`. Kolom **Grant** menyebut hak `ledgerpay_app`.
-> Tabel shared (`users`, `refresh_tokens`, `idempotency_keys`, `jobs`, `audit_log`): lihat [`01-shared-tables.md`](01-shared-tables.md). Kebutuhan khusus LedgerPay atas tabel shared ada di §0.
+> Tabel shared (`users`, `refresh_tokens`, `idempotency_keys`, `jobs`, `audit_log`): lihat [`07-db-shared-tables.md`](07-db-shared-tables.md). Kebutuhan khusus LedgerPay atas tabel shared ada di §0.
 
 Notasi kolom: **N** = nullable (✓ = boleh NULL). Default `now()` selalu `timestamptz`.
 
@@ -14,7 +14,7 @@ Notasi kolom: **N** = nullable (✓ = boleh NULL). Default `now()` selalu `times
 |---|---|
 | `users` | Kolom tambahan `role text NOT NULL DEFAULT 'USER'` + `ck_users_role CHECK (role IN ('USER','OPS'))` (D4). Akun OPS hanya dibuat oleh seed |
 | `idempotency_keys` | `client_id` = user_id atau merchant_id; `recovery_point` dipakai pola (b) ADR-L02 untuk `POST /topups`. Tanpa FK masuk dari `journals` (D6) |
-| `jobs` | Kind LedgerPay: `payout.submit`, `payout.status_check`, `webhook.deliver`, `topup.expire_sweep`, `intent.expire_sweep`, `topup.recover` (recovery point `CREATED` yang tertinggal), `ledger.verify`, `recon.run`, `maintenance.*` (cleanup), `notify.send` (P3) — katalog kanonik di Step 7 `03-background-processing.md` |
+| `jobs` | Kind LedgerPay: `payout.submit`, `payout.status_check`, `webhook.deliver`, `topup.expire_sweep`, `intent.expire_sweep`, `topup.recover` (recovery point `CREATED` yang tertinggal), `ledger.verify`, `recon.run`, `maintenance.*` (cleanup), `notify.send` (P3) — katalog kanonik di `20-background-jobs.md` |
 | `audit_log` | Tanpa `tenant_id` (LedgerPay tidak multi-tenant). `actor_type` mencakup `USER`, `MERCHANT`, `OPS`, `SYSTEM` |
 
 ---
@@ -155,7 +155,7 @@ Saldo wallet (normal kredit) = Σ kredit − Σ debit. Nilai ini yang disimpan d
 | Kolom | Tipe | N | Default | Fungsi |
 |---|---|---|---|---|
 | `id` | `uuid` | | | PK |
-| `purpose` | `text` | | | `JournalPurpose` (Step 3 §6) |
+| `purpose` | `text` | | | `JournalPurpose` (desain domain §6) |
 | `source_type` | `text` | | | Jenis objek bisnis sumber |
 | `source_id` | `uuid` | | | ID objek bisnis (tanpa FK, D5) |
 | `currency` | `char(3)` | | | Semua entry wajib currency ini (composite FK) |
@@ -182,7 +182,7 @@ Saldo wallet (normal kredit) = Σ kredit − Σ debit. Nilai ini yang disimpan d
     (purpose = 'PAYMENT'             AND source_type = 'payment_intent') OR
     (purpose = 'REFUND'              AND source_type = 'refund') OR
     (purpose IN ('PAYOUT_HOLD','PAYOUT_SETTLE','PAYOUT_REVERSAL') AND source_type = 'payout') OR
-    (purpose = 'PROVIDER_SETTLEMENT' AND source_type = 'provider_settlement') OR  -- source_id = topup_id (Step 12 R1-5)
+    (purpose = 'PROVIDER_SETTLEMENT' AND source_type = 'provider_settlement') OR  -- source_id = topup_id (final review R1-5)
     (purpose = 'ADJUSTMENT_MANUAL'   AND source_type = 'ops_action')
   )
   ```
@@ -285,7 +285,7 @@ Catatan:
 | `amount` | `bigint` | | | Minor unit |
 | `currency` | `char(3)` | | | |
 | `note` | `text` | ✓ | | Catatan user (≤ 140 karakter) |
-| `status` | `text` | | `'COMPLETED'` | Satu-satunya status (Step 3 glosarium) |
+| `status` | `text` | | `'COMPLETED'` | Satu-satunya status (desain domain glosarium) |
 | `journal_id` | `uuid` | | | Journal `TRANSFER` |
 | `idempotency_key_id` | `uuid` | | | Referensi longgar (D6) |
 | `created_at` | `timestamptz` | | `now()` | |
@@ -348,7 +348,7 @@ Transfer yang gagal tidak membuat baris. Respons error-nya disimpan di `idempote
 - `ix_topups_user_created (user_id, created_at, id)`: daftar top-up user (riwayat yang menampilkan `PENDING`, yang belum punya journal).
 - `ix_topups_provider_created (provider, created_at)`: recon memuat sisi internal per rentang tanggal.
 
-**Trigger:** `updated_at`; trigger guard status terminal (opsional, Step 3 LI-07): menolak UPDATE yang mengubah `status` dari `SUCCEEDED` atau `FAILED`.
+**Trigger:** `updated_at`; trigger guard status terminal (opsional, desain domain LI-07): menolak UPDATE yang mengubah `status` dari `SUCCEEDED` atau `FAILED`.
 **Grant:** `SELECT, INSERT, UPDATE`.
 
 ---
@@ -589,12 +589,12 @@ Grant: `SELECT, INSERT, UPDATE`.
 | `resolution_action` | `text` | ✓ | | Contoh: `APPLIED_PAYOUT_SETTLE`, `REPLAYED_INBOX`, `NO_ACTION_TIMING` |
 | `resolution_note` | `text` | ✓ | | Alasan ops |
 | `resolved_by` / `resolved_at` | `uuid` / `timestamptz` | ✓ | | |
-| `settlement_journal_id` | `uuid` | ✓ | | Journal `PROVIDER_SETTLEMENT` (item settlement top-up `MATCHED`). Journal di-dedupe per top-up (`source = ('provider_settlement', topup_id)`, Step 12 R1-5); item dari recon ulang merujuk journal yang sudah ada |
+| `settlement_journal_id` | `uuid` | ✓ | | Journal `PROVIDER_SETTLEMENT` (item settlement top-up `MATCHED`). Journal di-dedupe per top-up (`source = ('provider_settlement', topup_id)`, final review R1-5); item dari recon ulang merujuk journal yang sudah ada |
 | `created_at` / `updated_at` | `timestamptz` | | `now()` | |
 
 **Constraint**
 - `pk_recon_items PRIMARY KEY (id)`
-- FK `recon_run_id → recon_runs`, `inbox_event_id → webhook_inbox`, `settlement_journal_id → journals`; index `ix_recon_items_settlement_journal (settlement_journal_id)` (tidak unik: recon ulang bisa merujuk journal yang sama, Step 12 R1-5)
+- FK `recon_run_id → recon_runs`, `inbox_event_id → webhook_inbox`, `settlement_journal_id → journals`; index `ix_recon_items_settlement_journal (settlement_journal_id)` (tidak unik: recon ulang bisa merujuk journal yang sama, final review R1-5)
 - `ck_recon_items_source CHECK ((source = 'SETTLEMENT' AND recon_run_id IS NOT NULL) OR (source = 'WEBHOOK' AND recon_run_id IS NULL AND inbox_event_id IS NOT NULL))`
 - `ck_recon_items_category CHECK (category IN ('MATCHED','MISSING_INTERNAL','MISSING_EXTERNAL','AMOUNT_MISMATCH','STATUS_MISMATCH'))`
 - `ck_recon_items_object_type CHECK (object_type IN ('topup','payout'))`

@@ -2,7 +2,6 @@
 
 Desain mobile (390×844) untuk SPA Vue, belum diimplementasikan.
 
-- Canvas (versi online, bisa diklik/Play): (tidak dipublikasikan)
 - File `.dc.html` di folder ini adalah salinan sumber tiap layar.
 
 ## Design tokens

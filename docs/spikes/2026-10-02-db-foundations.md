@@ -7,12 +7,12 @@
 
 | # | Asumsi desain | Sumber | Hasil |
 |---|---|---|---|
-| 1 | Test integration bisa memakai Postgres sungguhan dengan satu DB per test hasil clone `TEMPLATE`, < 1 dtk per test | Step 8 `02` §2 | ✅ **avg 14 ms, worst 22 ms** per clone (20 clone). Seluruh suite 6 test ± 3,7 dtk termasuk start container |
+| 1 | Test integration bisa memakai Postgres sungguhan dengan satu DB per test hasil clone `TEMPLATE`, < 1 dtk per test | `22-testing-strategy.md` §2 | ✅ **avg 14 ms, worst 22 ms** per clone (20 clone). Seluruh suite 6 test ± 3,7 dtk termasuk start container |
 | 2a | Deferred constraint trigger menolak journal tidak seimbang **saat COMMIT**, tetapi membiarkan INSERT satu per satu | ADR-L01, design `09` | ✅ setelah perbaikan bug (lihat di bawah). INSERT lolos, COMMIT gagal `23514 / ck_journals_balanced` |
 | 2a' | `CHECK (is_system OR balance >= 0)` menolak saldo negatif sebagai jaring terakhir | LI-02 | ✅ `23514 / ck_accounts_balance_non_negative` |
-| 2b | `FOR NO KEY UPDATE` pada akun **tidak** memblok INSERT `journal_entries` (cek FK = `KEY SHARE`), sedangkan `FOR UPDATE` **memblok** | ADR-L03 amandemen Step 7 | ✅ NO KEY: INSERT selesai ± 36 ms. FOR UPDATE: INSERT menunggu sampai `lock_timeout` → `55P03` |
+| 2b | `FOR NO KEY UPDATE` pada akun **tidak** memblok INSERT `journal_entries` (cek FK = `KEY SHARE`), sedangkan `FOR UPDATE` **memblok** | ADR-L03 amandemen desain transaksi & concurrency | ✅ NO KEY: INSERT selesai ± 36 ms. FOR UPDATE: INSERT menunggu sampai `lock_timeout` → `55P03` |
 
-## 🐞 Temuan: bug di trigger keseimbangan (design `09`, Step 4 `03`)
+## 🐞 Temuan: bug di trigger keseimbangan (design `09`, `09-db-schema.md`)
 
 Rancangan awal:
 ```sql
@@ -20,7 +20,7 @@ jid uuid := CASE TG_TABLE_NAME WHEN 'journals' THEN NEW.id ELSE NEW.journal_id E
 ```
 Saat trigger berjalan di tabel `journals`, PL/pgSQL tetap mengevaluasi `NEW.journal_id`, padahal kolom itu tidak ada di `journals`. Hasilnya `ERROR: record "new" has no field "journal_id"` (`42703`) untuk **setiap** journal, termasuk yang seimbang. Jadi trigger yang dimaksudkan sebagai jaring pengaman justru akan mematikan seluruh posting ledger.
 
-Perbaikan (sudah diterapkan di spike, design `09`, dan arsip Step 4 `03`):
+Perbaikan (sudah diterapkan di spike, design `09`, dan arsip `09-db-schema.md`):
 ```sql
 IF TG_TABLE_NAME = 'journals' THEN jid := NEW.id; ELSE jid := NEW.journal_id; END IF;
 ```

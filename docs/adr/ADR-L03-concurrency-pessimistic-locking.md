@@ -56,8 +56,8 @@ Aturan:
 
 Hasil yang diharapkan pada contoh di atas: Tx B menunggu di `FOR UPDATE` sampai A commit, lalu membaca saldo 30.000 dan ditolak dengan `INSUFFICIENT_BALANCE`.
 
-### Amandemen (Step 7): `FOR NO KEY UPDATE`
-Baris akun dikunci dengan **`FOR NO KEY UPDATE`**, bukan `FOR UPDATE`. Update saldo tidak mengubah kolom key, sedangkan INSERT `journal_entries` mengambil `KEY SHARE` pada akun lewat pemeriksaan FK. `FOR UPDATE` akan memblok `KEY SHARE` itu tanpa alasan, sementara `FOR NO KEY UPDATE` tidak. Semantik serialisasi antar transfer tetap sama, karena `NO KEY UPDATE` vs `NO KEY UPDATE` saling memblok. Detail di Step 7 `01-ledgerpay-transactions-concurrency.md` §4.
+### Amandemen (desain transaksi & concurrency): `FOR NO KEY UPDATE`
+Baris akun dikunci dengan **`FOR NO KEY UPDATE`**, bukan `FOR UPDATE`. Update saldo tidak mengubah kolom key, sedangkan INSERT `journal_entries` mengambil `KEY SHARE` pada akun lewat pemeriksaan FK. `FOR UPDATE` akan memblok `KEY SHARE` itu tanpa alasan, sementara `FOR NO KEY UPDATE` tidak. Semantik serialisasi antar transfer tetap sama, karena `NO KEY UPDATE` vs `NO KEY UPDATE` saling memblok. Detail di `19-tx-concurrency.md` §4.
 
 ### Catatan implementasi (Sprint 3)
 Fungsi tunggal untuk aturan 1 bernama `LockWalletAccounts` (query sqlc di `db/queries/ledger.sql`), dipanggil hanya dari `ledger.PostJournal`. Aturan 2 sempat dilanggar di Sprint 2: query lock ikut mengunci akun sistem. Pelanggaran itu ditemukan saat review Sprint 3, diperbaiki, dan dijaga oleh `TestLedger_SystemAccountNotLocked`.

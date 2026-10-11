@@ -1,7 +1,7 @@
-# Step 4.4 — LedgerPay: Consistency, Indexing, Growth & Mock-Provider DB
+# LedgerPay: Consistency, Indexing, Growth & Mock-Provider DB
 
-> Bagian dari [Step 4 — Database Design](00-index.md). Spesifikasi tabel: [`03-ledgerpay-schema.md`](03-ledgerpay-schema.md).
-> Angka volume = skenario uji (index §8), **bukan klaim kapasitas**. Rencana eksekusi (plan) di bawah adalah *ekspektasi* yang wajib diverifikasi dengan `EXPLAIN (ANALYZE, BUFFERS)` saat load test (Step 8/Phase 12).
+> Bagian dari desain database — Database Design. Spesifikasi tabel: [`09-db-schema.md`](09-db-schema.md).
+> Angka volume = skenario uji (index §8), **bukan klaim kapasitas**. Rencana eksekusi (plan) di bawah adalah *ekspektasi* yang wajib diverifikasi dengan `EXPLAIN (ANALYZE, BUFFERS)` saat load test (desain observability & testing/Phase 12).
 
 ---
 
@@ -32,11 +32,11 @@ Aturan praktis: **apa pun yang dipakai untuk memutuskan perpindahan uang dibaca 
 |---|---|---|---|---|---|
 | Q1 | Riwayat wallet (cursor, terbaru dulu) | `SELECT e.id, e.direction, e.amount, e.created_at, j.purpose, j.source_type, j.source_id FROM journal_entries e JOIN journals j ON j.id = e.journal_id WHERE e.account_id = $1 AND (e.created_at, e.id) < ($ts, $id) ORDER BY e.created_at DESC, e.id DESC LIMIT 51` | `ix_journal_entries_account_created (account_id, created_at, id)` | Index Scan Backward + Nested Loop ke `pk_journals` (51 lookup) | Cursor = `(created_at, id)`; `LIMIT n+1` untuk `has_more`. Waktu konstan berapa pun dalamnya halaman |
 | Q2 | Verifikasi saldo per akun (LI-03) | `SELECT account_id, sum(CASE direction WHEN 'C' THEN amount ELSE -amount END) FROM journal_entries WHERE account_id = ANY($touched) GROUP BY account_id` | sama (Q1) dengan `INCLUDE (direction, amount)` | **Index Only Scan** (heap tidak disentuh jika visibility map bersih) | Job `ledger.verify` hanya memeriksa akun yang **disentuh sejak watermark terakhir** (diambil dari entries `created_at > $watermark`), lalu menghitung Σ penuh akun-akun itu. Bandingkan dengan `accounts.balance` → metrik `ledger_balance_drift_total` |
-| Q3 | Claim job | (tabel shared) `… WHERE (status='queued' AND run_at <= now()) OR (status='running' AND locked_until < now()) … FOR UPDATE SKIP LOCKED` | Didefinisikan di `01-shared-tables.md` | — | — |
+| Q3 | Claim job | (tabel shared) `… WHERE (status='queued' AND run_at <= now()) OR (status='running' AND locked_until < now()) … FOR UPDATE SKIP LOCKED` | Didefinisikan di `07-db-shared-tables.md` | — | — |
 | Q4 | Claim inbox | `SELECT … FROM webhook_inbox WHERE status = 'RECEIVED' AND next_attempt_at <= now() ORDER BY next_attempt_at LIMIT $n FOR UPDATE SKIP LOCKED` | `ix_webhook_inbox_claimable (next_attempt_at) WHERE status = 'RECEIVED'` | Index Scan pada partial index kecil | Partial index hanya berisi baris yang belum diproses (biasanya puluhan baris), walaupun tabelnya berisi jutaan |
 | Q5 | Payout yang menunggu status check | Dijadwalkan oleh `jobs` (`payout.status_check`, `run_at`) | Index claim `jobs` | — | `payouts` tidak di-scan untuk penjadwalan (lihat 03 §11) |
 | Q6 | Payout `SUBMITTED` menggantung / umur `UNKNOWN` | `SELECT id, updated_at FROM payouts WHERE status = 'UNKNOWN' ORDER BY updated_at LIMIT 1` | `ix_payouts_unknown`, `ix_payouts_stuck_submitted` | Index Scan partial | Sumber metrik `payout_unknown_oldest_age_seconds` |
-| Q7 | Sweeper top-up kedaluwarsa | `SELECT id FROM topups WHERE status = 'PENDING' AND expires_at < now() ORDER BY expires_at LIMIT 100` | `ix_topups_expire_sweep` | Index Scan partial | Sweeper memanggil status query provider **sebelum** transisi (Step 3) |
+| Q7 | Sweeper top-up kedaluwarsa | `SELECT id FROM topups WHERE status = 'PENDING' AND expires_at < now() ORDER BY expires_at LIMIT 100` | `ix_topups_expire_sweep` | Index Scan partial | Sweeper memanggil status query provider **sebelum** transisi (desain domain) |
 | Q8 | Sweeper intent kedaluwarsa | `… FROM payment_intents WHERE status = 'REQUIRES_CONFIRMATION' AND expires_at < now() …` | `ix_payment_intents_expire_sweep` | Index Scan partial | Transisi dengan guard status |
 | Q9 | Recon: muat sisi internal untuk satu tanggal | `SELECT id, provider_ref, amount, status FROM topups WHERE provider = $p AND created_at >= $from AND created_at < $to` (+ toleransi cut-off ±1 jam) | `ix_topups_provider_created`; payout: `ix_payouts_created` | Index Range Scan | Dimuat ke memori per chunk, lalu di-join dengan baris CSV by `provider_ref`/`payout_id` |
 | Q10 | Recon: lookup satu referensi | `SELECT … FROM topups WHERE provider = $1 AND provider_ref = $2` | `uq_topups_provider_ref` | Index Scan unik | Untuk baris CSV yang tidak ketemu di rentang tanggal (event lintas hari) |
@@ -44,9 +44,9 @@ Aturan praktis: **apa pun yang dipakai untuk memutuskan perpindahan uang dibaca 
 | Q12 | Ops cari by provider ref / merchant order | `topups (provider, provider_ref)`; `payment_intents (merchant_id, merchant_order_id)` | `uq_topups_provider_ref`; `uq_payment_intents_merchant_order` | Index Scan | Pencarian merchant order wajib menyertakan merchant |
 | Q13 | Merchant me-list intent | `… FROM payment_intents WHERE merchant_id = $1 AND (created_at, id) < (…) ORDER BY created_at DESC, id DESC LIMIT 51` | `ix_payment_intents_merchant_created` | Index Scan Backward | Scoping BOLA (`merchant_id = $principal`) sekaligus memakai index |
 | Q14 | Journal sebuah objek bisnis | `SELECT … FROM journals WHERE source_type = $1 AND source_id = $2` | `uq_journals_source` (prefix) | Index Scan | Dipakai detail transaksi & ops timeline |
-| Q15 | Cleanup idempotency kedaluwarsa | (shared) `DELETE … WHERE expires_at < now()` dalam batch | Didefinisikan di `01-shared-tables.md` | — | Batch kecil (mis. 5.000 baris) agar tidak menahan lock lama |
+| Q15 | Cleanup idempotency kedaluwarsa | (shared) `DELETE … WHERE expires_at < now()` dalam batch | Didefinisikan di `07-db-shared-tables.md` | — | Batch kecil (mis. 5.000 baris) agar tidak menahan lock lama |
 | Q16 | Autentikasi API key | `SELECT … FROM merchant_api_keys WHERE prefix = $1 AND revoked_at IS NULL` | `uq_merchant_api_keys_prefix` | Index Scan unik | Lalu bandingkan `key_hash` constant-time |
-| Q17 | Lock wallet berurutan | `SELECT id, balance, status FROM accounts WHERE id = ANY($1) ORDER BY id FOR NO KEY UPDATE` (Step 7/12) | `pk_accounts` | Index Scan + LockRows | ADR-L03 |
+| Q17 | Lock wallet berurutan | `SELECT id, balance, status FROM accounts WHERE id = ANY($1) ORDER BY id FOR NO KEY UPDATE` (desain transaksi & concurrency, final review) | `pk_accounts` | Index Scan + LockRows | ADR-L03 |
 
 ---
 
@@ -179,7 +179,7 @@ Database terpisah milik service `mock-provider` (ADR-L05). LedgerPay **tidak** p
 
 ## 8. Pemetaan Constraint → Error Domain
 
-> **(Step 12 R1-6)** Tabel pemetaan lama di bagian ini **dihapus** karena bertentangan dengan katalog final, misalnya error append-only (`42501 → 409 IMMUTABLE_RECORD`, bukan `P0001 → 500`) dan deadlock yang retry-nya habis (`409 RESOURCE_BUSY`, bukan `503`). **Katalog Step 5 [`01-error-catalogue.md`](../step-05-api-contract/01-error-catalogue.md) §2 dan §4 otoritatif** untuk nama constraint → code. Yang tetap berlaku di sini hanya perilaku khusus LedgerPay berikut:
+> **(final review R1-6)** Tabel pemetaan lama di bagian ini **dihapus** karena bertentangan dengan katalog final, misalnya error append-only (`42501 → 409 IMMUTABLE_RECORD`, bukan `P0001 → 500`) dan deadlock yang retry-nya habis (`409 RESOURCE_BUSY`, bukan `503`). **Katalog kontrak API [`12-api-error-catalogue.md`](12-api-error-catalogue.md) §2 dan §4 otoritatif** untuk nama constraint → code. Yang tetap berlaku di sini hanya perilaku khusus LedgerPay berikut:
 > - `uq_journals_source` di jalur **worker** = no-op idempoten (efek sudah ada, tx di-rollback, job selesai).
 > - `uq_webhook_inbox_event`, `uq_recon_runs_file`, dan `uq_recon_items_run_*` = bagian alur normal (dedupe), bukan error.
 > - `ck_accounts_balance_non_negative` yang tertembak = bug APP: tetap `422 INSUFFICIENT_BALANCE` ke client, ditambah log error + metrik.

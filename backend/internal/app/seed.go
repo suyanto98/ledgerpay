@@ -23,7 +23,7 @@ type SeedProfile struct {
 	Journals  int // riwayat (di luar saldo awal user aktif dan hot user)
 }
 
-// Profil seed. "perf" mengikuti amandemen Step 12 (1 juta journal); "smoke" untuk CI/uji cepat.
+// Profil seed. "perf" mengikuti amandemen final review (1 juta journal); "smoke" untuk CI/uji cepat.
 var SeedProfiles = map[string]SeedProfile{
 	"smoke": {Name: "smoke", Users: 2_000, Merchants: 20, Journals: 20_000},
 	"perf":  {Name: "perf", Users: 100_000, Merchants: 1_000, Journals: 1_000_000},

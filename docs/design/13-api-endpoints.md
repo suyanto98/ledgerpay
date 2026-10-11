@@ -1,6 +1,6 @@
-# Step 5.2 — LedgerPay API Contract
+# LedgerPay API Contract
 
-> Konvensi, header, auth, rate-limit tier, dan format endpoint: [`00-index.md`](00-index.md). Error code: [`01-error-catalogue.md`](01-error-catalogue.md). Kontrak ke mock-provider dan merchant: [`03-ledgerpay-external-contracts.md`](03-ledgerpay-external-contracts.md).
+> Konvensi, header, auth, rate-limit tier, dan format endpoint: `00-index.md`. Error code: [`12-api-error-catalogue.md`](12-api-error-catalogue.md). Kontrak ke mock-provider dan merchant: [`14-api-external-contracts.md`](14-api-external-contracts.md).
 > Base URL: `https://<host>/api/v1`. Semua contoh uang memakai minor unit IDR (exponent 2): `"5000000"` = Rp50.000,00.
 
 ---
@@ -172,7 +172,7 @@ Response              : 200 { "access_token", "token_type", "expires_in" } + Set
 Errors                : 401 UNAUTHENTICATED (cookie tidak ada / kedaluwarsa / family kedaluwarsa 30 hari)
                         · 401 REFRESH_TOKEN_REUSED (seluruh family dicabut) · 429 RATE_LIMITED
 Idempotency           : n.a. Refresh paralel dari dua tab dalam grace window 10 dtk mendapat pasangan token yang
-                        sama dengan penerus (replaced_by), bukan reuse detection (Step 4 01-shared-tables)
+                        sama dengan penerus (replaced_by), bukan reuse detection (`07-db-shared-tables.md`-shared-tables)
 Rate limit            : auth-strict
 ```
 
@@ -689,7 +689,7 @@ Catatan               : Liveness. Gagal = container di-restart.
 Authentication        : —
 Response              : 200 { "status": "ready", "checks": { "db": "ok", "migrations": "ok" } }
                         503 { "status": "not_ready", "checks": { "db": "timeout" } } (problem+json SERVICE_UNAVAILABLE)
-Catatan               : Readiness: SELECT 1 (timeout 500 ms) + versi migrasi DB **≥ versi minimum** yang dibutuhkan binary (Step 12 R3-8; bukan `=`, agar rollback app N-1 tetap ready).
+Catatan               : Readiness: SELECT 1 (timeout 500 ms) + versi migrasi DB **≥ versi minimum** yang dibutuhkan binary (final review R3-8; bukan `=`, agar rollback app N-1 tetap ready).
                         Gagal = load balancer/Caddy berhenti mengirim trafik (FS-03). Detail dependency tidak
                         mengekspos hostname/versi.
 ```

@@ -64,7 +64,7 @@ func TestJournal_Validate(t *testing.T) {
 	}
 }
 
-// TestJournalPurpose_Templates: tabel template Step 3 §6 sebagai test. Ini mitigasi risiko utama
+// TestJournalPurpose_Templates: tabel template desain domain §6 sebagai test. Ini mitigasi risiko utama
 // Sprint 2: salah arah debit/kredit. Wallet = liability → kredit menambah saldo user.
 func TestJournalPurpose_Templates(t *testing.T) {
 	cases := []struct {

@@ -210,7 +210,7 @@ func TestCSRF_RefreshGuard(t *testing.T) {
 
 // authn_bruteforce_lockout: 5 password salah dari 5 IP berbeda (botnet; rate limit per IP tidak
 // menolong) → akun terkunci. Login ke-6 dengan password BENAR tetap ditolak, dan responsnya
-// identik dengan "email tidak ada" (tidak ada oracle ACCOUNT_LOCKED / Retry-After, Step 12 R2-5).
+// identik dengan "email tidak ada" (tidak ada oracle ACCOUNT_LOCKED / Retry-After, final review R2-5).
 func TestAuthn_BruteforceLockout(t *testing.T) {
 	e := newEnv(t)
 	register(t, e, "rina@example.com")

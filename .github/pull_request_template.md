@@ -4,12 +4,12 @@
 ## Invariant yang tersentuh
 <!-- LI-xx yang dipengaruhi, dan bagaimana tetap terjaga. Tulis "tidak ada" jika tidak relevan. -->
 
-## Checklist (Definition of Done fitur — docs/design Step 10 `04` §3)
+## Checklist (Definition of Done fitur — docs/design `28-definition-of-done.md` §3)
 - [ ] OpenAPI diperbarui + contract test (jika endpoint berubah)
-- [ ] Validasi + error code dari katalog (Step 5 `01`)
+- [ ] Validasi + error code dari katalog (`12-api-error-catalogue.md`)
 - [ ] Authorization policy + test (BOLA → 404)
 - [ ] Idempotency di endpoint yang memindahkan uang
-- [ ] Transaction boundary sesuai dokumen (Step 7); tidak ada network call di dalam tx
+- [ ] Transaction boundary sesuai dokumen (desain transaksi & concurrency); tidak ada network call di dalam tx
 - [ ] Migrasi expand-only (contract di deploy terpisah)
 - [ ] Unit + integration test; invariant checker lolos
 - [ ] Log/metrik ditambahkan bila perlu

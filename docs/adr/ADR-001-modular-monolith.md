@@ -6,8 +6,8 @@ Status: Accepted · Tanggal: 2026-10-01 · Berlaku untuk: LedgerPay, PayRun
 
 Kedua project harus selesai dikerjakan oleh satu orang, tetapi tetap menunjukkan batas domain yang jelas. Masalah inti keduanya adalah **konsistensi**:
 
-- LedgerPay: journal, saldo, idempotency key, dan outbox harus ter-commit **atomik** (Step 1 LedgerPay C1, C3, C4).
-- PayRun: status payroll run, item, dan audit harus konsisten; setiap akses DB harus melewati tenant context (Step 1 PayRun C1, C5).
+- LedgerPay: journal, saldo, idempotency key, dan outbox harus ter-commit **atomik** (strategi produk LedgerPay C1, C3, C4).
+- PayRun: status payroll run, item, dan audit harus konsisten; setiap akses DB harus melewati tenant context (strategi produk PayRun C1, C5).
 
 Pertanyaannya: bagaimana memecah kode agar modular tanpa memecah transaksi?
 

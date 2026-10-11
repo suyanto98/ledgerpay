@@ -2,7 +2,6 @@
 
 Desain web/desktop untuk SPA Vue, belum diimplementasikan. Pasangan versi mobile: `../ui-mobile-v1/`.
 
-- Canvas (baris kedua, bisa diklik/Play): (tidak dipublikasikan)
 - Design tokens (warna, font, radius): sama dengan `../ui-mobile-v1/README.md`.
 
 ## Layout

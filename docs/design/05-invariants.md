@@ -1,6 +1,6 @@
-# Step 3.2 — LedgerPay: Financial Invariants
+# LedgerPay: Financial Invariants
 
-> Bagian dari [Step 3 — Domain Design](00-index.md). ID invariant LI-01…LI-15 dan kategori mekanisme mengikuti glosarium kanonik.
+> Bagian dari desain domain — Domain Design. ID invariant LI-01…LI-15 dan kategori mekanisme mengikuti glosarium kanonik.
 > Prinsip: **setiap invariant P0 minimal punya satu penjaga di level database atau transaksi**. `APP` saja tidak cukup, karena validasi aplikasi bisa dilewati oleh bug.
 
 Format per invariant: **Pernyataan · Kenapa penting · Penjaga · Deteksi di production · Test yang membuktikan**.
@@ -30,7 +30,7 @@ Format per invariant: **Pernyataan · Kenapa penting · Penjaga · Deteksi di pr
 |---|---|
 | **Pernyataan** | Untuk setiap wallet: `accounts.balance = Σ C − Σ D` atas seluruh `journal_entries` akun tersebut |
 | **Kenapa** | Saldo yang ditampilkan dan dipakai untuk validasi harus sama dengan bukti ledger. Drift = saldo salah tanpa jejak |
-| **Penjaga** | `DB-TX`: update `balance` hanya di dalam `PostJournal`, dalam Tx yang sama dengan insert entries. `APP`: tidak ada jalur lain yang menulis `balance` (batas modul + depguard; sqlc query `UpdateBalance` hanya ada di package `ledger`). `DB-CONSTRAINT` (opsional, dipertimbangkan di Step 4): role aplikasi tanpa grant UPDATE kolom `balance` di luar fungsi SQL tertentu. `JOB`: verifikasi tiap 5 menit |
+| **Penjaga** | `DB-TX`: update `balance` hanya di dalam `PostJournal`, dalam Tx yang sama dengan insert entries. `APP`: tidak ada jalur lain yang menulis `balance` (batas modul + depguard; sqlc query `UpdateBalance` hanya ada di package `ledger`). `DB-CONSTRAINT` (opsional, dipertimbangkan di desain database): role aplikasi tanpa grant UPDATE kolom `balance` di luar fungsi SQL tertentu. `JOB`: verifikasi tiap 5 menit |
 | **Deteksi** | `ledger_balance_drift_total` (jumlah akun drift) + `ledger_balance_drift_amount`; alert jika > 0 |
 | **Test** | Property test: urutan operasi acak → setiap akhir langkah `balance == Σ entries`; test job verifikasi mendeteksi drift yang disuntikkan secara manual |
 
@@ -64,7 +64,7 @@ Format per invariant: **Pernyataan · Kenapa penting · Penjaga · Deteksi di pr
 ## LI-07 — Transisi status hanya yang sah
 | | |
 |---|---|
-| **Pernyataan** | Status TopUp, PaymentIntent, Payout, InboxEvent, WebhookDelivery, dan ReconItem hanya berpindah sesuai state machine ([01 §5](01-ledgerpay-domain-model.md#5-state-machines)). Status final tidak berubah, kecuali `EXPIRED` TopUp (status lunak, ADR-L08) |
+| **Pernyataan** | Status TopUp, PaymentIntent, Payout, InboxEvent, WebhookDelivery, dan ReconItem hanya berpindah sesuai state machine ([01 §5](04-domain-model.md#5-state-machines)). Status final tidak berubah, kecuali `EXPIRED` TopUp (status lunak, ADR-L08) |
 | **Kenapa** | Transisi ilegal (misalnya `FAILED → SUCCEEDED` pada payout yang sudah di-reverse) menghasilkan efek finansial ganda atau berlawanan |
 | **Penjaga** | `LOCK`: `UPDATE … SET status = $to WHERE id = $id AND status = $from` (RowsAffected = 0 → abort tanpa efek). `APP`: tabel transisi eksplisit di domain (fungsi `CanTransition(from, to)`). `DB-CONSTRAINT`: `CHECK (status IN (...))`; trigger opsional yang menolak UPDATE dari status terminal |
 | **Deteksi** | `invalid_state_transition_total{entity}`; konflik event provider → `webhook_status_conflict_total` + item recon |
@@ -168,7 +168,7 @@ Format per invariant: **Pernyataan · Kenapa penting · Penjaga · Deteksi di pr
 | LI-14 Traceability | ✓ | ✓ | | ✓ | | | ✓ | ✓ |
 | LI-15 Ownership | | | | ✓ | | | ✓ | ✓ |
 
-✓ = penjaga utama · ○ = dipertimbangkan di Step 4 (grant kolom).
+✓ = penjaga utama · ○ = dipertimbangkan di desain database (grant kolom).
 
 **Cek prinsip:** semua invariant P0 punya penjaga DB-CONSTRAINT atau DB-TX, **kecuali** LI-15 (pengecualian sadar, dijelaskan di atas). LI-10 dijaga oleh DB-TX (commit-before-call) plus protokol eksternal.
 

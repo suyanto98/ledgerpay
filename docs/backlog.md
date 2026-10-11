@@ -1,9 +1,9 @@
 # Backlog (lokal) — Sprint 1–3
 
-> Repo masih lokal, jadi backlog ditulis di sini dan nanti dipindah ke GitHub Issues saat ada remote. Sumber: [`design/27-roadmap.md`](design/27-roadmap.md) (baca banner amandemen Step 12) dan [`design/28-definition-of-done.md`](design/28-definition-of-done.md).
+> Repo masih lokal, jadi backlog ditulis di sini dan nanti dipindah ke GitHub Issues saat ada remote. Sumber: [`design/27-roadmap.md`](design/27-roadmap.md) (baca banner amandemen final review) dan [`design/28-definition-of-done.md`](design/28-definition-of-done.md).
 
 ## Sprint 0 — Product + Architecture ✅
-- [x] Toolchain: sqlc, goose, golangci-lint, actionlint (Go 1.25, Docker, Node 22 sudah ada). k6 ditunda ke S9; sops/age ditunda (Step 12 S2)
+- [x] Toolchain: sqlc, goose, golangci-lint, actionlint (Go 1.25, Docker, Node 22 sudah ada). k6 ditunda ke S9; sops/age ditunda (final review S2)
 - [x] Repo lokal + `.gitignore`, `.editorconfig`, LICENSE MIT, Makefile, template PR
 - [x] Kurasi `docs/` (21 ADR + 30 dokumen desain + index)
 - [x] OpenAPI skeleton (Money, Problem, Page; auth, wallet, transfers) lolos Redocly lint tanpa warning
@@ -19,7 +19,7 @@
 - [x] `backend/internal/platform/observability`: logger + redaction allowlist; health `/healthz` + `/readyz` (port internal, versi DB ≥ minimum)
 - [x] Migrasi awal: schema, role `ledgerpay_owner`/`ledgerpay_app`, `users` (+ `role`), `refresh_tokens`, `audit_log`, `set_updated_at`, `forbid_update_delete`
 - [x] Auth: register, login (argon2id), `GET /me`; JWT HS256 + `kid`
-- [x] Catalogue test: setiap FK punya index (Step 12 C4)
+- [x] Catalogue test: setiap FK punya index (final review C4)
 - [x] Samakan nama constraint email: katalog error menyebut `uq_users_email`, skema `uq_users_email_lower` (pakai nama skema; test `TestDBErrorMapping_AllCatalogueConstraints` menangkap selisih seperti ini)
 - [x] Compose dev (postgres + api), target Makefile `up`, `test`, `test-integration`, `migrate`
 - [x] `pr.yml`: golangci-lint (depguard), unit + integration test (`-race`)
@@ -64,7 +64,7 @@
 - [x] `make demo-payment`
 
 ## Catatan dari Sprint 4 (dibawa ke sprint berikutnya)
-- [ ] **Keputusan desain yang bertentangan, diselesaikan:** threat model T-SH-01 poin (5) dan DoD roadmap S4 menulis `403 ACCOUNT_LOCKED`; katalog error (Step 12 R2-5) menulis `401 INVALID_CREDENTIALS + Retry-After`. Dipilih **401 tanpa `Retry-After`**, karena header itu hanya muncul untuk email terdaftar yang terkunci sehingga tetap menjadi oracle enumerasi. Perbarui T-SH-01, roadmap S4, dan katalog agar seragam
+- [ ] **Keputusan desain yang bertentangan, diselesaikan:** threat model T-SH-01 poin (5) dan DoD roadmap S4 menulis `403 ACCOUNT_LOCKED`; katalog error (final review R2-5) menulis `401 INVALID_CREDENTIALS + Retry-After`. Dipilih **401 tanpa `Retry-After`**, karena header itu hanya muncul untuk email terdaftar yang terkunci sehingga tetap menjadi oracle enumerasi. Perbarui T-SH-01, roadmap S4, dan katalog agar seragam
 - [ ] Grace window refresh: server tidak bisa mengirim ulang refresh token penerus (hanya hash yang disimpan), jadi refresh kedua dalam grace hanya mendapat access token tanpa cookie baru. Asumsinya kedua tab berbagi cookie jar (browser yang sama). Catat di ADR-009
 - [ ] Demo B butuh `RATE_LIMIT_MONEY_WRITE_PER_MIN=600` di compose dev (default 30/menit akan menolak 70 dari 100 request dengan 429). Demo/production memakai default
 - [ ] Job terjadwal `intent.expire_sweep` yang memanggil `payment.ExpireDue` (Sprint 6, job runner). Sampai saat itu intent lewat waktu ditampilkan `EXPIRED` (status efektif) dan confirm-nya ditolak
@@ -170,7 +170,7 @@
 ## Catatan dari Sprint 9 (dibawa ke sprint berikutnya)
 - [ ] **E-1 → `MERCHANT_PENDING` (V2)**: aturan keputusan terpicu di baseline laptop (lihat ADR-L07). Langkah murah lebih dulu: kurangi round trip di bagian yang memegang lock merchant; ulangi E-1 di VM target
 - [ ] Angka performa resmi di VM 2 vCPU / 4 GB dengan k6 dari mesin terpisah (saat deploy)
-- [ ] Skenario opsional LP-1, LP-5–LP-8 belum dijalankan; CI perf smoke nightly ditunda sampai setelah M4 (amandemen Step 12)
+- [ ] Skenario opsional LP-1, LP-5–LP-8 belum dijalankan; CI perf smoke nightly ditunda sampai setelah M4 (amandemen final review)
 - [ ] `POST /ops/recon-runs` sinkron (desain: 202 + job) dan upload file manual (multipart) belum ada
 - [ ] Top-up `STATUS_MISMATCH` (provider menerima uang setelah top-up kedaluwarsa) belum punya aksi `APPLY_TOPUP_CREDIT`
 - [ ] Aksi `REPLAY_INBOX_EVENT` di resolve recon belum ada

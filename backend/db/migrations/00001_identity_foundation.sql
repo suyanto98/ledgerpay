@@ -75,7 +75,7 @@ CREATE TABLE refresh_tokens (
     CONSTRAINT ck_refresh_tokens_revoked_has_reason CHECK ((revoked_at IS NULL) = (revoke_reason IS NULL))
 );
 -- Index FK penuh (bukan partial): cek FK saat DELETE/UPDATE parent butuh index atas SEMUA baris
--- (Step 12 C4: setiap FK punya index yang diawali kolom FK-nya).
+-- (final review C4: setiap FK punya index yang diawali kolom FK-nya).
 CREATE INDEX ix_refresh_tokens_user_id   ON refresh_tokens (user_id);
 CREATE INDEX ix_refresh_tokens_parent_id ON refresh_tokens (parent_id);
 CREATE INDEX ix_refresh_tokens_family_active ON refresh_tokens (family_id) WHERE revoked_at IS NULL;

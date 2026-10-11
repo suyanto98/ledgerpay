@@ -1,7 +1,7 @@
-# Step 7.1 — LedgerPay: Transactions & Concurrency
+# LedgerPay: Transactions & Concurrency
 
-> Bagian dari [Step 7](00-index.md). Keputusan global (isolation default Read Committed, urutan lock, retry, aturan transaksi) ada di `00-index.md` dan **tidak diulang** di sini. File ini menerapkannya ke setiap operasi LedgerPay.
-> Referensi: ADR-011, ADR-006, ADR-L02/L03/L06/L07/L08; Step 3 `01` §8, `02`, `03`; Step 4 `03`, `04`; Step 5 `02`.
+> Bagian dari desain transaksi & concurrency. Keputusan global (isolation default Read Committed, urutan lock, retry, aturan transaksi) ada di `00-index.md` dan **tidak diulang** di sini. File ini menerapkannya ke setiap operasi LedgerPay.
+> Referensi: ADR-011, ADR-006, ADR-L02/L03/L06/L07/L08; `04-domain-model.md` §8, `02`, `03`; `09-db-schema.md`, `04`; `13-api-endpoints.md`.
 
 ---
 
@@ -43,7 +43,7 @@ Notasi: **RC** = Read Committed, **RR-RO** = Repeatable Read Read Only. "Key" = 
 | 13 | Job `payout.submit` | **Tx-a:** `PENDING → SUBMITTED`. **Panggilan** bank di luar tx. **Tx-b:** hasil + journal + `CompleteInTx` (§2.5) | RC | Tx-a: 2c guard. Tx-b: 2c guard → 3 (hanya jika reversal) | Worker zombie; crash setelah bank menerima | **Tidak** ada retry submit buta; re-delivery → status query | Key ke bank = `payout_id`; fencing | Crash di antara Tx-a dan Tx-b → `SUBMITTED` menggantung → re-delivery memperlakukannya sebagai `UNKNOWN` |
 | 14 | Job `payout.status_check` | `GET /v1/payouts/{id}` di luar tx → 1 tx: transisi `UNKNOWN →` hasil + journal + `CompleteInTx`; atau jadwalkan cek berikutnya | RC | 2c guard → 3 (reversal) | Bentrok dengan ops resolve (§3g) | Jadwal 30 dtk → 2 mnt → 10 mnt → 1 jam → 6 jam → `needs_reconciliation` | Guard status + `uq_journals_source` | Atomik; status tetap `UNKNOWN` |
 | 15 | Ops resolve payout | 1 tx: guard `UNKNOWN →` hasil + journal + `audit_log` + evidence | RC | 2c guard → 3 (reversal) | Bentrok dengan status_check (§3g) | Tidak (manusia mengulang) | Guard status | Atomik |
-| 16 | Recon run + `PROVIDER_SETTLEMENT` | Unduh file **di luar tx** → Tx-1: `recon_runs` (unique run) → baca sisi internal (RR-RO) → Tx per batch 500: `recon_items ON CONFLICT DO NOTHING` + journal settlement untuk item top-up `MATCHED` → Tx akhir: hitungan + `COMPLETED` | RC / RR-RO | Tidak ada lock wallet (hanya akun sistem) | Recon ganda untuk file sama; crash di tengah | Job retry → lanjut (insert idempoten) | Unique run + `uq_recon_items_run_*` + `uq_journals_source (provider_settlement, topup_id, PROVIDER_SETTLEMENT)` (Step 12 R1-5; `ON CONFLICT` → pakai journal yang ada) | Crash → batch yang sudah commit tetap, run `RUNNING`; retry melanjutkan |
+| 16 | Recon run + `PROVIDER_SETTLEMENT` | Unduh file **di luar tx** → Tx-1: `recon_runs` (unique run) → baca sisi internal (RR-RO) → Tx per batch 500: `recon_items ON CONFLICT DO NOTHING` + journal settlement untuk item top-up `MATCHED` → Tx akhir: hitungan + `COMPLETED` | RC / RR-RO | Tidak ada lock wallet (hanya akun sistem) | Recon ganda untuk file sama; crash di tengah | Job retry → lanjut (insert idempoten) | Unique run + `uq_recon_items_run_*` + `uq_journals_source (provider_settlement, topup_id, PROVIDER_SETTLEMENT)` (final review R1-5; `ON CONFLICT` → pakai journal yang ada) | Crash → batch yang sudah commit tetap, run `RUNNING`; retry melanjutkan |
 | 17 | Ops resolve recon item | 1 tx: guard `recon_items OPEN → RESOLVED` + aksi bisnis (misalnya resolve payout #15) + audit | RC | 2a → 2c → 3 | Dua ops me-resolve item yang sama | Tidak | Guard resolution | Atomik |
 | 18 | Job `webhook.deliver` | HTTP ke merchant **di luar tx** (egress guard C-44) → 1 tx: `webhook_delivery_attempts` + update `webhook_deliveries` + `CompleteInTx` atau jadwal ulang | RC | 2c-setara (guard `status='PENDING'`) | Re-delivery setelah lease habis | Backoff 1m, 5m, 30m, 2j, 6j, 24j → `DEAD` | `event_id` stabil (merchant dedupe) | At-least-once; attempt tercatat |
 | 19 | Idempotency cleanup | Loop tx kecil: `DELETE … WHERE id IN (SELECT id … WHERE expires_at < now() LIMIT 1000)` | RC | — | — | Lanjut di run berikutnya | — | Parsial aman |
@@ -213,7 +213,7 @@ Tx-b (salah satu):
 claim:
   UPDATE webhook_inbox SET locked_by=$w, locked_until=now()+'30s'
    WHERE id IN (SELECT id FROM webhook_inbox WHERE status='RECEIVED' AND next_attempt_at <= now()
-                  AND (locked_until IS NULL OR locked_until < now())   -- (Step 12 C1: hormati lease)
+                  AND (locked_until IS NULL OR locked_until < now())   -- (final review C1: hormati lease)
                 ORDER BY next_attempt_at LIMIT $n FOR UPDATE SKIP LOCKED)
   RETURNING …;
   -- attempts TIDAK dinaikkan saat claim. attempts++ (+ next_attempt_at = now() + backoff) hanya saat
@@ -226,7 +226,7 @@ claim:
 BEGIN;
   [2b] SELECT id FROM webhook_inbox
         WHERE id = $ev AND locked_by = $w AND status = 'RECEIVED' FOR UPDATE; -- fencing; 0 baris → ROLLBACK
-       (Step 12 R1-2, menutup O19: status/outcome final ditulis lewat SATU UPDATE di akhir tx [5],
+       (final review R1-2, menutup O19: status/outcome final ditulis lewat SATU UPDATE di akhir tx [5],
         sehingga CHECK status × outcome tidak pernah melihat keadaan antara; urutan lock tetap 2b → 2c)
   [2c] SELECT … FROM topups WHERE provider = 'mock' AND provider_ref = $ref FOR UPDATE;
        amount/currency ≠ event → inbox DEAD + alert (COMMIT tanpa efek uang)
@@ -418,7 +418,7 @@ Ini tidak deadlock, tetapi menimbulkan antrean yang tidak perlu: membuat top-up 
 | **Akun sistem** (`PROVIDER_CLEARING`, `PAYOUT_IN_TRANSIT`, `BANK_CLEARING`) | Hampir semua transaksi menyentuhnya | **Tanpa lock**: `balance` NULL, hanya INSERT entries (ADR-L07) |
 | **Tabel `jobs` / `webhook_inbox`** | Banyak worker meng-claim | `FOR UPDATE SKIP LOCKED` + partial index kecil: worker tidak saling menunggu |
 
-**Wallet merchant: hitungan O11.** Durasi lock = waktu dari `SELECT … FOR NO KEY UPDATE` sampai COMMIT. Tanpa network di dalam tx: INSERT journal + 2 entries + 2 UPDATE + INSERT delivery/job + respons key ≈ 2–5 ms di VM kecil. Batas serial untuk satu merchant ≈ 1000/5 = 200 hingga 1000/2 = 500 pembayaran/detik. Antrean mulai terasa jauh sebelum batas itu: p99 naik saat utilisasi lock > ~70%. Load test (Step 9) memakai skenario "1 merchant, N payer paralel" dan melaporkan `lock wait time` dari `pg_stat_activity` / `pg_locks`.
+**Wallet merchant: hitungan O11.** Durasi lock = waktu dari `SELECT … FOR NO KEY UPDATE` sampai COMMIT. Tanpa network di dalam tx: INSERT journal + 2 entries + 2 UPDATE + INSERT delivery/job + respons key ≈ 2–5 ms di VM kecil. Batas serial untuk satu merchant ≈ 1000/5 = 200 hingga 1000/2 = 500 pembayaran/detik. Antrean mulai terasa jauh sebelum batas itu: p99 naik saat utilisasi lock > ~70%. Load test (desain DevOps) memakai skenario "1 merchant, N payer paralel" dan melaporkan `lock wait time` dari `pg_stat_activity` / `pg_locks`.
 
 **Jalur V2 (didokumentasikan, tidak dibangun):**
 - Pembayaran mengkredit akun `MERCHANT_PENDING:<merchant>` yang **tidak materialized** (seperti akun sistem, `balance` NULL). Akibatnya pembayaran sama sekali tidak mengunci baris merchant; cukup INSERT entries.

@@ -26,7 +26,7 @@ Redis sering dimasukkan ke stack secara default (cache, session, rate limit, ide
 
 ## Reason
 
-Tidak ada masalah V1 yang membutuhkan Redis. Menambahkannya hanya membuat project terlihat lebih kompleks, dan itu dilarang oleh prinsip Step 1.
+Tidak ada masalah V1 yang membutuhkan Redis. Menambahkannya hanya membuat project terlihat lebih kompleks, dan itu dilarang oleh prinsip strategi produk.
 
 ## Trade-offs
 

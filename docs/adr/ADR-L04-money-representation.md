@@ -29,7 +29,7 @@ Uang harus disimpan, dihitung, dan dikirim lewat API tanpa kehilangan presisi. `
 | Single currency | V1 hanya IDR; transaksi dengan currency berbeda ditolak (`422 CURRENCY_NOT_SUPPORTED`) |
 | Pembulatan | Tidak ada di V1 karena tidak ada operasi pembagian. Placeholder untuk fee (P3): bulatkan **ke bawah untuk fee yang dibebankan ke user** (user tidak pernah membayar lebih dari tarif), sisa pecahan dicatat eksplisit |
 
-**Kenapa string di JSON:** int64 maksimum ±9,22 × 10^18, sedangkan `Number.MAX_SAFE_INTEGER` JS ±9 × 10^15. Dengan exponent 2, batas aman JS ≈ Rp 90 triliun. Nilai ini tidak akan tercapai di demo, tetapi **kontrak API tidak boleh bergantung pada asumsi client**. Ini juga praktik umum di API pembayaran. Biayanya kecil (parse string di client), dan bug presisi tidak mungkin terjadi.
+**Kenapa string di JSON:** int64 maksimum ±9,22 × 10^18, sedangkan `Number.MAX_SAFE_INTEGER` JS ±9 × 10^15. Dengan exponent 2, batas aman JS ≈ Rp 90 triliun. Nilai ini tidak akan tercapai di demo, tetapi **Kontrak API tidak boleh bergantung pada asumsi client**. Ini juga praktik umum di API pembayaran. Biayanya kecil (parse string di client), dan bug presisi tidak mungkin terjadi.
 
 **Batas overflow:** BIGINT dengan exponent 2 menampung ±Rp 92 kuadriliun, jauh di atas kebutuhan. `Add` tetap memeriksa overflow sebagai disiplin.
 
@@ -39,7 +39,7 @@ Uang harus disimpan, dihitung, dan dikirim lewat API tanpa kehilangan presisi. `
 - Constraint DB (`CHECK amount > 0`, `CHECK balance >= 0`) bekerja natural pada integer.
 - Mengikuti ISO 4217 menghindari migrasi data kalau suatu saat currency dengan sen (USD) ditambahkan.
 
-### Kontras dengan PayRun ([ADR-P06](ADR-P06-decimal-rounding.md))
+### Kontras dengan PayRun (ADR-P06)
 PayRun memakai `NUMERIC` + decimal karena payroll melibatkan **persentase, prorata, dan tarif per jam** yang menghasilkan pecahan sebelum dibulatkan. LedgerPay hanya memindahkan nilai yang sudah final. Domain yang berbeda menghasilkan representasi yang berbeda, dan ini topik interview yang bagus.
 
 ## Trade-offs
@@ -63,4 +63,4 @@ PayRun memakai `NUMERIC` + decimal karena payroll melibatkan **persentase, prora
 
 ## Related
 
-[ADR-L01](ADR-L01-double-entry-ledger.md) · [ADR-003](ADR-003-rest-api-openapi.md) · [ADR-P06](ADR-P06-decimal-rounding.md)
+[ADR-L01](ADR-L01-double-entry-ledger.md) · [ADR-003](ADR-003-rest-api-openapi.md) · ADR-P06

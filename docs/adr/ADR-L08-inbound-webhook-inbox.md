@@ -42,9 +42,9 @@ POST /v1/webhooks/provider
 Worker (SKIP LOCKED) → proses event → status PROCESSED / IGNORED
 ```
 
-> **(Step 12 C1)** Claim worker menghormati lease: `status='RECEIVED' AND next_attempt_at <= now() AND (locked_until IS NULL OR locked_until < now())`. `attempts` hanya naik saat percobaan gagal atau lease kedaluwarsa, bukan setiap claim. Fencing di dalam tx = `SELECT … WHERE locked_by=$w AND status='RECEIVED' FOR UPDATE`, lalu satu `UPDATE` status final di akhir tx (Step 7 `01` §2.6).
+> **(final review C1)** Claim worker menghormati lease: `status='RECEIVED' AND next_attempt_at <= now() AND (locked_until IS NULL OR locked_until < now())`. `attempts` hanya naik saat percobaan gagal atau lease kedaluwarsa, bukan setiap claim. Fencing di dalam tx = `SELECT … WHERE locked_by=$w AND status='RECEIVED' FOR UPDATE`, lalu satu `UPDATE` status final di akhir tx (`19-tx-concurrency.md` §2.6).
 
-### Skema (ringkas; final di Step 4)
+### Skema (ringkas; final di desain database)
 `webhook_inbox(id, provider, provider_event_id, event_type, resource_ref, payload JSONB, raw_body BYTEA, signature_ts, received_at, status [RECEIVED|PROCESSED|IGNORED|DEAD], attempts, next_attempt_at, last_error, processed_at)`, `UNIQUE (provider, provider_event_id)`.
 
 ### Transisi monoton saat memproses
@@ -65,8 +65,8 @@ Aturan:
 ### Poison event
 Error saat memproses → `attempts++`, backoff exponential + jitter. Setelah **N = 8** percobaan → status `DEAD`, metrik `webhook_inbox_dead_total`, dan alert. Ops bisa *replay* event `DEAD` dari ops console setelah penyebabnya diperbaiki.
 
-### Amandemen (Step 6): verify-by-fetch (P1)
-Sebelum menerapkan `charge.succeeded`, worker inbox memanggil `GET /v1/charges/{id}` ke provider. Kredit hanya diberikan kalau status dan amount dari provider cocok. Ini lapisan di atas HMAC: kalau secret webhook bocor, webhook palsu tetap tidak bisa menciptakan saldo (Step 6 T-LP). Kalau provider tidak bisa dihubungi, event di-retry dengan backoff yang sama.
+### Amandemen (threat model): verify-by-fetch (P1)
+Sebelum menerapkan `charge.succeeded`, worker inbox memanggil `GET /v1/charges/{id}` ke provider. Kredit hanya diberikan kalau status dan amount dari provider cocok. Ini lapisan di atas HMAC: kalau secret webhook bocor, webhook palsu tetap tidak bisa menciptakan saldo (threat model T-LP). Kalau provider tidak bisa dihubungi, event di-retry dengan backoff yang sama.
 
 ## Reason
 

@@ -80,7 +80,7 @@ Ops (Sari) melihat payout `UNKNOWN` atau mismatch dari reconciliation, lalu memi
 - `payout_unknown_oldest_age_seconds`: alert jika > 24 jam.
 - Log setiap transisi dengan `payout_id`, `correlation_id`, dan `attempt`.
 
-### Amandemen (Step 6): respons provider yang tidak cocok
+### Amandemen (threat model): respons provider yang tidak cocok
 Respons sukses yang `payout_id`, amount, atau rekening tujuannya tidak cocok dengan catatan lokal **tidak** diperlakukan sebagai `SUCCEEDED`. Payout menjadi `UNKNOWN` + `needs_reconciliation = true` + alert (indikasi bug atau provider yang dikompromikan).
 
 ### Catatan implementasi (Sprint 6)

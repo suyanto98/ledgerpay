@@ -39,7 +39,7 @@ type ClaimEventsRow struct {
 	Attempts    int32
 }
 
-// Claim dengan lease (Step 12 C1): hormati lease yang masih berlaku; attempts hanya naik saat
+// Claim dengan lease (final review C1): hormati lease yang masih berlaku; attempts hanya naik saat
 // MENGAMBIL ALIH lease yang kedaluwarsa (worker sebelumnya kemungkinan mati di tengah jalan).
 func (q *Queries) ClaimEvents(ctx context.Context, arg ClaimEventsParams) ([]ClaimEventsRow, error) {
 	rows, err := q.db.Query(ctx, claimEvents, arg.Worker, arg.LeaseSecs, arg.Batch)

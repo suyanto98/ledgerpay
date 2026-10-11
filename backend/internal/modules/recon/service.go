@@ -237,7 +237,7 @@ func (s *Service) match(ctx context.Context, tx pgx.Tx, runID uuid.UUID, day tim
 
 // settle: uang top-up pindah dari provider ke rekening bank (DR BANK_CLEARING / CR PROVIDER_CLEARING).
 // Source = ('provider_settlement', topup_id): recon ulang, bahkan dengan file ber-hash lain, merujuk
-// journal yang sudah ada alih-alih memposting dua kali (Step 12 R1-5).
+// journal yang sudah ada alih-alih memposting dua kali (final review R1-5).
 func (s *Service) settle(ctx context.Context, tx pgx.Tx, topupID uuid.UUID, amount int64, currency string, runID uuid.UUID) (uuid.UUID, error) {
 	if id, ok, err := s.ledger.JournalBySource(ctx, tx, "provider_settlement", topupID, ledger.PurposeProviderSettlement); err != nil || ok {
 		return id, err

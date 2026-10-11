@@ -1,8 +1,8 @@
-# Step 4.2 — LedgerPay: ERD & Daftar Tabel
+# LedgerPay: ERD & Daftar Tabel
 
-> Bagian dari [Step 4 — Database Design](00-index.md). Konvensi (PK UUIDv7, `bigint` minor unit, status `text + CHECK`, tanpa `deleted_at`, role `ledgerpay_owner`/`ledgerpay_app`) mengikuti index.
-> Tabel shared (`users`, `refresh_tokens`, `idempotency_keys`, `jobs`, `audit_log`) dispesifikasikan di [`01-shared-tables.md`](01-shared-tables.md). Di sini tabel-tabel itu hanya ditampilkan sebagai konteks relasi.
-> Schema: `ledgerpay`. Mock provider memakai database terpisah `mockprovider` (lihat [`04-…`](04-ledgerpay-consistency-and-indexing.md) §7).
+> Bagian dari desain database — Database Design. Konvensi (PK UUIDv7, `bigint` minor unit, status `text + CHECK`, tanpa `deleted_at`, role `ledgerpay_owner`/`ledgerpay_app`) mengikuti index.
+> Tabel shared (`users`, `refresh_tokens`, `idempotency_keys`, `jobs`, `audit_log`) dispesifikasikan di [`07-db-shared-tables.md`](07-db-shared-tables.md). Di sini tabel-tabel itu hanya ditampilkan sebagai konteks relasi.
+> Schema: `ledgerpay`. Mock provider memakai database terpisah `mockprovider` (lihat [`04-…`](10-db-consistency-indexing.md) §7).
 
 ---
 
@@ -217,7 +217,7 @@ erDiagram
 
 ## 3. Daftar tabel
 
-| Tabel | Modul pemilik | Aggregate (Step 3) | Sifat | Estimasi baris (skenario §8 index) | Konsistensi |
+| Tabel | Modul pemilik | Aggregate (desain domain) | Sifat | Estimasi baris (skenario §8 index) | Konsistensi |
 |---|---|---|---|---|---|
 | `users` (shared, + `role`) | identity | `User` | Mutable | 100 rb | Strong |
 | `refresh_tokens` (shared) | identity | — | Mutable, efemeral | ~ 200 rb aktif | Strong |
@@ -240,7 +240,7 @@ erDiagram
 | `jobs` (shared) | platform/jobs | `Job` | Mutable, hard delete setelah retensi | total 50 jt, aktif < 1 jt | Strong (ditulis di tx bisnis) |
 | `audit_log` (shared) | audit | `AuditEntry` | **Append-only** | ~ 5 jt | Strong (ditulis di tx aksi) |
 
-Klasifikasi strong vs eventual beserta alasannya dijabarkan di [`04-ledgerpay-consistency-and-indexing.md`](04-ledgerpay-consistency-and-indexing.md) §1.
+Klasifikasi strong vs eventual beserta alasannya dijabarkan di [`10-db-consistency-indexing.md`](10-db-consistency-indexing.md) §1.
 
 ---
 

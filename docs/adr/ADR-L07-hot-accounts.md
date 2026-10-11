@@ -38,7 +38,7 @@ Di praktiknya lebih rendah, karena lock dipegang sampai commit selesai (termasuk
 | Pemakaian | Saldo akun sistem dipakai oleh dashboard ops, reconciliation, dan invariant check, bukan oleh jalur transaksi |
 | V2 (jika query agregasi lambat) | Tabel `account_balance_snapshots(account_id, as_of_entry_id, balance)` diisi job berkala; saldo = snapshot + Σ entries setelah `as_of_entry_id` |
 
-**Syarat pembuktian:** load test di sprint performa (Step 8) mengukur throughput transaksi dan latency query saldo sistem. Opsi C/D **hanya** diimplementasikan jika ada angka yang membenarkannya.
+**Syarat pembuktian:** load test di sprint performa (desain observability & testing) mengukur throughput transaksi dan latency query saldo sistem. Opsi C/D **hanya** diimplementasikan jika ada angka yang membenarkannya.
 
 ### Catatan pengukuran (Sprint 9): eksperimen E-1
 

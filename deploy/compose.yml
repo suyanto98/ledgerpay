@@ -1,5 +1,5 @@
 # Compose untuk development lokal (Sprint 1). Compose demo/obs/perf menyusul (docs/design/24-…).
-# Kredensial di file ini HANYA untuk dev lokal; environment lain memakai secret (Step 9).
+# Kredensial di file ini HANYA untuk dev lokal; environment lain memakai secret (desain DevOps).
 name: ledgerpay
 
 services:
@@ -39,7 +39,7 @@ services:
       APP_ENV: dev
       LOG_LEVEL: info
       DATABASE_URL: postgres://ledgerpay_app:app-dev@postgres:5432/ledgerpay?sslmode=disable
-      # Kunci dev saja (32 byte, base64). Production: GitHub environment secret (Step 12 R4-7).
+      # Kunci dev saja (32 byte, base64). Production: GitHub environment secret (final review R4-7).
       JWT_SIGNING_KEYS: '{"dev1":"ZGV2LW9ubHktand0LXNpZ25pbmcta2V5LTMyYnl0ZXM="}'
       JWT_ACTIVE_KID: dev1
       COOKIE_SECURE: "false"       # dev lokal lewat http://localhost

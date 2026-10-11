@@ -4,7 +4,7 @@ Semua perintah di sini sama dengan yang dijalankan `make demo-verify` (nightly),
 janji yang tidak terpenuhi (contoh "tepat 10 dari 100 transfer"), skripnya gagal. Pola setiap segmen:
 **masalah → mekanisme → bukti**.
 
-Disesuaikan dari rencana Step 11 dengan yang benar-benar dibangun: tidak ada `/demo/reset` atau toolbar
+Disesuaikan dari rencana demo script dengan yang benar-benar dibangun: tidak ada `/demo/reset` atau toolbar
 demo di UI (setiap skrip membuat user sendiri dan me-reset mock), fault demo dipasang lewat
 `POST /api/v1/demo/faults` dengan `X-Demo-Token`.
 
@@ -60,7 +60,7 @@ awam; selesai semua → rangkuman 3 poin + "Hubungi pembuatnya" (`VITE_CONTACT_U
 | Port 8080 terpakai | `LP_HTTP_PORT=18080 make up …` (dan sama untuk `make demo-*`) |
 | Fault tertinggal dari latihan | `curl -X DELETE $API/demo/faults -H "Authorization: Bearer …" -H "X-Demo-Token: …"` |
 
-## Pertanyaan yang sering muncul (jawaban 30 detik ada di `learning/`)
+## Pertanyaan yang sering muncul
 - "Exactly-once?" → at-least-once delivery + efek idempoten (unique key, guard status, fencing).
 - "Kenapa Postgres sebagai queue?" → tidak ada dual write: niat ikut commit dengan efeknya (ADR-006).
 - "Berapa throughput-nya?" → baseline laptop di `docs/performance.md`, dengan batasannya; satu merchant dibatasi lock satu baris (±120/dtk), aturan E-1 terpicu → desain `MERCHANT_PENDING` di backlog.

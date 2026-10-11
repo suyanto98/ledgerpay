@@ -1,6 +1,6 @@
-# Step 12.3 — PRD Terpadu: LedgerPay (Digital Wallet & Mini Payment Platform)
+# PRD Terpadu: LedgerPay (Digital Wallet & Mini Payment Platform)
 
-> Dokumen ini merangkum **keadaan final** keputusan produk LedgerPay dari Step 1–11 (termasuk semua amandemen). Kalau ada perbedaan dengan dokumen step lama, dokumen ini dan tabel "Keputusan" di setiap index step yang berlaku. Detail teknis tidak diulang; lihat indeks traceability di §13.
+> Dokumen ini merangkum **keadaan final** keputusan produk LedgerPay dari dokumen desain (termasuk semua amandemen). Kalau ada perbedaan dengan dokumen step lama, dokumen ini dan tabel "Keputusan" di setiap index step yang berlaku. Detail teknis tidak diulang; lihat indeks traceability di §13.
 > Status: **Final untuk V1** · Tanggal: 2026-10-02 · Pemilik: penulis portfolio (solo)
 
 ---
@@ -15,7 +15,7 @@
 |---|---|
 | HR / non-teknis | "Aplikasi dompet digital kecil yang dirancang supaya uang tidak pernah hilang atau terhitung dua kali, walaupun ada error, klik ganda, atau server mati." |
 | Interviewer teknis | "Modular monolith Go + PostgreSQL. Double-entry ledger append-only, idempotency transaksional, transactional outbox, state machine payout dengan *unknown outcome*, dan reconciliation terhadap provider." |
-| Positioning (aturan kejujuran, Step 11) | *"Designed as a production-oriented mini system"*, bukan "production-grade". Angka performa hanya dikutip setelah diukur, lengkap dengan spesifikasi lingkungannya |
+| Positioning (aturan kejujuran, demo script) | *"Designed as a production-oriented mini system"*, bukan "production-grade". Angka performa hanya dikutip setelah diukur, lengkap dengan spesifikasi lingkungannya |
 
 ---
 
@@ -36,7 +36,7 @@
 | G4 | Bisa didemokan secara deterministik dalam ≤ 10 menit | `make demo-verify` hijau nightly; Demo A–D |
 
 ### 2.3 Non-Goals
-Bersaing fitur dengan DANA/OVO; integrasi payment gateway sungguhan; KYC; multi-currency/FX; kartu/PCI-DSS; chargeback/dispute penuh; microservices; Kafka/RabbitMQ; Kubernetes; mobile app; fraud ML; produk kredit/bunga/promo; event sourcing penuh/CQRS. Alasan per item: Step 1 `01-ledgerpay.md` §10.
+Bersaing fitur dengan DANA/OVO; integrasi payment gateway sungguhan; KYC; multi-currency/FX; kartu/PCI-DSS; chargeback/dispute penuh; microservices; Kafka/RabbitMQ; Kubernetes; mobile app; fraud ML; produk kredit/bunga/promo; event sourcing penuh/CQRS. Alasan per item: `01-product-strategy.md` §10.
 
 ---
 
@@ -73,7 +73,7 @@ Bersaing fitur dengan DANA/OVO; integrasi payment gateway sungguhan; KYC; multi-
 
 ## 5. Functional Requirements (ringkas)
 
-Acceptance criteria lengkap: Step 2 `01-ledgerpay-features.md` §2. Endpoint: Step 5 `02-ledgerpay-api.md` (38 endpoint).
+Acceptance criteria lengkap: `02-features.md` §2. Endpoint: `13-api-endpoints.md` (38 endpoint).
 
 | ID | Requirement | Acceptance criteria inti |
 |---|---|---|
@@ -95,14 +95,14 @@ Acceptance criteria lengkap: Step 2 `01-ledgerpay-features.md` §2. Endpoint: St
 | FR-16 (LF-16) | Refund parsial/penuh | Σ refund ≤ amount (lock + CHECK); saldo merchant cukup |
 | FR-17 (LF-17) | Reconciliation harian | Idempoten per file hash; lima kategori mismatch; posting `PROVIDER_SETTLEMENT` untuk yang cocok |
 | FR-18 (LF-18) | Ops console | Tanpa endpoint "edit saldo"; setiap aksi butuh alasan + bukti provider + audit |
-| FR-19 (LF-19) | Metrik invariant + dashboard + alert | Katalog final Step 8 `01` §3; invariant > 0 = alert critical |
+| FR-19 (LF-19) | Metrik invariant + dashboard + alert | Katalog final `21-observability.md` §3; invariant > 0 = alert critical |
 | FR-20 (LF-20) | Rate limiting per tier | Token bucket in-memory per instance (V1); `429` + `Retry-After` |
 
 ---
 
 ## 6. Business Rules & Invariants
 
-| BR (Step 1) | Isi | Invariant (Step 3) |
+| BR (strategi produk) | Isi | Invariant (desain domain) |
 |---|---|---|
 | BR1 | Journal seimbang, ≥ 2 entry | LI-01 |
 | BR2 | Saldo wallet user tidak negatif | LI-02, LI-03 |
@@ -119,7 +119,7 @@ Acceptance criteria lengkap: Step 2 `01-ledgerpay-features.md` §2. Endpoint: St
 | — | Ownership resource (dijaga APP + BOLA test, tanpa RLS; pengecualian yang disadari) | LI-15 |
 | — | Kecocokan liability vs aset clearing (eventual, via recon) | LI-12 |
 
-Setiap invariant P0 punya minimal satu penjaga di level DB/transaksi (kecuali LI-15, yang dijelaskan sebagai pengecualian). Detail: Step 3 `02-ledgerpay-invariants.md`.
+Setiap invariant P0 punya minimal satu penjaga di level DB/transaksi (kecuali LI-15, yang dijelaskan sebagai pengecualian). Detail: `05-invariants.md`.
 
 ---
 
@@ -129,8 +129,8 @@ Setiap invariant P0 punya minimal satu penjaga di level DB/transaksi (kecuali LI
 |---|---|
 | **Konsistensi** | Strong consistency untuk saldo, journal, idempotency, dan transisi status (satu Postgres, Read Committed + lock eksplisit + guard). Eventual: saldo akun sistem (derived), hasil recon, delivery webhook |
 | **Reliability** | Sistem harus menangani 10 failure scenario berikut tanpa efek ganda/hilang. Setiap scenario punya test otomatis |
-| **Security** | Kontrol MVP Step 6 (C-01…C-46 yang berstatus MVP), antara lain: argon2id + semaphore hashing (C-45), refresh rotation + reuse detection, BOLA 404, HMAC + window 5 menit + verify-by-fetch untuk webhook masuk, egress guard SSRF (C-44), API key ter-hash, security headers, secrets via sops + age, scan CI |
-| **Performance** | **Target desain, bukan klaim:** p95 `POST /transfers` < 200 ms; outbox lag p95 < 5 dtk; ≥ 95% payout `UNKNOWN` selesai otomatis dalam 1 jam; ketersediaan endpoint uang 99,5%/30 hari di lingkungan demo. Angka yang dikutip publik hanya hasil load test (Step 8 `03`) beserta spesifikasi VM |
+| **Security** | Kontrol MVP threat model (C-01…C-46 yang berstatus MVP), antara lain: argon2id + semaphore hashing (C-45), refresh rotation + reuse detection, BOLA 404, HMAC + window 5 menit + verify-by-fetch untuk webhook masuk, egress guard SSRF (C-44), API key ter-hash, security headers, secrets via sops + age, scan CI |
+| **Performance** | **Target desain, bukan klaim:** p95 `POST /transfers` < 200 ms; outbox lag p95 < 5 dtk; ≥ 95% payout `UNKNOWN` selesai otomatis dalam 1 jam; ketersediaan endpoint uang 99,5%/30 hari di lingkungan demo. Angka yang dikutip publik hanya hasil load test (`23-performance-plan.md`) beserta spesifikasi VM |
 | **Observability** | Log JSON + correlation lintas api → job → provider; metrik Prometheus berprefix `app_`/`ledgerpay_`; tracing OTel dengan link span job; dashboard di-provision; alert invariant |
 | **Operability** | Deploy via CI dengan health gate + auto rollback (M4); migrasi expand/contract; backup harian terenkripsi + restore drill; RPO 24 jam / RTO 2 jam (V1); kill switch untuk payout/webhook/top-up |
 | **Maintainability** | Modular monolith dengan batas modul ditegakkan depguard; SQL eksplisit (sqlc); spec-first OpenAPI; ADR untuk setiap keputusan infrastruktur |
@@ -154,7 +154,7 @@ Setiap invariant P0 punya minimal satu penjaga di level DB/transaksi (kecuali LI
 
 | Dependency | Kontrak | Catatan |
 |---|---|---|
-| **mock-provider** (PG + bank) | Step 5 `03` §1: charge (`Idempotency-Key = topup_id`), checkout hosted, payout (`Idempotency-Key = payout_id`), status query dengan `NOT_FOUND` + safe window, settlement CSV, admin skenario | Proses terpisah dengan DB sendiri; `/admin` tidak dipublish (SSH tunnel saat demo) |
+| **mock-provider** (PG + bank) | `14-api-external-contracts.md` §1: charge (`Idempotency-Key = topup_id`), checkout hosted, payout (`Idempotency-Key = payout_id`), status query dengan `NOT_FOUND` + safe window, settlement CSV, admin skenario | Proses terpisah dengan DB sendiri; `/admin` tidak dipublish (SSH tunnel saat demo) |
 | **Webhook masuk** | `Provider-Signature: t=…,v1=…` (HMAC-SHA256 atas `t.raw_body`), window 5 menit, membawa `metadata.correlation_id` | Event payout tidak ada di V1 |
 | **Webhook keluar ke merchant** | Envelope `{id, type, created_at, data}`, header `LedgerPay-Signature`, timeout 5 dtk, retry terjadwal | Merchant wajib dedupe berdasarkan event ID |
 
@@ -178,7 +178,7 @@ Setiap invariant P0 punya minimal satu penjaga di level DB/transaksi (kecuali LI
 | **M3 Siap melamar** | **Akhir S7** | Demo A–C di VM publik; README + video; CI (PR checks) + deploy ter-script yang bisa diulang; observability dasar; FS-01/02/04/05/08 hijau |
 | M4 LedgerPay selesai | Akhir S10 | DoD project penuh: semua FS, Demo D, CD + rollback teruji, backup + restore drill, baseline load test, dokumentasi |
 
-Rilis diberi tag semver per milestone (contoh `v0.7.0` = M3). Detail sprint: Step 10 `02-ledgerpay-roadmap.md`.
+Rilis diberi tag semver per milestone (contoh `v0.7.0` = M3). Detail sprint: `27-roadmap.md`.
 
 ---
 
@@ -190,17 +190,17 @@ Rilis diberi tag semver per milestone (contoh `v0.7.0` = M3). Detail sprint: Ste
 | Bug correctness ledger baru ketahuan saat demo | Deferred trigger, property test, invariant checker di setiap test, metrik invariant |
 | Demo live rapuh | Skrip deterministik, `make demo-verify` nightly, video cadangan |
 | Hot row (akun sistem, wallet merchant) | Akun sistem non-materialized (ADR-L07); merchant: ukur dulu (E-1), jalur V2 `MERCHANT_PENDING` |
-| Klaim berlebihan | Aturan kejujuran Step 11; placeholder `[UKUR: …]` |
+| Klaim berlebihan | Aturan kejujuran demo script; placeholder `[UKUR: …]` |
 
 **Asumsi:** ≥ 14 jam/minggu; Go + Vue; single currency IDR; angka regulasi e-money hanya dipakai setelah diverifikasi; dikerjakan solo.
 
 ---
 
 ## 12. Open Questions / Future Work
-- Rotasi secret webhook merchant dengan dual-signature (O16; diputuskan di Step 12 `01`).
+- Rotasi secret webhook merchant dengan dual-signature (O16; diputuskan di `29-final-review.md`).
 - `client_secret` untuk checkout ala Stripe (production enhancement).
 - `MERCHANT_PENDING` + sweep jika E-1 membuktikan perlu.
-- Arsitektur V2/V3: HA Postgres + PITR, Redis untuk rate limit terdistribusi, ledger service + sharding + saga, CDC → Kafka (Step 2 `02-ledgerpay-architecture.md`).
+- Arsitektur V2/V3: HA Postgres + PITR, Redis untuk rate limit terdistribusi, ledger service + sharding + saga, CDC → Kafka (`03-architecture.md`).
 - PIN/step-up, batas regulasi, fee (P2/P3).
 
 ---
@@ -209,13 +209,13 @@ Rilis diberi tag semver per milestone (contoh `v0.7.0` = M3). Detail sprint: Ste
 
 | PRD | Dokumen desain |
 |---|---|
-| §1–3 | Step 1 `01-ledgerpay.md` |
-| §4–5 | Step 2 `01-ledgerpay-features.md`, Step 5 `02-ledgerpay-api.md` |
-| §6 | Step 1 BR, Step 3 `02-ledgerpay-invariants.md` |
-| §7 Reliability | Step 3 `03-ledgerpay-failure-scenarios.md`, Step 7 `01` |
-| §7 Security | Step 6 `02-ledgerpay-threat-model.md`, `04-security-controls-and-testing.md` |
-| §7 Performance/Observability | Step 8 `00-index.md`, `01`, `03` |
-| §7 Operability | Step 9 |
-| §8 | Step 5 `03-ledgerpay-external-contracts.md`, ADR-L05, ADR-L08 |
-| §10 | Step 10 `02-ledgerpay-roadmap.md`, `04-definition-of-done.md` |
-| Keputusan arsitektur | Step 2 ADR register + amandemen (ADR-006, L02, L03, L06, L08, 009, 010) |
+| §1–3 | `01-product-strategy.md` |
+| §4–5 | `02-features.md`, `13-api-endpoints.md` |
+| §6 | Strategi produk BR, `05-invariants.md` |
+| §7 Reliability | `06-failure-scenarios.md`, `19-tx-concurrency.md` |
+| §7 Security | `16-security-threat-model.md`, `17-security-controls.md` |
+| §7 Performance/Observability | Desain observability & testing, `01`, `03` |
+| §7 Operability | Desain DevOps |
+| §8 | `14-api-external-contracts.md`, ADR-L05, ADR-L08 |
+| §10 | `27-roadmap.md`, `28-definition-of-done.md` |
+| Keputusan arsitektur | Desain fitur & arsitektur ADR register + amandemen (ADR-006, L02, L03, L06, L08, 009, 010) |

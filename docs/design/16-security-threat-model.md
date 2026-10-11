@@ -1,7 +1,7 @@
-# Step 6.2 — LedgerPay Threat Model
+# LedgerPay Threat Model
 
-> Bagian dari [Step 6](00-index.md). Format, skala risiko, dan skema ID mengikuti `00-index.md`.
-> Threat generik yang berlaku di kedua project (brute force login, JWT, refresh token, XSS, CSRF, CORS, SQL injection, secrets, supply chain) ada di [`01-shared-threats.md`](01-shared-threats.md) dan tidak diulang di sini. Kontrol `C-xx` didefinisikan di [`04-security-controls-and-testing.md`](04-security-controls-and-testing.md).
+> Bagian dari threat model. Format, skala risiko, dan skema ID mengikuti `00-index.md`.
+> Threat generik yang berlaku di kedua project (brute force login, JWT, refresh token, XSS, CSRF, CORS, SQL injection, secrets, supply chain) ada di [`15-security-shared-threats.md`](15-security-shared-threats.md) dan tidak diulang di sini. Kontrol `C-xx` didefinisikan di [`17-security-controls.md`](17-security-controls.md).
 > Asumsi penyerang: bermotif finansial, punya akun user dan/atau akun merchant yang sah, bisa mengirim request paralel dalam jumlah besar, dan bisa mengamati traffic miliknya sendiri. Penyerang tidak punya akses ke host atau database, kecuali disebut eksplisit (T-LP-17, T-LP-18).
 
 ---
@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Saldo & ledger** (`accounts`, `journals`, `journal_entries`) | Uang. Penciptaan saldo tanpa dana = pencurian dari perusahaan; pengurangan tidak sah = pencurian dari user | Postgres (`ledgerpay`) | Modul `ledger` (satu-satunya penulis, ADR-001) |
 | **Idempotency records** (`idempotency_keys`) | Menentukan apakah request "sudah terjadi". Manipulasi = efek ganda atau penolakan request sah | Postgres | Modul `idempotency` |
-| **Merchant API key** | Membuat payment intent dan refund atas nama merchant, serta membaca data pembayaran merchant | Hash SHA-256 di `merchant_api_keys`; plaintext hanya sekali di respons ops | Ops (pembuatan/pencabutan, Step 5) |
+| **Merchant API key** | Membuat payment intent dan refund atas nama merchant, serta membaca data pembayaran merchant | Hash SHA-256 di `merchant_api_keys`; plaintext hanya sekali di respons ops | Ops (pembuatan/pencabutan, kontrak API) |
 | **Secret webhook masuk** (provider → LedgerPay) | Siapa pun yang memegangnya bisa memalsukan `charge.succeeded` | Env/secret file (`PROVIDER_WEBHOOK_SECRET`) | Platform |
 | **Secret webhook keluar per merchant** | Pemegangnya bisa memalsukan notifikasi pembayaran ke merchant | `merchants.webhook_secret_enc` (AES-GCM, AAD = `merchant_id`) | Ops + merchant |
 | **Kunci penandatangan JWT** | Pemegangnya bisa menerbitkan token untuk user mana pun, termasuk `role = OPS` | Env/secret file (ber-`kid`, ADR-009) | Platform |
@@ -131,11 +131,11 @@ Attack scenario: Mengirim amount "-5000000" (berharap transfer terbalik), "0", "
                 currency "USD", atau mengirim field amount pada confirm payment untuk membayar lebih murah.
 Mitigation    : - Amount wajib string berpola ^[1-9][0-9]{0,15}$ (tanpa tanda, desimal, eksponen, spasi);
                   parse ke int64 dengan cek overflow; batas per endpoint (transfer Rp1–Rp10.000.000,
-                  payout Rp10.000–Rp25.000.000; Step 5). Angka JSON ditolak (ADR-L04).
+                  payout Rp10.000–Rp25.000.000; kontrak API). Angka JSON ditolak (ADR-L04).
                 - CHECK amount > 0 di semua tabel transaksi dan journal_entries (LI-11).
                 - Currency hanya IDR (CURRENCY_NOT_SUPPORTED + CHECK); composite FK (journal_id, currency) dan
                   (account_id, currency) mencegah entry lintas currency.
-                - Arah uang ditentukan server dari jenis operasi dan template purpose (Step 3 §6), bukan dari
+                - Arah uang ditentukan server dari jenis operasi dan template purpose (desain domain §6), bukan dari
                   tanda angka.
                 - Confirm payment: body kosong; amount diambil dari intent di server. Refund: dibatasi
                   refundable_amount.
@@ -161,7 +161,7 @@ Mitigation    : - Setiap query di-scope ke principal (WHERE user_id = $principal
                 - Refund hanya ke wallet payer asli (lihat T-LP-15).
 Detection     : Rasio 404 tinggi per principal pada endpoint ber-ID (probing); log berisi principal + target id.
 Test          : BOLA test suite: untuk setiap endpoint ber-ID, fixture dua user dan dua merchant → akses silang
-                selalu 404. Ini adalah penjaga LI-15 (APP + TEST, pengecualian yang disadari di Step 3).
+                selalu 404. Ini adalah penjaga LI-15 (APP + TEST, pengecualian yang disadari di desain domain).
 Status        : MVP
 ```
 
@@ -192,7 +192,7 @@ Attack scenario: Penyerang membuat top-up Rp5.000.000 (dapat topup_id dari respo
                 /webhooks/provider dengan payload charge.succeeded untuk topup_id tersebut, tanpa signature
                 atau dengan signature karangan.
 Mitigation    : - HMAC-SHA256 atas "<t>.<raw_body>" (bytes persis, sebelum decode), constant-time compare;
-                  gagal → 401 INVALID_SIGNATURE tanpa menyentuh DB (ADR-L08, kontrak Step 5 03 §2).
+                  gagal → 401 INVALID_SIGNATURE tanpa menyentuh DB (ADR-L08, kontrak `14-api-external-contracts.md` §2).
                 - Secret provider hanya di env/secret store; tidak pernah di repo, log, atau respons.
                 - Validasi isi oleh worker: amount + currency event harus sama dengan record top-up lokal;
                   tidak cocok → inbox DEAD + alert (T-LP-08).
@@ -258,7 +258,7 @@ Mitigation    : - Di V1, webhook_url hanya bisa diset oleh ops (merchant di-seed
                   sudah divalidasi (custom DialContext), sehingga DNS rebinding tidak bisa mengganti target.
                 - HTTPS wajib di mode live (validasi APP; CHECK DB hanya ^https?://). Hanya port 443 (dan 80
                   di dev).
-                - Redirect tidak diikuti (3xx = gagal; kontrak Step 5 03 §3.1). Timeout total 5 detik. Body
+                - Redirect tidak diikuti (3xx = gagal; kontrak `14-api-external-contracts.md` §3.1). Timeout total 5 detik. Body
                   respons dibaca maksimal 64 KB lalu dibuang, dan tidak pernah disimpan atau ditampilkan utuh
                   (mencegah SSRF "baca"). Yang dicatat hanya status code dan durasi.
                 - Mode demo: allowlist eksplisit untuk host simulator merchant lokal; daftar blok tetap aktif
@@ -279,7 +279,7 @@ Threat        : Penyerang yang tahu secret merchant (atau merchant yang tidak me
                 payment.succeeded palsu ke endpoint merchant agar pesanan dikirim tanpa pembayaran.
 Attack scenario: Penyerang menemukan endpoint webhook merchant dan mengirim JSON payment.succeeded karangan.
 Mitigation    : - Signature LedgerPay-Signature t=…,v1=… per merchant dengan window timestamp; event id stabil
-                  untuk dedupe (kontrak Step 5 03 §3).
+                  untuk dedupe (kontrak `14-api-external-contracts.md` §3).
                 - Secret disimpan terenkripsi (webhook_secret_enc), ditampilkan sekali saat dibuat.
                 - Rotasi oleh ops dengan masa transisi: dua signature (v1 lama dan v1 baru) dikirim di header
                   selama 24 jam, sehingga merchant bisa berganti tanpa downtime.
@@ -301,7 +301,7 @@ Mitigation    : - Format berprefix (lp_live_/lp_test_ + prefix publik) sehingga 
                   (gitleaks di CI kita; program secret scanning GitHub = production enhancement).
                 - Secret 256-bit; disimpan sebagai SHA-256 (entropi tinggi sehingga hash cepat sudah memadai,
                   ADR-009); plaintext ditampilkan sekali.
-                - Pembuatan/pencabutan HANYA lewat ops (Step 5): key curian tidak bisa membuat key pengganti
+                - Pembuatan/pencabutan HANYA lewat ops (kontrak API): key curian tidak bisa membuat key pengganti
                   bagi dirinya sendiri. Dua slot aktif memungkinkan rotasi tanpa downtime.
                 - Dampak refund dibatasi: refund hanya ke wallet payer asli dan ≤ amount pembayaran (T-LP-15).
                   Penyerang tidak bisa mengarahkan dana ke dirinya.
@@ -319,7 +319,7 @@ Status        : MVP (hash, prefix, ops-only, slot). IP allowlist/scope: Producti
 STRIDE        : I
 Aset          : Data intent sebelum dibayar (nama merchant, merchant_order_id, amount, deskripsi)
 Threat        : Siapa pun yang memegang ID intent (user login mana pun) bisa melihat ringkasan dan membayarnya
-                (keputusan Step 5). Risikonya: data order terbaca pihak lain, atau ID dipakai untuk phishing.
+                (keputusan kontrak API). Risikonya: data order terbaca pihak lain, atau ID dipakai untuk phishing.
 Attack scenario: (a) Menebak ID intent. (b) ID bocor lewat header Referer, riwayat browser, screenshot, atau log
                 proxy. (c) Penyerang membuat intent di merchant miliknya sendiri, lalu mengirim link ke korban
                 ("bayar tagihan ini").
@@ -328,7 +328,7 @@ Mitigation    : - Analisis tebakan: UUIDv7 punya 48 bit timestamp dan 74 bit aca
                   brute force tidak realistis. Ditambah lagi, endpoint memerlukan login dan dibatasi rate limit
                   read.
                 - Data sebelum bayar diminimalkan: nama merchant, amount, deskripsi, expires_at. Tanpa data
-                  payer, checkout_url, atau refund (model "viewer sebelum bayar", Step 5 §2.6). Merchant
+                  payer, checkout_url, atau refund (model "viewer sebelum bayar", kontrak API §2.6). Merchant
                   diinstruksikan untuk tidak menaruh PII di description/merchant_order_id.
                 - TTL 30 menit, lalu EXPIRED. Setelah SUCCEEDED, hanya payer yang bisa melihat; user lain 404.
                 - Halaman checkout memakai Referrer-Policy: no-referrer (C-10 security headers).
@@ -486,7 +486,7 @@ Mitigation    : - Rate limit money-write 30/menit per principal; merchant-api 30
                 - Ukuran pool terbatas + readiness gagal saat DB tidak sehat → 503 cepat, bukan menggantung.
                 - Hot row merchant: diukur di load test (O11); opsi V2 akun MERCHANT_PENDING + sweep.
 Detection     : Latency p95/p99, 409 RESOURCE_BUSY rate, pool wait time, 429 rate.
-Test          : Load test (Step 9) dengan skenario hot merchant.
+Test          : Load test (desain DevOps) dengan skenario hot merchant.
 Status        : MVP (rate limit + timeout). Proteksi DDoS jaringan (CDN/WAF): Production enhancement.
 ```
 
@@ -524,7 +524,7 @@ Mitigation    : - Caddy hanya mengekspos /checkout/* milik mock-provider ke inte
                 - Endpoint demo toolbar di LedgerPay (/api/v1/demo/*) hanya didaftarkan jika DEMO_MODE=true,
                   memerlukan token demo terpisah, dan dikecualikan dari build produksi (build tag). Test
                   memastikan rute itu tidak ada saat DEMO_MODE=false.
-                - Production nyata tidak memakai mock sama sekali (adapter provider asli, Step 2 V2).
+                - Production nyata tidak memakai mock sama sekali (adapter provider asli, desain fitur & arsitektur V2).
 Detection     : Log akses /admin/* dan /demo/*.
 Test          : Test router: DEMO_MODE=false → /api/v1/demo/* 404; smoke test deployment: /admin dari luar →
                 tidak terjangkau.
@@ -586,7 +586,7 @@ Status        : MVP
 |---|---|---|
 | **ATO → payout** (T-LP-13, residual Medium) | Tidak ada uang sungguhan. Cooling period dan notifikasi butuh kanal email/push yang belum dibangun (LF-24 P3). PIN (LF-22) dan limit harian (LF-21) ada di P2 | Sebelum ada dana nyata. Minimal: PIN + limit harian + notifikasi rekening baru |
 | **Satu operator jahat** (T-LP-16, residual Medium) | Two-person rule butuh workflow approval ops dan lebih dari satu operator. Untuk portfolio, evidence + audit + deteksi lewat recon sudah cukup menunjukkan pola | Saat ada lebih dari satu operator dan resolusi bernilai material |
-| **Penyerang dengan RCE/kredensial DB** (T-LP-17, residual Medium) | Pencegahan penuh butuh pemisahan layanan ledger dan HSM/signing journal, di luar skala V1. Yang diberikan: tidak bisa diam-diam (drift job, recon, append-only) | V3 (ledger service terpisah, Step 2) |
+| **Penyerang dengan RCE/kredensial DB** (T-LP-17, residual Medium) | Pencegahan penuh butuh pemisahan layanan ledger dan HSM/signing journal, di luar skala V1. Yang diberikan: tidak bisa diam-diam (drift job, recon, append-only) | V3 (ledger service terpisah, desain fitur & arsitektur) |
 | **Data merchant terbaca dengan key curian sampai dicabut** (T-LP-11, residual Medium) | Deteksi anomali penggunaan key butuh baseline traffic. Dampak finansial sudah dibatasi oleh aturan refund | Saat ada merchant nyata: IP allowlist + key ber-scope |
 | **Provider yang disusupi** (T-LP-14) | Recon terhadap laporan provider yang sama tidak independen. Recon terhadap mutasi bank butuh integrasi bank | Go-live dengan provider asli |
 | **Webhook palsu oleh pemegang secret provider yang bocor** (T-LP-06/08) | Kredit hanya mungkin untuk top-up milik penyerang dengan amount yang persis sama dengan record lokal, dan recon menandai MISSING_EXTERNAL keesokan harinya. Konfirmasi ke provider sebelum kredit (*verify-by-fetch*: GET /v1/charges/{id} sebelum menerapkan charge.succeeded) dijadwalkan **P1**, karena menambah satu panggilan jaringan di worker inbox | P1 sebelum project dianggap selesai |

@@ -1,7 +1,7 @@
-# Step 3.1 — LedgerPay: Domain Model
+# LedgerPay: Domain Model
 
-> Bagian dari [Step 3 — Domain Design](00-index.md). Nama aggregate, status, dan ID invariant mengikuti **glosarium kanonik** di index.
-> Referensi: [feature spec](../step-02-features-and-architecture/01-ledgerpay-features.md), [arsitektur](../step-02-features-and-architecture/02-ledgerpay-architecture.md), ADR-L01…L08, ADR-006, ADR-011.
+> Bagian dari desain domain — Domain Design. Nama aggregate, status, dan ID invariant mengikuti **glosarium kanonik** di index.
+> Referensi: [feature spec](02-features.md), [arsitektur](03-architecture.md), ADR-L01…L08, ADR-006, ADR-011.
 
 ---
 
@@ -9,7 +9,7 @@
 
 **Domain:** perpindahan uang elektronik dalam *closed-loop wallet*, dengan pertanggungjawaban akuntansi ke pihak eksternal (provider, bank).
 
-| Subdomain | Jenis | Kenapa jenis ini | Modul (Step 2 §2.3) |
+| Subdomain | Jenis | Kenapa jenis ini | Modul (desain fitur & arsitektur §2.3) |
 |---|---|---|---|
 | **Ledger** | **Core** | Sumber kebenaran tunggal semua saldo. Seluruh nilai produk (kepercayaan) bergantung padanya, dan tidak bisa dibeli jadi | `ledger` |
 | **Money Movement**: transfer, payment (+refund), top-up, payout | **Core** | Di sinilah invariant diuji oleh dunia nyata (concurrency, retry, provider gagal). Pembeda utama portfolio | `transfer`, `payment`, `topup`, `payout`, `wallet` (read) |
@@ -107,7 +107,7 @@ Aturan DDD klasik: *satu transaksi memodifikasi satu aggregate*; aggregate lain 
 | Kenapa tidak membuat `Account` + `Journal` satu aggregate? | Journal menyentuh ≥ 2 account, termasuk akun sistem yang dipakai semua transaksi. Kalau account adalah bagian aggregate journal (atau sebaliknya), seluruh ledger menjadi satu aggregate raksasa, dan satu lock untuk semua |
 | Kenapa tidak eventual (journal dulu, saldo menyusul)? | Saldo eventual = cek saldo terhadap angka basi, sehingga double-spend. LI-02 dan LI-03 harus **strongly consistent** |
 | Kenapa pelanggaran ini aman? | Aturan "satu aggregate per tx" ada untuk skalabilitas di sistem terdistribusi. Di sini semua aggregate tinggal di **satu Postgres**, transaksi pendek (tanpa network call, ADR-011), dan urutan lock deterministik (ADR-L03). Biayanya kecil, jaminannya ACID |
-| Kapan harus diubah? | Saat ledger dipisah menjadi service atau di-shard (V3). Saat itu transfer lintas shard menjadi saga dengan akun suspense (Step 2 arsitektur §4) |
+| Kapan harus diubah? | Saat ledger dipisah menjadi service atau di-shard (V3). Saat itu transfer lintas shard menjadi saga dengan akun suspense (desain arsitektur §4) |
 
 > **Poin interview:** "Saya memakai konsep aggregate untuk menentukan *apa yang harus di-lock bersama*, bukan sebagai aturan dogmatis. Selama semuanya ada di satu database ACID, menulis beberapa aggregate dalam satu transaksi pendek adalah pilihan yang paling benar."
 
@@ -225,7 +225,7 @@ Resolusi: `OPEN → RESOLVED` (wajib alasan + actor; aksi finansial tetap lewat 
 | `PAYOUT_HOLD` | `payout` | `WALLET:user` | `PAYOUT_IN_TRANSIT` | Saat `POST /payouts` |
 | `PAYOUT_SETTLE` | `payout` | `PAYOUT_IN_TRANSIT` | `BANK_CLEARING` | Saat `SUCCEEDED` |
 | `PAYOUT_REVERSAL` | `payout` | `PAYOUT_IN_TRANSIT` | `WALLET:user` | Saat `FAILED`; `reversal_of` = journal hold |
-| `PROVIDER_SETTLEMENT` | `provider_settlement` | `BANK_CLEARING` | `PROVIDER_CLEARING` | Dibuat recon (P1) saat item settlement `MATCHED`; `source_id` = **topup_id** (Step 12 R1-5), sehingga recon ulang, termasuk dengan file ber-hash berbeda, tidak memposting dua kali |
+| `PROVIDER_SETTLEMENT` | `provider_settlement` | `BANK_CLEARING` | `PROVIDER_CLEARING` | Dibuat recon (P1) saat item settlement `MATCHED`; `source_id` = **topup_id** (final review R1-5), sehingga recon ulang, termasuk dengan file ber-hash berbeda, tidak memposting dua kali |
 | `ADJUSTMENT_MANUAL` | `ops_action` | sesuai keputusan ops | sesuai keputusan ops | Hanya role OPS, wajib alasan + audit; tetap seimbang |
 
 Ledger memvalidasi bahwa kombinasi `purpose` dan arah akun sesuai tabel ini (APP). Contoh: journal `TRANSFER` yang mendebit akun sistem ditolak. Sementara itu `UNIQUE (source_type, source_id, purpose)` menjamin satu objek bisnis tidak di-posting dua kali untuk tujuan yang sama (LI-06). Untuk payout, ketiga purpose berbeda sehingga hold + settle **atau** hold + reversal bisa hidup bersama, tetapi settle dan reversal dicegah terjadi bersamaan oleh state machine (LI-07). Settlement provider → bank (`BANK_CLEARING` / `PROVIDER_CLEARING`) diposting otomatis oleh recon dengan purpose `PROVIDER_SETTLEMENT` dan source `('provider_settlement', topup_id)`. Jalur ini bukan `ADJUSTMENT_MANUAL`, karena koreksi manual harus tetap menjadi pengecualian yang jarang.
@@ -261,7 +261,7 @@ Notasi: **Tx** = satu DB transaction (Read Committed, ADR-011). Lock dicantumkan
 |---|---|---|---|---|
 | Register | User, Account wallet (balance 0), credential | — (unique email) | — | — |
 | Transfer | IdempotencyRecord, Journal + entries, 2× Account.balance, Transfer | 1) unique idempotency key; 2) `FOR UPDATE` wallet sender & receiver `ORDER BY id` | — | `transfer.completed` |
-| Create top-up | **Tx1:** IdempotencyRecord (response NULL), TopUp `PENDING` + `recovery_point = CREATED`. **Tx2:** TopUp.provider_ref/checkout_url + `recovery_point = PROVIDER_CREATED`, IdempotencyRecord (response) — recovery point hanya di `topups` (Step 4) | unique key | **Antara Tx1 dan Tx2:** `POST provider /charges` (key = topup_id) | — |
+| Create top-up | **Tx1:** IdempotencyRecord (response NULL), TopUp `PENDING` + `recovery_point = CREATED`. **Tx2:** TopUp.provider_ref/checkout_url + `recovery_point = PROVIDER_CREATED`, IdempotencyRecord (response) — recovery point hanya di `topups` (desain database) | unique key | **Antara Tx1 dan Tx2:** `POST provider /charges` (key = topup_id) | — |
 | Terima webhook | InboxEvent `RECEIVED` | unique `(provider, event_id)` | Verifikasi HMAC sebelum Tx | — (inbox diklaim worker) |
 | Proses inbox top-up | InboxEvent → `PROCESSED`, TopUp transisi, Journal `TOPUP_CREDIT`, Account wallet | 1) claim inbox `SKIP LOCKED`; 2) guard status TopUp; 3) `FOR UPDATE` wallet | — | `topup.succeeded` |
 | Create payment intent | IdempotencyRecord, PaymentIntent | unique key; unique `(merchant_id, merchant_order_id)` aktif | — | — |

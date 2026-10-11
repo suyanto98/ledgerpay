@@ -1,7 +1,7 @@
-# Step 5.3 — LedgerPay External Contracts
+# LedgerPay External Contracts
 
 > Tiga kontrak lintas batas jaringan: (1) LedgerPay → **mock-provider** (PG + Bank), (2) mock-provider → LedgerPay (**webhook masuk**), (3) LedgerPay → **merchant** (webhook keluar).
-> Desain mock: ADR-L05. Payout: ADR-L06. Inbox: ADR-L08. Konvensi uang dan waktu sama dengan [`00-index.md`](00-index.md): amount = string minor unit, waktu RFC 3339 UTC.
+> Desain mock: ADR-L05. Payout: ADR-L06. Inbox: ADR-L08. Konvensi uang dan waktu sama dengan `00-index.md`: amount = string minor unit, waktu RFC 3339 UTC.
 
 ---
 
@@ -168,7 +168,7 @@ Baris yang `settled_at`-nya ≤ 15 menit sebelum tengah malam, dan muncul di fil
 | `data.amount`/`currency` | Harus sama dengan top-up. Berbeda → inbox `DEAD` + alert (indikasi bug atau serangan) |
 | `created_at` | Informasi saja. Urutan tidak dijamin; transisi monoton di LedgerPay yang menentukan efek |
 
-> **Korelasi (Step 8):** LedgerPay mengirim `metadata.correlation_id` saat membuat charge/payout. Mock mengembalikannya di payload webhook (`data.metadata.correlation_id`), sehingga pemrosesan inbox meneruskan alur yang sama di log dan trace.
+> **Korelasi (desain observability & testing):** LedgerPay mengirim `metadata.correlation_id` saat membuat charge/payout. Mock mengembalikannya di payload webhook (`data.metadata.correlation_id`), sehingga pemrosesan inbox meneruskan alur yang sama di log dan trace.
 
 ### 2.4 Perilaku retry provider (mock)
 | Respons LedgerPay | Perilaku mock |
@@ -269,6 +269,6 @@ Fungsi yang sama dipakai LedgerPay untuk memverifikasi webhook masuk (§2.1), ka
 
 | Kontrak | Mekanisme versi | Aturan perubahan |
 |---|---|---|
-| mock-provider API | Path `/v1` | Mock dikendalikan sendiri, tetapi diperlakukan seperti provider pihak ketiga: adapter LedgerPay hanya bergantung pada field yang terdokumentasi di sini. Contract test (Step 8) menjaga keduanya tetap sinkron |
+| mock-provider API | Path `/v1` | Mock dikendalikan sendiri, tetapi diperlakukan seperti provider pihak ketiga: adapter LedgerPay hanya bergantung pada field yang terdokumentasi di sini. Contract test (desain observability & testing) menjaga keduanya tetap sinkron |
 | Webhook masuk | Field `type` + bentuk `data` per type | Field baru boleh ditambah; parser LedgerPay mengabaikan field tak dikenal. Type tak dikenal → `IGNORED` (bukan error) |
 | Webhook keluar | `api_version` (tanggal) di envelope | Perubahan **aditif** (field baru) tidak menaikkan versi. Perubahan breaking → `api_version` baru; merchant memilih versi di konfigurasinya (V2; V1 hanya punya `2026-03-01`). Merchant wajib mengabaikan field yang tidak dikenal |

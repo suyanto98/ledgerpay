@@ -6,7 +6,7 @@ ON CONFLICT ON CONSTRAINT uq_webhook_inbox_event DO NOTHING
 RETURNING id;
 
 -- name: ClaimEvents :many
--- Claim dengan lease (Step 12 C1): hormati lease yang masih berlaku; attempts hanya naik saat
+-- Claim dengan lease (final review C1): hormati lease yang masih berlaku; attempts hanya naik saat
 -- MENGAMBIL ALIH lease yang kedaluwarsa (worker sebelumnya kemungkinan mati di tengah jalan).
 UPDATE webhook_inbox
 SET locked_by = sqlc.arg(worker), locked_until = now() + make_interval(secs => sqlc.arg(lease_secs)::float8),

@@ -1,4 +1,4 @@
-# Step 1.1 — LedgerPay: Digital Wallet & Mini Payment Platform
+# LedgerPay: Digital Wallet & Mini Payment Platform
 
 > *"A mini payment platform with a double-entry ledger where financial transactions remain consistent even when requests are duplicated, concurrent, or interrupted by failures."*
 
@@ -51,7 +51,7 @@ Memindahkan uang antar pihak terlihat seperti `balance = balance - x`. Kenyataan
 Lima workflow inti. Setiap workflow sengaja dipilih karena memunculkan tantangan engineering yang **berbeda**.
 
 ### W1 — Top-up (masuk dari luar, asynchronous, via webhook)
-> **Alur final:** webhook disimpan ke inbox, lalu diproses worker dengan verify-by-fetch ke provider sebelum kredit (ADR-L08 + amandemen Step 6). Diagram di bawah adalah versi awal Step 1.
+> **Alur final:** webhook disimpan ke inbox, lalu diproses worker dengan verify-by-fetch ke provider sebelum kredit (ADR-L08 + amandemen threat model). Diagram di bawah adalah versi awal strategi produk.
 ```text
 Rina → POST /topups (Idempotency-Key)
      → LedgerPay buat TopUp[PENDING] + panggil Mock Provider → dapat payment URL
@@ -101,7 +101,7 @@ Sari → upload / worker tarik report → matching dengan transaksi internal
 ```
 **Tantangan:** membuktikan sistem internal benar, menangkap kasus yang lolos dari semua mekanisme lain (contoh: payout UNKNOWN yang ternyata sukses di bank).
 
-### Model akun (ringkas, detail di Step 3)
+### Model akun (ringkas, detail di desain domain)
 Dari sudut pandang **perusahaan**:
 
 | Akun | Tipe | Keterangan |
@@ -116,7 +116,7 @@ Invariant global: **Σ debit = Σ kredit untuk setiap journal**, sehingga keselu
 
 ---
 
-## 5. Core Business Rules (awal; diformalkan menjadi invariant di Step 3)
+## 5. Core Business Rules (awal; diformalkan menjadi invariant di desain domain)
 
 | # | Rule |
 |---|---|
@@ -165,7 +165,7 @@ Invariant global: **Σ debit = Σ kredit untuk setiap journal**, sehingga keselu
 | Fitur | Kenapa tidak di MVP |
 |---|---|
 | Fee transaksi (journal 3 kaki) | Menarik, tetapi menambah kasus tanpa sinyal baru yang signifikan |
-| Rate limiting per user / per API key (Redis atau Postgres) | Penting di production; masuk P1/P2, dan implementasinya bisa sederhana. **(Final: P1, in-memory per instance, lihat Step 2 LF-20 / Step 6 C-07)** |
+| Rate limiting per user / per API key (Redis atau Postgres) | Penting di production; masuk P1/P2, dan implementasinya bisa sederhana. **(Final: P1, in-memory per instance, lihat desain fitur & arsitektur LF-20 / threat model C-07)** |
 | Notifikasi email (via outbox) | Outbox-nya sudah membuktikan pola. Email hanya consumer tambahan |
 | PIN transaksi / step-up auth | Bagus untuk diskusi security, bisa ditambah belakangan |
 | Risk rules sederhana (velocity limit) | Nilai diskusinya ada, implementasinya kecil, tetapi bukan inti |
@@ -244,7 +244,7 @@ Mock Bank mencatat payout sukses yang di sistem internal masih `UNKNOWN` (status
 
 ## 9. Production Engineering Challenges
 
-| # | Challenge | Kenapa sulit | Arah solusi (detail di Step 3/7) |
+| # | Challenge | Kenapa sulit | Arah solusi (detail di desain domain, desain transaksi & concurrency) |
 |---|---|---|---|
 | C1 | **Double-spend / lost update** | Dua transaksi membaca saldo yang sama sebelum salah satu menulis | Row lock (`FOR UPDATE`) pada wallet + `CHECK (balance >= 0)` sebagai jaring terakhir |
 | C2 | **Deadlock** | A→B dan B→A bersamaan mengunci dalam urutan berlawanan | Lock ordering berdasarkan ID; retry terbatas untuk `40P01` |
@@ -271,7 +271,7 @@ Mock Bank mencatat payout sukses yang di sistem internal masih `UNKNOWN` (status
 | Chargeback / dispute penuh | Workflow panjang; refund sudah mewakili pola "uang kembali" |
 | Microservices (ledger service, wallet service, …) | Masalah utamanya konsistensi. Memecah service justru memaksa saga/2PC tanpa alasan bisnis. **Satu-satunya proses terpisah adalah mock provider**, karena memang merepresentasikan sistem eksternal |
 | Kafka / RabbitMQ | Postgres outbox + `SKIP LOCKED` cukup untuk volume ini dan menjaga transaksionalitas. Broker eksternal menambah infrastruktur tanpa masalah nyata yang diselesaikan |
-| Kubernetes | Docker Compose + satu VM cukup. K8s hanya dibahas sebagai arsitektur V3 di Step 2 |
+| Kubernetes | Docker Compose + satu VM cukup. K8s hanya dibahas sebagai arsitektur V3 di desain fitur & arsitektur |
 | Mobile app | Web responsif cukup untuk demo |
 | Fraud detection berbasis ML | Di luar fokus; risk rules sederhana sudah memadai sebagai nice-to-have |
 | Bunga, pinjaman, paylater, cashback/promo engine | Domain produk keuangan lain, bukan inti payment correctness |
@@ -281,7 +281,7 @@ Mock Bank mencatat payout sukses yang di sistem internal masih `UNKNOWN` (status
 
 ## 11. Initial Architecture Direction
 
-> Ini **arah**, belum keputusan final. ADR lengkap dan versi V1→V3 dikerjakan di Step 2.
+> Ini **arah**, belum keputusan final. ADR lengkap dan versi V1→V3 dikerjakan di desain fitur & arsitektur.
 
 ```text
                   ┌──────────────────────────────────────────┐
@@ -314,7 +314,7 @@ Mock Bank mencatat payout sukses yang di sistem internal masih `UNKNOWN` (status
 | API | REST + JSON, `Idempotency-Key` header, error RFC 9457 | Standar industri payment (Stripe-like); mudah didemokan dengan curl |
 | Auth | JWT access (pendek) + refresh token rotasi (user); API key ber-hash (merchant) | Dua jenis client, dua mekanisme |
 | Proses eksternal | `mock-provider` sebagai service terpisah | Merepresentasikan batas jaringan nyata (timeout, signature) |
-| Deployment | Docker Compose, satu VM murah | Cukup untuk demo; V2/V3 dibahas di Step 2 |
+| Deployment | Docker Compose, satu VM murah | Cukup untuk demo; V2/V3 dibahas di desain fitur & arsitektur |
 
 ---
 
@@ -325,7 +325,7 @@ Mock Bank mencatat payout sukses yang di sistem internal masih `UNKNOWN` (status
 | R1 | **Scope creep**: domain payment tidak ada habisnya | Project tidak selesai | Tinggi | Daftar Out of Scope di atas bersifat mengikat; fitur baru wajib lolos gerbang di `00-overview.md` §4 |
 | R2 | **Bug correctness di ledger** yang baru ketahuan saat demo | Kredibilitas runtuh | Sedang | Invariant check otomatis (test + metrik), property-based test, concurrency test di CI |
 | R3 | **Demo live yang rapuh** (race condition tidak muncul / muncul tidak konsisten) | Demo gagal di depan interviewer | Sedang | Demo berbasis script deterministik + rekaman video cadangan + mode failure injection yang eksplisit |
-| R4 | **Salah memahami konsep akuntansi** (debit/kredit untuk liability) | Diskusi interview terlihat dangkal | Sedang | Model akun ditulis dan divalidasi di Step 3 sebelum coding; jelaskan dari sudut pandang perusahaan |
+| R4 | **Salah memahami konsep akuntansi** (debit/kredit untuk liability) | Diskusi interview terlihat dangkal | Sedang | Model akun ditulis dan divalidasi di desain domain sebelum coding; jelaskan dari sudut pandang perusahaan |
 | R5 | **Over-engineering** (CQRS, event sourcing, Kafka) karena terlihat keren | Waktu habis, sulit dijelaskan | Sedang | ADR wajib untuk setiap komponen infrastruktur baru |
 | R6 | **Hot account** baru ketahuan di akhir | Performa buruk saat load test | Rendah–Sedang | Desain akun sistem tanpa saldo materialized dari awal; load test di sprint performa |
 | R7 | **Klaim regulasi yang salah** (batas saldo e-money) | Terlihat tidak teliti | Rendah | Semua angka regulasi bisa dikonfigurasi dan ditandai "untuk diverifikasi" |
@@ -345,6 +345,6 @@ Mock Bank mencatat payout sukses yang di sistem internal masih `UNKNOWN` (status
 |---|---|
 | Pelanggaran invariant (saldo negatif, journal tidak seimbang, efek dobel) di concurrency + chaos test | **0** |
 | Concurrency test (N transfer paralel ke saldo yang sama) berjalan di CI | Selalu hijau |
-| Semua 10 failure scenario (Step 3) punya test otomatis | 10/10 |
+| Semua 10 failure scenario (desain domain) punya test otomatis | 10/10 |
 | p95 latency transfer di load test lokal | Dicatat sebagai baseline. **Bukan klaim kapasitas production** |
 | Demo A–C bisa dijalankan dari nol (`make demo`) | ≤ 10 menit, deterministik |

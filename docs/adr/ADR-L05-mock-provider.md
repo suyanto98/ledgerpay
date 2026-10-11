@@ -19,7 +19,7 @@ Top-up, payout, dan reconciliation bergantung pada pihak luar (payment gateway d
 
 **Opsi C.** Fake in-process (Opsi B) tetap dipakai untuk unit test service layer. `mock-provider` dipakai untuk integration test, E2E, dan demo.
 
-### Endpoint (sketsa; kontrak final di Step 5)
+### Endpoint (sketsa; kontrak final di kontrak API)
 
 | Area | Endpoint | Perilaku |
 |---|---|---|
@@ -69,7 +69,7 @@ Semua delay dan pilihan acak memakai `MOCK_SEED`. Skrip demo memanggil `/admin/r
 ## Trade-offs
 
 - Ada kode tambahan yang harus dipelihara (perkiraan ±1 minggu kerja).
-- Risiko "mock yang terlalu baik hati": kontrak tidak mencerminkan keanehan provider nyata. Mitigasinya: daftar skenario di atas diambil dari failure scenario Step 3, bukan dari happy path.
+- Risiko "mock yang terlalu baik hati": kontrak tidak mencerminkan keanehan provider nyata. Mitigasinya: daftar skenario di atas diambil dari failure scenario desain domain, bukan dari happy path.
 - Interviewer mungkin bertanya "kenapa tidak integrasi sungguhan?". Jawabannya ada di bagian Interview angle.
 
 ## Future Migration

@@ -1,7 +1,7 @@
-# Step 2.2 — LedgerPay: System Architecture V1 → V2 → V3
+# LedgerPay: System Architecture V1 → V2 → V3
 
 > Prinsip: **mulai dari arsitektur paling sederhana yang memenuhi requirement**, lalu ubah hanya ketika ada *pemicu terukur*. Setiap transisi menjawab: *apa yang berubah, kenapa, dan kapan.*
-> Keputusan rinci: lihat [ADR register](00-index.md#adr-register).
+> Keputusan rinci: lihat ADR register.
 
 ---
 
@@ -114,7 +114,7 @@ internal/
 ```text
 API ─ BEGIN
      ├─ idempotency.Begin(key, hash)        -- INSERT; duplikat → tunggu/replay
-     ├─ SELECT accounts … ORDER BY id FOR NO KEY UPDATE   (Step 7/12)
+     ├─ SELECT accounts … ORDER BY id FOR NO KEY UPDATE   (desain transaksi & concurrency, final review)
      ├─ validasi saldo
      ├─ ledger.PostJournal(DR sender, CR receiver)  -- update balance + insert entries
      ├─ transfer row (COMPLETED)
@@ -147,7 +147,7 @@ Worker: claim inbox row → tx: transisi topup (monoton) + journal + outbox → 
 1 VM (2 vCPU / 2–4 GB) ── docker compose:
   caddy · web · api · worker · postgres (volume) · mock-provider · [prometheus · grafana]
 CI: GitHub Actions → image GHCR (tag SHA) → SSH deploy → migrate → restart → health check
-Backup: pg_dump harian ke storage eksternal (detail Step 9)
+Backup: pg_dump harian ke storage eksternal (detail desain DevOps)
 ```
 
 ### 2.6 Batas V1 yang diakui (jujur, untuk interview)
