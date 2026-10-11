@@ -130,7 +130,7 @@ onMounted(() => {
         <p class="muted">Koneksi lambat, kamu menekan "Kirim" lagi. Di banyak aplikasi, uang terpotong dua kali. Di sini kedua permintaan membawa kunci yang sama, jadi server hanya memprosesnya sekali.</p>
       </div>
     </div>
-    <button type="button" class="btn" data-test="lab-double" :disabled="dblBusy || !siti" @click="doubleSend">
+    <button type="button" class="btn" data-test="lab-double" data-spot="double" :disabled="dblBusy || !siti" @click="doubleSend">
       <AppIcon name="transfer" :size="18" :stroke="2.2" />{{ dblBusy ? 'Mengirim…' : `Kirim Rp10.000 ke ${siti?.name ?? 'Siti'}, dua kali sekaligus` }}
     </button>
     <p v-if="dblError" class="alert error" role="alert">{{ dblError }}</p>
@@ -161,7 +161,7 @@ onMounted(() => {
         <p class="muted">Sebuah dompet uji berisi tepat <strong>Rp100.000</strong>. Kami kirim <strong>100 transfer Rp10.000</strong> bersamaan. Hasil yang benar: tepat 10 berhasil, 90 ditolak, dan saldo tidak pernah minus.</p>
       </div>
     </div>
-    <button type="button" class="btn" data-test="lab-stress" :disabled="stressBusy" @click="runStress">
+    <button type="button" class="btn" data-test="lab-stress" data-spot="stress" :disabled="stressBusy" @click="runStress">
       <AppIcon name="play" :size="18" :stroke="2" />{{ stressBusy ? 'Menjalankan 100 transfer…' : 'Jalankan uji 100 transfer' }}
     </button>
     <p v-if="stressError" class="alert error" role="alert">{{ stressError }}</p>
@@ -192,7 +192,7 @@ onMounted(() => {
         <p class="muted">Saldo yang kamu lihat disimpan terpisah dari catatan transaksinya. Pemeriksaan ini menghitung ulang saldo dari semua catatan, lalu membandingkannya. Lakukan setelah uji di atas.</p>
       </div>
     </div>
-    <button type="button" class="btn ghost" data-test="lab-ledger" :disabled="igBusy" @click="checkLedger">
+    <button type="button" class="btn ghost" data-test="lab-ledger" data-spot="ledger" :disabled="igBusy" @click="checkLedger">
       <AppIcon name="refresh" :size="18" :stroke="2" />{{ igBusy ? 'Memeriksa…' : 'Periksa sekarang' }}
     </button>
     <p v-if="igError" class="alert error" role="alert">{{ igError }}</p>

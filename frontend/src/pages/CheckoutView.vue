@@ -134,7 +134,7 @@ const statusText: Record<string, string> = {
     <template v-if="payable">
       <p v-if="balance !== null && !enough" class="alert error">Saldo tidak cukup. <RouterLink to="/topup">Top-up dulu</RouterLink>, lalu kembali ke halaman ini.</p>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-      <button type="button" class="btn block" :disabled="busy || !enough" @click="pay"><AppIcon name="lock" :size="18" :stroke="2.2" />Bayar {{ formatMinor(intent.amount) }}</button>
+      <button type="button" class="btn block" :disabled="busy || !enough" data-spot="pay" @click="pay"><AppIcon name="lock" :size="18" :stroke="2.2" />Bayar {{ formatMinor(intent.amount) }}</button>
       <p class="note"><AppIcon name="info" :size="18" :stroke="2" />Aman meski tombol tertekan dua kali atau halaman dibuka di dua tab: saldo hanya terpotong sekali.</p>
       <div v-if="qr" class="qr-box hide-mobile" data-test="checkout-qr">
         <img :src="qr" width="148" height="148" alt="Kode QR link pembayaran ini" />

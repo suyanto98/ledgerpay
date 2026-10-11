@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './components/AppIcon.vue'
+import { spotlight } from './spotlight'
 import { useAuth } from './stores/auth'
 import { useDemo } from './stores/demo'
 
@@ -68,6 +69,12 @@ async function restartDemo() {
     window.alert((e as Error).message)
   }
 }
+
+// Tur demo: tautan dengan #penanda → sorot elemen [data-spot] di halaman tujuan (juga saat hanya hash yang berubah).
+watch(() => route.fullPath, async () => {
+  await nextTick()
+  if (route.hash.length > 1) spotlight(decodeURIComponent(route.hash.slice(1)))
+}, { immediate: true })
 </script>
 
 <template>

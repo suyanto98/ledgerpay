@@ -71,7 +71,7 @@ const when = computed(() => (tx.value ? new Date(tx.value.created_at).toLocaleSt
       </dl>
     </section>
 
-    <section class="card narrow stack" aria-labelledby="journal-title" data-test="journal">
+    <section class="card narrow stack" aria-labelledby="journal-title" data-test="journal" data-spot="journal">
       <div>
         <h2 id="journal-title">Di balik layar: catatan pembukuan</h2>
         <p class="muted small-lead">Setiap transaksi dicatat di dua sisi. Jumlah yang keluar dari satu akun (debit) selalu sama dengan yang masuk ke akun lain (kredit). Kalau tidak seimbang, database menolak menyimpannya.</p>

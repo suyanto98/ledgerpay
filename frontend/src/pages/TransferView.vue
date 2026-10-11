@@ -144,7 +144,7 @@ function again() {
         <label for="amount">Nominal (Rp)</label>
         <div class="amount-field">
           <span class="cur" aria-hidden="true">Rp</span>
-          <input id="amount" v-model="form.rupiah" inputmode="numeric" placeholder="0" autocomplete="off" required />
+          <input id="amount" v-model="form.rupiah" data-spot="amount" inputmode="numeric" placeholder="0" autocomplete="off" required />
         </div>
         <div class="amount-meta">
           <span class="hint">Saldo tersedia {{ balance ? formatMinor(balance) : '…' }}</span>

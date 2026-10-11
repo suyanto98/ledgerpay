@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { api } from '../api'
 import AppIcon from './AppIcon.vue'
 import { tour, useDemo, type TourStep } from '../stores/demo'
 
@@ -10,11 +11,24 @@ const contactUrl = import.meta.env.VITE_CONTACT_URL as string | undefined
 const repoUrl = import.meta.env.VITE_REPO_URL as string | undefined
 const doneCount = computed(() => demo.done.length)
 
-// Tautan yang langsung berguna: kirim ke kontak pertama, bayar tagihan yang masih terbuka.
+// Transaksi terbaru: langkah "buka catatan" langsung membuka jurnalnya, bukan daftar riwayat.
+const latestTx = ref<string | null>(null)
+onMounted(async () => {
+  latestTx.value = (await api<{ data: { id: string }[] }>('/wallet/transactions?limit=1').catch(() => ({ data: [] }))).data[0]?.id ?? null
+})
+
+// Tautan yang mendarat tepat di tempat aksinya; #penanda = elemen yang disorot di sana (spotlight.ts).
 function linkOf(s: TourStep) {
-  if (s.key === 'transfer' && demo.sandbox?.contacts[0]) return { path: '/transfer', query: { to: demo.sandbox.contacts[0].email } }
-  if (s.key === 'pay' && demo.openBill) return `/checkout/${demo.openBill.id}`
-  return s.to
+  switch (s.key) {
+    case 'transfer':
+      return demo.sandbox?.contacts[0] ? { path: '/transfer', query: { to: demo.sandbox.contacts[0].email }, hash: '#amount' } : '/transfer#amount'
+    case 'pay':
+      return demo.openBill ? `/checkout/${demo.openBill.id}#pay` : '/'
+    case 'journal':
+      return latestTx.value ? `/history/${latestTx.value}#journal` : '/history'
+    default:
+      return `/lab#${s.key}` // double, stress, ledger
+  }
 }
 </script>
 

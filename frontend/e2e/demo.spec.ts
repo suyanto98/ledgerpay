@@ -51,6 +51,7 @@ test('landing → one-click demo → labelled history → journal → pay pendin
   // Langkah "Kirim uang ke Siti": penerima terisi dari kontak demo.
   await page.getByTestId('tour-transfer').getByRole('link').click()
   await expect(page.getByLabel('Email penerima')).toHaveValue(/^siti@.+\.demo\.ledgerpay\.test$/)
+  await expect(page.locator('[data-spot="amount"]')).toHaveClass(/spot/) // tur mendarat di kolom nominal, disorot
   await page.getByLabel('Nominal (Rp)').fill('10.000')
   await page.getByRole('button', { name: /^Kirim Rp10\.000/ }).click()
   await expect(page.getByTestId('transfer-done')).toContainText('Siti Rahma')
@@ -67,13 +68,19 @@ test('lab: double send charges once, 100 parallel transfers → exactly 10 succe
   await page.getByTestId('start-demo').click()
   await expect(page.getByTestId('demo-banner')).toBeVisible()
   await page.getByTestId('tour-double').getByRole('link').click()
-  await expect(page).toHaveURL('/lab')
+  await expect(page).toHaveURL('/lab#double')
+  await expect(page.getByTestId('lab-double')).toHaveClass(/spot/)
 
   await page.getByTestId('lab-double').click()
   const dbl = page.getByTestId('lab-double-result')
   await expect(dbl).toContainText('Dua kali ditekan, satu kali terpotong.')
   await expect(dbl).toContainText('Diulang dari hasil pertama')
 
+  // Tur: langkah "100 transfer" mendarat di tombolnya dan menyorotnya.
+  await page.goto('/')
+  await page.getByTestId('tour-stress').getByRole('link').click()
+  await expect(page).toHaveURL('/lab#stress')
+  await expect(page.getByTestId('lab-stress')).toHaveClass(/spot/)
   await page.getByTestId('lab-stress').click()
   const res = page.getByTestId('lab-stress-result')
   await expect(res).toContainText('10 transfer', { timeout: 20_000 })
