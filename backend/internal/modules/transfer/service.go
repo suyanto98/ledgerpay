@@ -152,3 +152,30 @@ func (s *Service) Get(ctx context.Context, q db.DBTX, viewer, id uuid.UUID) (Tra
 		CounterpartName: name,
 	}, nil
 }
+
+// Counterpart adalah pihak lawan satu transfer dari sudut pandang viewer (untuk riwayat wallet).
+type Counterpart struct {
+	UserID uuid.UUID
+	Note   *string
+}
+
+// Counterparts mengembalikan pihak lawan untuk banyak transfer sekaligus (satu query per halaman riwayat).
+// Transfer yang bukan milik viewer tidak ikut (BOLA), sama dengan Get.
+func (s *Service) Counterparts(ctx context.Context, q db.DBTX, viewer uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]Counterpart, error) {
+	out := make(map[uuid.UUID]Counterpart, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := store.New(q).ListTransfersForParty(ctx, store.ListTransfersForPartyParams{Ids: ids, UserID: viewer})
+	if err != nil {
+		return nil, db.MapError(err)
+	}
+	for _, r := range rows {
+		other := r.ReceiverUserID
+		if viewer == r.ReceiverUserID {
+			other = r.SenderUserID
+		}
+		out[r.ID] = Counterpart{UserID: other, Note: r.Note}
+	}
+	return out, nil
+}

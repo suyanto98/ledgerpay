@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { api, ApiError, newIdempotencyKey } from '../api'
 import AppIcon from '../components/AppIcon.vue'
 import { formatMinor, rupiahToMinor } from '../money'
+import { useDemo } from '../stores/demo'
 
 type Transfer = { id: string; amount: string; receiver: { display_name: string }; created_at?: string }
 
-const form = ref({ recipient: '', rupiah: '', note: '' })
+const demo = useDemo()
+const route = useRoute()
+// ?to= dari kartu "Coba dalam 1 menit" di Beranda (mode demo).
+const form = ref({ recipient: typeof route.query.to === 'string' ? route.query.to : '', rupiah: '', note: '' })
 const error = ref('')
 const done = ref<Transfer | null>(null)
 const busy = ref(false)
@@ -93,7 +98,7 @@ function again() {
       <div><dt>Penerima</dt><dd>{{ done.receiver.display_name }}</dd></div>
       <div><dt>Email</dt><dd>{{ form.recipient }}</dd></div>
       <div v-if="form.note"><dt>Catatan</dt><dd>{{ form.note }}</dd></div>
-      <div><dt>No. referensi</dt><dd class="mono">{{ done.id.slice(0, 8).toUpperCase() }}</dd></div>
+      <div><dt>No. referensi</dt><dd class="mono">{{ done.id.slice(-8).toUpperCase() }}</dd></div>
       <div><dt>Saldo sekarang</dt><dd>{{ balance ? formatMinor(balance) : '…' }}</dd></div>
     </dl>
     <div class="row-wrap">
@@ -128,6 +133,11 @@ function again() {
       <div class="field">
         <label for="recipient">Email penerima</label>
         <input id="recipient" v-model="form.recipient" class="input" type="email" placeholder="nama@contoh.id" required />
+        <div v-if="demo.sandbox?.contacts.length" class="chips" aria-label="Kontak demo">
+          <button v-for="c in demo.sandbox.contacts" :key="c.email" type="button" class="chip-btn" :class="{ on: form.recipient === c.email }" @click="form.recipient = c.email">
+            <AppIcon name="user" :size="14" :stroke="2.2" />{{ c.name }}
+          </button>
+        </div>
       </div>
       <div class="field">
         <label for="amount">Nominal (Rp)</label>

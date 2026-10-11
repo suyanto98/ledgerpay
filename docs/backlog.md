@@ -197,3 +197,8 @@
 - [ ] `make seed` untuk satu dataset demo bersama (DoD D4 sebagian)
 - [ ] Chaos dengan toxiproxy / kill di setiap checkpoint (DoD F3 sebagian; §4.3a strategi testing)
 - [ ] Toolbar demo di UI (token di memori tab), `POST /demo/reset`
+
+## Catatan dari Upgrade 01 (sandbox "Coba demo", 2026-10-11)
+- [ ] `TestTopupRecover_StuckCreated_Completed` gagal 5/5, juga di HEAD `eeee320` yang bersih (bukan karena upgrade ini). Dugaan: fake clock test (2026-10-03) vs jam asli di mock provider
+- [ ] Persona demo lain (Ops/merchant) butuh isolasi: ops console saat ini melihat SEMUA sandbox, jadi belum ditawarkan ke pengunjung
+- [ ] Referensi pendek di Ops console masih memakai 8 karakter pertama UUIDv7 (timestamp, bisa kembar); UI user sudah memakai 8 karakter terakhir

@@ -275,3 +275,25 @@ func isUniqueViolation(err error, constraint string) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == constraint
 }
+
+// PaidLabel adalah merchant + deskripsi pembayaran, untuk riwayat wallet payer.
+type PaidLabel struct {
+	MerchantName string
+	Description  *string
+}
+
+// PaidLabels: label untuk banyak intent sekaligus. Hanya intent yang dibayar payerID (BOLA).
+func (s *Service) PaidLabels(ctx context.Context, q db.DBTX, payerID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]PaidLabel, error) {
+	out := make(map[uuid.UUID]PaidLabel, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := store.New(q).ListPaidIntentLabels(ctx, store.ListPaidIntentLabelsParams{Ids: ids, UserID: &payerID})
+	if err != nil {
+		return nil, db.MapError(err)
+	}
+	for _, r := range rows {
+		out[r.ID] = PaidLabel{MerchantName: r.MerchantName, Description: r.Description}
+	}
+	return out, nil
+}

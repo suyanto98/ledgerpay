@@ -130,24 +130,69 @@ func (s *Service) Register(ctx context.Context, in RegisterInput, meta RequestMe
 	}
 	var u User
 	err = db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
-		q := store.New(tx)
-		row, err := q.CreateUser(ctx, store.CreateUserParams{
-			ID: s.ids.New(), Email: in.Email, PasswordHash: hash, DisplayName: strings.TrimSpace(in.DisplayName),
-		})
-		if err != nil {
-			return err
-		}
-		u = User{ID: row.ID, Email: row.Email, DisplayName: row.DisplayName, CreatedAt: row.CreatedAt}
-		// User dan wallet lahir bersama atau tidak sama sekali (LF-01 AC1).
-		if err := s.wallets.CreateUserWallet(ctx, tx, row.ID); err != nil {
-			return err
-		}
-		return s.audit(ctx, q, row.ID, "user.registered", meta)
+		u, err = s.createWithWallet(ctx, tx, in.Email, in.DisplayName, hash, "", meta)
+		return err
 	})
 	if err != nil {
 		return User{}, db.MapError(err)
 	}
 	return u, nil
+}
+
+// createWithWallet: user dan wallet lahir bersama atau tidak sama sekali (LF-01 AC1), di tx pemanggil.
+func (s *Service) createWithWallet(ctx context.Context, tx pgx.Tx, email, displayName, hash, reason string, meta RequestMeta) (User, error) {
+	q := store.New(tx)
+	row, err := q.CreateUser(ctx, store.CreateUserParams{
+		ID: s.ids.New(), Email: email, PasswordHash: hash, DisplayName: strings.TrimSpace(displayName),
+	})
+	if err != nil {
+		return User{}, err
+	}
+	if err := s.wallets.CreateUserWallet(ctx, tx, row.ID); err != nil {
+		return User{}, err
+	}
+	return User{ID: row.ID, Email: row.Email, DisplayName: row.DisplayName, CreatedAt: row.CreatedAt},
+		s.auditWithReason(ctx, q, row.ID, "user.registered", reason, meta)
+}
+
+// HashPassword meng-hash password dengan antrean argon2 yang sama dengan register/login (C-45).
+// Dipanggil DI LUAR transaksi: argon2 ± 100 ms tidak boleh menahan koneksi DB.
+func (s *Service) HashPassword(ctx context.Context, password string) (string, error) {
+	return s.hasher.Hash(ctx, password)
+}
+
+// ProvisionInTx membuat user + wallet di tx pemanggil, dengan hash yang sudah dihitung (HashPassword).
+// Dipakai sandbox demo yang membuat beberapa user dan riwayatnya dalam SATU transaksi. reason dicatat di audit.
+func (s *Service) ProvisionInTx(ctx context.Context, tx pgx.Tx, email, displayName, hash, reason string, meta RequestMeta) (User, error) {
+	if n := utf8.RuneCountInString(strings.TrimSpace(displayName)); !validEmail(email) || n < 1 || n > 80 {
+		return User{}, apperr.ErrValidation.WithDetail("invalid email or display name")
+	}
+	u, err := s.createWithWallet(ctx, tx, email, displayName, hash, reason, meta)
+	return u, db.MapError(err)
+}
+
+// DisableUsers menonaktifkan user dan mencabut semua refresh token-nya (actor SYSTEM, tercatat di audit).
+// Fungsi paket (seperti GrantOps), karena dipanggil worker yang tidak punya Service/token. Access token
+// yang sudah terbit tetap berlaku sampai kedaluwarsa (≤ 15 menit, ADR-009). Mengembalikan jumlah user
+// yang baru dinonaktifkan; user yang sudah DISABLED dilewati (idempoten).
+func DisableUsers(ctx context.Context, tx pgx.Tx, ids idgen.Generator, now time.Time, userIDs []uuid.UUID, reason string) (int, error) {
+	q := store.New(tx)
+	disabled, err := q.DisableUsers(ctx, userIDs)
+	if err != nil {
+		return 0, db.MapError(err)
+	}
+	if _, err := q.RevokeUsersTokens(ctx, store.RevokeUsersTokensParams{Now: &now, Ids: userIDs}); err != nil {
+		return 0, db.MapError(err)
+	}
+	target := "user"
+	for _, id := range disabled {
+		if err := q.InsertAudit(ctx, store.InsertAuditParams{
+			ID: ids.New(), ActorType: "SYSTEM", Action: "user.disabled", TargetType: &target, TargetID: &id, Reason: nonEmpty(reason),
+		}); err != nil {
+			return 0, db.MapError(err)
+		}
+	}
+	return len(disabled), nil
 }
 
 type LoginInput struct {

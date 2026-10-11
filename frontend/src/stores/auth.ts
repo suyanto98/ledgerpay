@@ -19,6 +19,18 @@ export const useAuth = defineStore('auth', {
       this.email = email
       await this.loadMe()
     },
+    /** "Coba demo tanpa daftar": server membuat sandbox (Budi + kontak + riwayat) lalu me-login-kan, seperti login biasa. */
+    async startDemo() {
+      const res = await fetch('/api/v1/demo/sessions', { method: 'POST', headers: cookieHeaders })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (data.code === 'RATE_LIMITED') throw new Error('Terlalu sering memulai demo. Tunggu sebentar, lalu coba lagi.')
+        if (res.status === 503) throw new Error('Kuota demo hari ini sudah habis. Silakan coba lagi besok.')
+        throw new Error('Demo belum bisa dimulai. Coba lagi sebentar lagi.')
+      }
+      this.token = data.access_token
+      await this.loadMe()
+    },
     /** Role dari /me hanya untuk menampilkan menu; server tetap menegakkan otorisasi. */
     async loadMe() {
       const res = await fetch('/api/v1/me', { headers: { Authorization: `Bearer ${this.token}` } })

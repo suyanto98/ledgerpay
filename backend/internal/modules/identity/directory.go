@@ -43,3 +43,19 @@ func (Directory) DisplayName(ctx context.Context, q db.DBTX, id uuid.UUID) (stri
 	name, err := store.New(q).GetDisplayName(ctx, id)
 	return name, db.MapError(err)
 }
+
+// DisplayNames: nama tampilan banyak user sekaligus (riwayat wallet). ID yang tidak ada tidak ikut.
+func (Directory) DisplayNames(ctx context.Context, q db.DBTX, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := make(map[uuid.UUID]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := store.New(q).ListDisplayNames(ctx, ids)
+	if err != nil {
+		return nil, db.MapError(err)
+	}
+	for _, r := range rows {
+		out[r.ID] = r.DisplayName
+	}
+	return out, nil
+}

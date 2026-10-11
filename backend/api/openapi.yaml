@@ -1241,6 +1241,10 @@ components:
         status: { type: string }
         journal_id: { type: [string, 'null'], format: uuid }
         created_at: { type: string, format: date-time }
+        counterparty:
+          type: [string, 'null']
+          description: Other party as the viewer may see it (user display name for transfers, merchant name for payments); null for top-ups, payouts and adjustments.
+        note: { type: [string, 'null'], description: 'Transfer note or payment description.' }
     WalletTransactionDetail:
       allOf:
         - $ref: '#/components/schemas/WalletTransaction'

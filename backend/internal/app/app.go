@@ -73,6 +73,9 @@ type Deps struct {
 
 	DemoMode  bool   // hanya berpengaruh di binary build tag `demo` (O15)
 	DemoToken string // header X-Demo-Token
+
+	DemoSandboxTTL      time.Duration // umur sandbox pengunjung; 0 → 24 jam
+	DemoSandboxDailyMax int           // sandbox baru per 24 jam; 0 → 2000
 }
 
 // ValidateAPI memastikan dependency wajib API terisi. Dipanggil main saat START: wiring yang lupa
@@ -148,8 +151,9 @@ func APIRouter(d Deps) http.Handler {
 	idH := identity.NewHandler(idSvc, identity.HandlerConfig{
 		CookieSecure: d.CookieSecure, AllowedOrigins: d.AllowedOrigins, Limiter: limiter, Tiers: tiers,
 	})
-	walletH := wallet.NewHandler(d.Pool, ledgerSvc, d.Clock)
-	transferH := transfer.NewHandler(d.Pool, transfer.NewService(ledgerSvc, users, d.IDs), idem)
+	transferSvc := transfer.NewService(ledgerSvc, users, d.IDs)
+	walletH := wallet.NewHandler(d.Pool, ledgerSvc, d.Clock, txLabels{transfers: transferSvc, payments: sv.payment, users: identity.NewDirectory()})
+	transferH := transfer.NewHandler(d.Pool, transferSvc, idem)
 	merchantH := merchant.NewHandler(sv.merchant, idem)
 	paymentH := payment.NewHandler(d.Pool, sv.payment, idem, d.PublicBaseURL, d.Clock)
 	topupH := topup.NewHandler(d.Pool, sv.topup, idem)
@@ -186,10 +190,23 @@ func APIRouter(d Deps) http.Handler {
 		reconH.Routes(opsRead, opsWrite)
 		topupH.Routes(read, money.With(killSwitch(d.DisableTopup, "topup")))
 		payoutH.Routes(read, money)
-		inboxH.Routes(v1)            // publik: autentikasi = tanda tangan HMAC provider
-		registerDemoRoutes(money, d) // build tag `demo` + DEMO_MODE + X-Demo-Token; no-op di build release
+		inboxH.Routes(v1) // publik: autentikasi = tanda tangan HMAC provider
+		// build tag `demo` + DEMO_MODE; no-op di build release (fault: + X-Demo-Token; sandbox: publik, rate limit per IP)
+		registerDemoRoutes(demoWiring{public: v1, read: read, money: money, identity: idSvc, identityH: idH,
+			transfers: transferSvc, sv: sv, limiter: limiter, tiers: tiers}, d)
 	})
 	return r
+}
+
+// demoWiring: apa yang dibutuhkan rute demo (demo_routes.go) dari router API. Di build release tidak dipakai.
+type demoWiring struct {
+	public, read, money chi.Router
+	identity            *identity.Service
+	identityH           *identity.Handler
+	transfers           *transfer.Service
+	sv                  services
+	limiter             *ratelimit.Limiter
+	tiers               ratelimit.Tiers
 }
 
 // OpsRouter: /healthz dan /readyz di port internal (tidak diekspos Caddy; Step 8 `01` §2).

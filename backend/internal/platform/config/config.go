@@ -61,9 +61,13 @@ type Config struct {
 	TopupEnabled           bool `env:"LP_TOPUP_ENABLED" envDefault:"true"`
 	// Mode demo (O15): endpoint /api/v1/demo/* HANYA di binary build tag `demo` DAN kalau DEMO_MODE=true;
 	// setiap request wajib header X-Demo-Token. DEMO_MODE=true tanpa token (≥ 24 karakter) = gagal start.
-	DemoMode     bool   `env:"DEMO_MODE"`
-	DemoToken    string `env:"DEMO_TOKEN"`
-	PprofEnabled bool   `env:"PPROF_ENABLED"`
+	DemoMode  bool   `env:"DEMO_MODE"`
+	DemoToken string `env:"DEMO_TOKEN"`
+	// Sandbox pengunjung ("Coba demo tanpa daftar"): ikut DEMO_MODE di binary demo. Umur sandbox dan batas
+	// sandbox baru per 24 jam (di atasnya POST /demo/sessions → 503, melindungi disk VM demo).
+	DemoSandboxTTL      time.Duration `env:"DEMO_SANDBOX_TTL" envDefault:"24h"`
+	DemoSandboxDailyMax int           `env:"DEMO_SANDBOX_DAILY_MAX" envDefault:"2000"`
+	PprofEnabled        bool          `env:"PPROF_ENABLED"`
 
 	// Payment provider (mock-provider di V1, ADR-L05).
 	ProviderBaseURL        string   `env:"PROVIDER_BASE_URL"`                         // contoh http://mock-provider:9090

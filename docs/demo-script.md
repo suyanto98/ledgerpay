@@ -30,6 +30,15 @@ demo di UI (setiap skrip membuat user sendiri dan me-reset mock), fault demo dip
 | 8:00 | **Demo D — rekonsiliasi** | `make demo-d` atau halaman **Ops** di UI (login sebagai user OPS) | File settlement bank SUCCEEDED vs payout UNKNOWN → `STATUS_MISMATCH` → resolve dengan bukti; audit log; bank tetap 1 transfer |
 | 9:00 | **Penutup** | Grafana Integrity & Recon; `docs/performance.md` | Invariant gauge 0; baseline jujur (laptop) dan temuan E-1; tawarkan diskusi: hot merchant, exactly-once vs at-least-once, kenapa tidak microservices |
 
+## Versi 3 menit (HR / non-teknis, tanpa terminal)
+Pengunjung bisa mencoba sendiri lewat link demo publik: tombol **Coba demo** di halaman login membuat sandbox
+pribadi (Budi, saldo Rp2.692.000, tiga kontak, tagihan Kopi Senja) tanpa daftar. Diuji end-to-end oleh
+`frontend/e2e/demo.spec.ts`.
+1. Klik **Coba demo** → Beranda: saldo, riwayat yang menyebut orang dan merchant ("Dari Siti Rahma · Patungan makan siang").
+2. **Bayar tagihan Kopi Senja** dari kartu di Beranda: checkout seperti toko online, saldo langsung berkurang.
+3. **Kirim uang ke Siti** (kontak sudah terisi), tekan tombol kirim dua kali: saldo hanya terpotong sekali.
+4. "Setiap pengunjung punya dunianya sendiri; datanya terhapus sendiri dalam 24 jam" → banner **Mode demo**.
+
 ## Kalau ada yang salah saat live
 | Gejala | Tindakan |
 |---|---|

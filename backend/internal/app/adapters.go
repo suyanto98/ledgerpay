@@ -10,8 +10,10 @@ import (
 	"ledgerpay/internal/modules/identity"
 	"ledgerpay/internal/modules/merchant"
 	"ledgerpay/internal/modules/ops"
+	"ledgerpay/internal/modules/payment"
 	"ledgerpay/internal/modules/recon"
 	"ledgerpay/internal/modules/transfer"
+	"ledgerpay/internal/modules/wallet"
 	"ledgerpay/internal/modules/webhookout"
 	"ledgerpay/internal/platform/db"
 )
@@ -61,4 +63,52 @@ func (reconAdapter) ResolveItem(ctx context.Context, tx pgx.Tx, id uuid.UUID, ac
 
 func (reconAdapter) ItemView(ctx context.Context, tx pgx.Tx, id uuid.UUID) (any, error) {
 	return recon.GetItemView(ctx, tx, id)
+}
+
+// txLabels memberi label riwayat wallet dari modul pemilik objek sumber (ADR-001: wallet tidak
+// meng-import transfer/payment/identity). Tiga query per halaman, berapa pun jumlah barisnya.
+type txLabels struct {
+	transfers *transfer.Service
+	payments  *payment.Service
+	users     identity.Directory
+}
+
+func (l txLabels) Labels(ctx context.Context, q db.DBTX, viewer uuid.UUID, refs []wallet.SourceRef) (map[uuid.UUID]wallet.Label, error) {
+	var transferIDs, intentIDs []uuid.UUID
+	for _, r := range refs {
+		switch r.Type {
+		case "transfer":
+			transferIDs = append(transferIDs, r.ID)
+		case "payment_intent":
+			intentIDs = append(intentIDs, r.ID)
+		}
+	}
+	out := map[uuid.UUID]wallet.Label{}
+	cps, err := l.transfers.Counterparts(ctx, q, viewer, transferIDs)
+	if err != nil {
+		return nil, err
+	}
+	userIDs := make([]uuid.UUID, 0, len(cps))
+	for _, c := range cps {
+		userIDs = append(userIDs, c.UserID)
+	}
+	names, err := l.users.DisplayNames(ctx, q, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	for id, c := range cps {
+		lb := wallet.Label{Note: c.Note}
+		if n, ok := names[c.UserID]; ok {
+			lb.Counterparty = &n
+		}
+		out[id] = lb
+	}
+	paid, err := l.payments.PaidLabels(ctx, q, viewer, intentIDs)
+	if err != nil {
+		return nil, err
+	}
+	for id, p := range paid {
+		out[id] = wallet.Label{Counterparty: &p.MerchantName, Note: p.Description}
+	}
+	return out, nil
 }

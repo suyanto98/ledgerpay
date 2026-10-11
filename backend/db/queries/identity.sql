@@ -70,3 +70,16 @@ VALUES (@id, @actor_type, @actor_id, @action, @target_type, @target_id, @request
 
 -- name: GetDisplayName :one
 SELECT display_name FROM users WHERE id = @id;
+
+-- name: ListDisplayNames :many
+-- Nama pihak lawan untuk satu halaman riwayat (satu query, bukan satu per baris).
+SELECT id, display_name FROM users WHERE id = ANY(@ids::uuid[]);
+
+-- name: DisableUsers :many
+UPDATE users SET status = 'DISABLED'
+WHERE id = ANY(@ids::uuid[]) AND status <> 'DISABLED'
+RETURNING id;
+
+-- name: RevokeUsersTokens :execrows
+UPDATE refresh_tokens SET revoked_at = @now, revoke_reason = 'ADMIN'
+WHERE user_id = ANY(@ids::uuid[]) AND revoked_at IS NULL;

@@ -2,18 +2,29 @@
 import { formatMinor } from '../money'
 import AppIcon from './AppIcon.vue'
 
-export type Tx = { id: string; type: string; direction: 'IN' | 'OUT'; amount: string; created_at: string }
+export type Tx = { id: string; type: string; direction: 'IN' | 'OUT'; amount: string; created_at: string; counterparty?: string | null; note?: string | null }
 
 defineProps<{ txs: Tx[]; emptyText?: string }>()
 
 const labels: Record<string, string> = { TOPUP: 'Top-up', TRANSFER: 'Transfer', PAYMENT: 'Pembayaran', REFUND: 'Refund', PAYOUT: 'Tarik dana', ADJUSTMENT: 'Penyesuaian' }
 const icons = { TOPUP: 'plus', TRANSFER: 'transfer', PAYMENT: 'cart', REFUND: 'undo', PAYOUT: 'bank', ADJUSTMENT: 'info' } as const
 const iconOf = (t: Tx) => (t.type === 'TRANSFER' && t.direction === 'IN' ? 'arrowIn' : (icons[t.type as keyof typeof icons] ?? 'info'))
-const subOf = (t: Tx) => (t.type === 'TRANSFER' ? (t.direction === 'IN' ? 'Masuk' : 'Keluar') : t.direction === 'IN' ? 'Dana masuk' : 'Dana keluar')
+const flowOf = (t: Tx) => (t.type === 'TRANSFER' ? (t.direction === 'IN' ? 'Masuk' : 'Keluar') : t.direction === 'IN' ? 'Dana masuk' : 'Dana keluar')
+// Ada pihak lawan (dari server): "Dari Siti Rahma" / "Ke Andi Wijaya" / "Kopi Senja"; jenis + catatan di baris kedua.
+const titleOf = (t: Tx) => {
+  if (!t.counterparty) return labels[t.type] ?? t.type
+  if (t.type === 'TRANSFER') return (t.direction === 'IN' ? 'Dari ' : 'Ke ') + t.counterparty
+  return t.counterparty
+}
+const subOf = (t: Tx) => {
+  const base = t.counterparty ? (labels[t.type] ?? t.type) : flowOf(t)
+  return t.note ? `${base} · ${t.note}` : base
+}
 
 const dateFmt = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric' })
 const timeFmt = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
-const shortRef = (id: string) => id.slice(0, 8).toUpperCase()
+// 8 karakter TERAKHIR: awal UUIDv7 adalah timestamp, jadi transaksi yang berdekatan akan tampil kembar.
+const shortRef = (id: string) => id.slice(-8).toUpperCase()
 </script>
 
 <template>
@@ -33,7 +44,7 @@ const shortRef = (id: string) => id.slice(0, 8).toUpperCase()
           <td>
             <div class="tx-cell">
               <span class="tx-icon" :class="{ in: t.direction === 'IN' }"><AppIcon :name="iconOf(t)" :size="18" /></span>
-              <span><span class="tx-title">{{ labels[t.type] ?? t.type }}</span><span class="tx-sub">{{ subOf(t) }}<span class="only-mobile"> · {{ dateFmt.format(new Date(t.created_at)) }}, {{ timeFmt.format(new Date(t.created_at)) }}</span></span></span>
+              <span><span class="tx-title">{{ titleOf(t) }}</span><span class="tx-sub">{{ subOf(t) }}<span class="only-mobile"> · {{ dateFmt.format(new Date(t.created_at)) }}, {{ timeFmt.format(new Date(t.created_at)) }}</span></span></span>
             </div>
           </td>
           <td>

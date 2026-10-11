@@ -151,7 +151,7 @@ func runAPI() error {
 		AllowedOrigins: cfg.AllowedOrigins, TrustedProxies: cfg.TrustedProxies, PublicBaseURL: cfg.PublicBaseURL, Tiers: &tiers,
 		Provider:    topup.NewHTTPProvider(cfg.ProviderBaseURL, cfg.ProviderAPISecret),
 		Settlements: recon.NewHTTPSource(cfg.ProviderBaseURL, cfg.ProviderAPISecret, 30*time.Second),
-		DemoMode:    cfg.DemoMode, DemoToken: cfg.DemoToken,
+		DemoMode:    cfg.DemoMode, DemoToken: cfg.DemoToken, DemoSandboxTTL: cfg.DemoSandboxTTL, DemoSandboxDailyMax: cfg.DemoSandboxDailyMax,
 		DisableTopup: !cfg.TopupEnabled,
 		CallbackURL:  cfg.ProviderCallbackURL, WebhookSecrets: cfg.ProviderWebhookSecrets,
 		Keyring: cfg.Keyring, Egress: egress.Policy{AllowCIDRs: cfg.EgressAllow, RequireHTTPS: cfg.RequireHTTPSHooks},

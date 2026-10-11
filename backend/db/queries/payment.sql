@@ -79,3 +79,10 @@ FROM payment_intents i
 LEFT JOIN (SELECT payment_intent_id, sum(amount) AS total FROM refunds GROUP BY payment_intent_id) r
        ON r.payment_intent_id = i.id
 WHERE i.refunded_amount <> coalesce(r.total, 0);
+
+-- name: ListPaidIntentLabels :many
+-- Nama merchant + deskripsi untuk riwayat payer. Hanya intent yang dibayar user ini (BOLA).
+SELECT i.id, m.name AS merchant_name, i.description
+FROM payment_intents i
+JOIN merchants m ON m.id = i.merchant_id
+WHERE i.id = ANY(@ids::uuid[]) AND i.payer_user_id = @user_id;

@@ -102,14 +102,16 @@ func (q *Queries) CreateUserWallet(ctx context.Context, arg CreateUserWalletPara
 }
 
 const getJournal = `-- name: GetJournal :one
-SELECT id, purpose, currency, created_at FROM journals WHERE id = $1
+SELECT id, purpose, source_type, source_id, currency, created_at FROM journals WHERE id = $1
 `
 
 type GetJournalRow struct {
-	ID        uuid.UUID
-	Purpose   string
-	Currency  string
-	CreatedAt time.Time
+	ID         uuid.UUID
+	Purpose    string
+	SourceType string
+	SourceID   uuid.UUID
+	Currency   string
+	CreatedAt  time.Time
 }
 
 func (q *Queries) GetJournal(ctx context.Context, id uuid.UUID) (GetJournalRow, error) {
@@ -118,6 +120,8 @@ func (q *Queries) GetJournal(ctx context.Context, id uuid.UUID) (GetJournalRow, 
 	err := row.Scan(
 		&i.ID,
 		&i.Purpose,
+		&i.SourceType,
+		&i.SourceID,
 		&i.Currency,
 		&i.CreatedAt,
 	)
@@ -349,7 +353,7 @@ func (q *Queries) JournalIDBySource(ctx context.Context, arg JournalIDBySourcePa
 }
 
 const listAccountEntries = `-- name: ListAccountEntries :many
-SELECT e.id AS entry_id, e.journal_id, e.direction, e.amount, e.currency, e.created_at, j.purpose
+SELECT e.id AS entry_id, e.journal_id, e.direction, e.amount, e.currency, e.created_at, j.purpose, j.source_type, j.source_id
 FROM journal_entries e
 JOIN journals j ON j.id = e.journal_id
 WHERE e.account_id = $1
@@ -377,13 +381,15 @@ type ListAccountEntriesParams struct {
 }
 
 type ListAccountEntriesRow struct {
-	EntryID   uuid.UUID
-	JournalID uuid.UUID
-	Direction string
-	Amount    int64
-	Currency  string
-	CreatedAt time.Time
-	Purpose   string
+	EntryID    uuid.UUID
+	JournalID  uuid.UUID
+	Direction  string
+	Amount     int64
+	Currency   string
+	CreatedAt  time.Time
+	Purpose    string
+	SourceType string
+	SourceID   uuid.UUID
 }
 
 // Riwayat wallet, terbaru dulu, cursor (created_at, id). Filter opsional memakai NULL = "semua".
@@ -414,6 +420,8 @@ func (q *Queries) ListAccountEntries(ctx context.Context, arg ListAccountEntries
 			&i.Currency,
 			&i.CreatedAt,
 			&i.Purpose,
+			&i.SourceType,
+			&i.SourceID,
 		); err != nil {
 			return nil, err
 		}

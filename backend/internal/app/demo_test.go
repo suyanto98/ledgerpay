@@ -30,4 +30,15 @@ func TestDemo_RoutesAbsentInReleaseBuildEvenWithDemoMode(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("release build: /api/v1/demo/faults must be 404, got %d", resp.StatusCode)
 	}
+	// Sandbox pengunjung juga tidak ada: tidak ada user "dari udara" di binary release.
+	req, _ = http.NewRequestWithContext(t.Context(), http.MethodPost, srv.URL+"/api/v1/demo/sessions", nil)
+	req.Header.Set("X-Requested-With", "fetch")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("release build: /api/v1/demo/sessions must be 404, got %d", resp.StatusCode)
+	}
 }

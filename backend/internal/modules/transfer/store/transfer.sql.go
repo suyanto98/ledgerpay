@@ -91,3 +91,47 @@ func (q *Queries) InsertTransfer(ctx context.Context, arg InsertTransferParams) 
 	err := row.Scan(&created_at)
 	return created_at, err
 }
+
+const listTransfersForParty = `-- name: ListTransfersForParty :many
+SELECT id, sender_user_id, receiver_user_id, note
+FROM transfers
+WHERE id = ANY($1::uuid[]) AND (sender_user_id = $2 OR receiver_user_id = $2)
+`
+
+type ListTransfersForPartyParams struct {
+	Ids    []uuid.UUID
+	UserID uuid.UUID
+}
+
+type ListTransfersForPartyRow struct {
+	ID             uuid.UUID
+	SenderUserID   uuid.UUID
+	ReceiverUserID uuid.UUID
+	Note           *string
+}
+
+// Pihak lawan + catatan untuk satu halaman riwayat. Filter pihak yang sama dengan GetTransferForParty (BOLA).
+func (q *Queries) ListTransfersForParty(ctx context.Context, arg ListTransfersForPartyParams) ([]ListTransfersForPartyRow, error) {
+	rows, err := q.db.Query(ctx, listTransfersForParty, arg.Ids, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTransfersForPartyRow
+	for rows.Next() {
+		var i ListTransfersForPartyRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SenderUserID,
+			&i.ReceiverUserID,
+			&i.Note,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

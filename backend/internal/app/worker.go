@@ -65,7 +65,8 @@ func NewWorker(d Deps, cfg WorkerConfig) *Worker {
 		return jobs.Kind{Name: name, MaxAttempts: 3, Timeout: 2 * time.Minute, Handler: func(ctx context.Context, _ *jobs.Job) error { return fn(ctx) }}
 	}
 	log := func(ctx context.Context, msg string, args ...any) { observability.Logger(ctx).Info(msg, args...) }
-	w.Maintenance = jobs.NewRunner(d.Pool, rc("maintenance", 2),
+	demoKinds, demoEvery := demoMaintenanceKinds(d) // kosong di build release
+	w.Maintenance = jobs.NewRunner(d.Pool, rc("maintenance", 2), append(demoKinds,
 		quick("topup.recover", func(ctx context.Context) error {
 			n, err := sv.topup.Recover(ctx, d.Pool, 100)
 			log(ctx, "topup.recover_done", "recovered", n)
@@ -115,12 +116,15 @@ func NewWorker(d Deps, cfg WorkerConfig) *Worker {
 			log(ctx, "idempotency.cleanup_done", "deleted", n)
 			return err
 		}),
-	)
+	)...)
 	for kind, every := range map[string]time.Duration{ // katalog §3.1
 		"topup.recover": time.Minute, "intent.expire_sweep": time.Minute, "topup.expire_sweep": 5 * time.Minute,
 		"ledger.verify": time.Hour, "maintenance.jobs_cleanup": time.Hour, "maintenance.idempotency_cleanup": 24 * time.Hour,
 		"recon.daily": time.Hour,
 	} {
+		w.Maintenance.Every(kind, every)
+	}
+	for kind, every := range demoEvery {
 		w.Maintenance.Every(kind, every)
 	}
 	return w

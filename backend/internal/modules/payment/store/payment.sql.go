@@ -208,6 +208,45 @@ func (q *Queries) InsertRefund(ctx context.Context, arg InsertRefundParams) (tim
 	return created_at, err
 }
 
+const listPaidIntentLabels = `-- name: ListPaidIntentLabels :many
+SELECT i.id, m.name AS merchant_name, i.description
+FROM payment_intents i
+JOIN merchants m ON m.id = i.merchant_id
+WHERE i.id = ANY($1::uuid[]) AND i.payer_user_id = $2
+`
+
+type ListPaidIntentLabelsParams struct {
+	Ids    []uuid.UUID
+	UserID *uuid.UUID
+}
+
+type ListPaidIntentLabelsRow struct {
+	ID           uuid.UUID
+	MerchantName string
+	Description  *string
+}
+
+// Nama merchant + deskripsi untuk riwayat payer. Hanya intent yang dibayar user ini (BOLA).
+func (q *Queries) ListPaidIntentLabels(ctx context.Context, arg ListPaidIntentLabelsParams) ([]ListPaidIntentLabelsRow, error) {
+	rows, err := q.db.Query(ctx, listPaidIntentLabels, arg.Ids, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPaidIntentLabelsRow
+	for rows.Next() {
+		var i ListPaidIntentLabelsRow
+		if err := rows.Scan(&i.ID, &i.MerchantName, &i.Description); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRefunds = `-- name: ListRefunds :many
 SELECT id, payment_intent_id, amount, currency, reason, journal_id, created_at
 FROM refunds

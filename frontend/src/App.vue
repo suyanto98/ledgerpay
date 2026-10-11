@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './components/AppIcon.vue'
 import { useAuth } from './stores/auth'
+import { useDemo } from './stores/demo'
 
 const auth = useAuth()
+const demo = useDemo()
 const route = useRoute()
 const router = useRouter()
 
@@ -35,6 +37,36 @@ function back() {
 async function logout() {
   await auth.logout()
   router.push('/login')
+}
+
+// Mode demo: info sandbox dimuat setiap kali sesi berganti (login, demo baru, logout).
+watch(
+  () => auth.token,
+  async (token) => {
+    if (token && (await demo.detect())) await demo.load().catch(() => demo.clear())
+    else demo.clear()
+  },
+  { immediate: true },
+)
+
+const rtf = new Intl.RelativeTimeFormat('id-ID', { numeric: 'auto' })
+const expiresIn = computed(() => {
+  if (!demo.sandbox) return ''
+  const mins = Math.max(0, Math.round((new Date(demo.sandbox.expires_at).getTime() - Date.now()) / 60000))
+  return mins >= 60 ? rtf.format(Math.round(mins / 60), 'hour') : rtf.format(mins, 'minute')
+})
+
+// Mulai ulang = sandbox baru (data segar). Muat ulang halaman penuh: semua view membaca data baru.
+const restarting = ref(false)
+async function restartDemo() {
+  restarting.value = true
+  try {
+    await auth.startDemo()
+    window.location.assign('/')
+  } catch (e) {
+    restarting.value = false
+    window.alert((e as Error).message)
+  }
 }
 </script>
 
@@ -67,7 +99,14 @@ async function logout() {
       <span class="appbar-title">{{ route.meta.title }}</span>
     </header>
 
-    <main class="content"><RouterView /></main>
+    <main class="content">
+      <div v-if="demo.sandbox" class="demo-banner" role="status" data-test="demo-banner">
+        <AppIcon name="spark" :size="18" :stroke="2" />
+        <span><strong>Mode demo</strong> · semua data di sini contoh dan terhapus {{ expiresIn }}.</span>
+        <button type="button" class="link-btn" :disabled="restarting" @click="restartDemo">{{ restarting ? 'Menyiapkan…' : 'Mulai ulang' }}</button>
+      </div>
+      <RouterView />
+    </main>
 
     <!-- Mobile: bottom tab bar di halaman tab utama. -->
     <nav v-if="route.meta.tab" class="tabbar" aria-label="Navigasi bawah">

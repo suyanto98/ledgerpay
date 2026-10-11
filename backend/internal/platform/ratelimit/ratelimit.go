@@ -36,13 +36,14 @@ type Tier struct {
 // Tiers adalah konfigurasi semua tier yang dipakai API.
 type Tiers struct {
 	AuthStrict, AuthIP, MoneyWrite, Read, MerchantAPI Tier
+	DemoSession                                       Tier // POST /demo/sessions per IP (build demo)
 }
 
 // DefaultTiers: angka awal dari konvensi API §7, ditinjau ulang setelah load test (Sprint 9).
 // Unlimited: semua tier dengan batas yang tidak pernah tercapai (HANYA perf env, lihat config).
 func Unlimited() Tiers {
 	t := DefaultTiers()
-	for _, tier := range []*Tier{&t.AuthStrict, &t.AuthIP, &t.MoneyWrite, &t.Read, &t.MerchantAPI} {
+	for _, tier := range []*Tier{&t.AuthStrict, &t.AuthIP, &t.MoneyWrite, &t.Read, &t.MerchantAPI, &t.DemoSession} {
 		tier.Rules = []Rule{{1_000_000_000, time.Minute}}
 	}
 	return t
@@ -55,6 +56,9 @@ func DefaultTiers() Tiers {
 		MoneyWrite:  Tier{"money-write", []Rule{{30, time.Minute}}},
 		Read:        Tier{"read", []Rule{{300, time.Minute}}},
 		MerchantAPI: Tier{"merchant-api", []Rule{{300, time.Minute}}},
+		// Satu sandbox = 4 user + ±10 journal + 2 hash argon2: cukup untuk presenter yang mengulang demo,
+		// tidak cukup untuk mengisi database dari satu IP.
+		DemoSession: Tier{"demo-session", []Rule{{3, time.Minute}, {30, time.Hour}}},
 	}
 }
 

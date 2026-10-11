@@ -102,8 +102,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	h.setRefreshCookie(w, res.RefreshToken, res.RefreshMaxAge)
-	writeAccess(w, res)
+	h.WriteSession(w, res)
 }
 
 func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
@@ -165,6 +164,13 @@ func (h *Handler) setRefreshCookie(w http.ResponseWriter, value string, maxAge t
 		c.MaxAge = -1
 	}
 	http.SetCookie(w, c)
+}
+
+// WriteSession menulis hasil login (cookie refresh + access token di body) persis seperti POST /auth/login.
+// Dipakai endpoint lain yang menerbitkan sesi lewat Service.Login (sandbox demo).
+func (h *Handler) WriteSession(w http.ResponseWriter, res LoginResult) {
+	h.setRefreshCookie(w, res.RefreshToken, res.RefreshMaxAge)
+	writeAccess(w, res)
 }
 
 func writeAccess(w http.ResponseWriter, res LoginResult) {

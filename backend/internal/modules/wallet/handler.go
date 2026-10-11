@@ -3,6 +3,7 @@
 package wallet
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/clock"
+	"ledgerpay/internal/platform/db"
 	"ledgerpay/internal/platform/httpx"
 )
 
@@ -25,10 +27,42 @@ type Handler struct {
 	pool   *pgxpool.Pool
 	ledger *ledger.Service
 	clock  clock.Clock
+	labels Labeler
 }
 
-func NewHandler(pool *pgxpool.Pool, l *ledger.Service, c clock.Clock) *Handler {
-	return &Handler{pool: pool, ledger: l, clock: c}
+// SourceRef menunjuk objek bisnis sumber satu transaksi (contoh transfer/<id>).
+type SourceRef struct {
+	Type string
+	ID   uuid.UUID
+}
+
+// Label adalah keterangan transaksi yang bisa dibaca manusia: "Andi Wijaya · Bayar bensin".
+type Label struct {
+	Counterparty *string
+	Note         *string
+}
+
+// Labeler memberi label dari modul pemilik objek sumber (transfer, payment), keyed by SourceRef.ID.
+// Disuntikkan composition root: wallet tidak meng-import modul bisnis lain (ADR-001). Implementasi
+// wajib menerapkan BOLA: objek yang bukan milik viewer tidak diberi label.
+type Labeler interface {
+	Labels(ctx context.Context, q db.DBTX, viewer uuid.UUID, refs []SourceRef) (map[uuid.UUID]Label, error)
+}
+
+func NewHandler(pool *pgxpool.Pool, l *ledger.Service, c clock.Clock, labels Labeler) *Handler {
+	return &Handler{pool: pool, ledger: l, clock: c, labels: labels}
+}
+
+// labelsFor mengambil label untuk satu halaman riwayat (satu panggilan, bukan satu per baris).
+func (h *Handler) labelsFor(ctx context.Context, viewer uuid.UUID, items []ledger.Movement) (map[uuid.UUID]Label, error) {
+	if h.labels == nil || len(items) == 0 {
+		return map[uuid.UUID]Label{}, nil
+	}
+	refs := make([]SourceRef, 0, len(items))
+	for _, m := range items {
+		refs = append(refs, SourceRef{Type: m.SourceType, ID: m.SourceID})
+	}
+	return h.labels.Labels(ctx, h.pool, viewer, refs)
 }
 
 // Routes: semua rute wallet butuh user. Wallet ditentukan dari token (user_id), tidak ada ID
@@ -67,6 +101,9 @@ type transaction struct {
 	Status    string    `json:"status"`
 	JournalID uuid.UUID `json:"journal_id"`
 	CreatedAt time.Time `json:"created_at"`
+	// Pihak lawan (nama user / merchant) dan catatan; null kalau tidak ada (top-up, tarik dana).
+	Counterparty *string `json:"counterparty"`
+	Note         *string `json:"note"`
 }
 
 // Wallet = liability: entry KREDIT di wallet berarti uang MASUK, DEBIT berarti KELUAR.
@@ -94,10 +131,17 @@ func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	labels, err := h.labelsFor(r.Context(), p.UserID, items)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	out := make([]transaction, 0, len(items))
 	for _, m := range items {
+		lb := labels[m.SourceID]
 		out = append(out, transaction{ID: m.JournalID, Type: m.Purpose.TransactionType(), Direction: directionLabel(m.Direction),
-			Amount: ledger.FormatAmount(m.Amount), Currency: m.Currency, Status: "POSTED", JournalID: m.JournalID, CreatedAt: m.CreatedAt})
+			Amount: ledger.FormatAmount(m.Amount), Currency: m.Currency, Status: "POSTED", JournalID: m.JournalID, CreatedAt: m.CreatedAt,
+			Counterparty: lb.Counterparty, Note: lb.Note})
 	}
 	pg := httpx.Page{HasMore: next != nil}
 	if next != nil {
@@ -130,6 +174,12 @@ func (h *Handler) getTransaction(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	labels, err := h.labelsFor(r.Context(), p.UserID, []ledger.Movement{{SourceType: v.SourceType, SourceID: v.SourceID}})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	lb := labels[v.SourceID]
 	entries := make([]entryResponse, 0, len(v.Entries))
 	for _, e := range v.Entries {
 		entries = append(entries, entryResponse{Side: string(e.Direction), Amount: ledger.FormatAmount(e.Amount), AccountLabel: e.Label})
@@ -137,7 +187,7 @@ func (h *Handler) getTransaction(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"id": v.ID, "type": v.Purpose.TransactionType(), "direction": directionLabel(v.Mine.Direction),
 		"amount": ledger.FormatAmount(v.Mine.Amount), "currency": v.Currency, "status": "POSTED",
-		"journal_id": v.ID, "created_at": v.CreatedAt,
+		"journal_id": v.ID, "created_at": v.CreatedAt, "counterparty": lb.Counterparty, "note": lb.Note,
 		"journal": map[string]any{"id": v.ID, "purpose": v.Purpose, "created_at": v.CreatedAt, "entries": entries},
 	})
 }

@@ -152,3 +152,10 @@ yang akan dipakai sebelum menyentuh database produksi.
   `DELETE /api/v1/demo/faults`.
 - Skenario mock (timeout, settlement mismatch): `PUT /admin/scenario` di mock (port admin hanya di
   `127.0.0.1` VM; pakai SSH tunnel).
+- Sandbox pengunjung ("Coba demo" di halaman login): `POST /api/v1/demo/sessions` membuat Budi + 3 kontak +
+  merchant Kopi Senja + riwayat dalam satu transaksi, saldo awal dari akun sistem `DEMO_FUNDING` (bukan
+  `PROVIDER_CLEARING`, supaya rekonsiliasi provider tidak terganggu). Job `demo.sandbox_expire` (5 menit)
+  menonaktifkan user sandbox yang lewat `DEMO_SANDBOX_TTL` (default 24 jam) dan mencabut refresh token-nya;
+  journal tidak dihapus (append-only). Batas: 3/menit + 30/jam per IP, `DEMO_SANDBOX_DAILY_MAX` (default
+  2000) sandbox per 24 jam → 503. Pantau: `SELECT count(*) FROM demo_sandboxes WHERE created_at > now() - interval '1 day'`.
+  Kalau disk VM menipis: turunkan `DEMO_SANDBOX_DAILY_MAX`, atau reset data demo (volume baru) di luar jam ramai.

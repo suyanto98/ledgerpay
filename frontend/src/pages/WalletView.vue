@@ -5,10 +5,12 @@ import AppIcon from '../components/AppIcon.vue'
 import TxTable, { type Tx } from '../components/TxTable.vue'
 import { formatMinor } from '../money'
 import { useAuth } from '../stores/auth'
+import { useDemo } from '../stores/demo'
 
 type Wallet = { account_id: string; balance: string; currency: string; status: string }
 
 const auth = useAuth()
+const demo = useDemo()
 const wallet = ref<Wallet | null>(null)
 const txs = ref<Tx[]>([])
 const hidden = ref(false)
@@ -16,7 +18,10 @@ const hidden = ref(false)
 onMounted(async () => {
   wallet.value = await api<Wallet>('/wallet')
   txs.value = (await api<{ data: Tx[] }>('/wallet/transactions?limit=8')).data
+  if (demo.sandbox) await demo.load() // status tagihan terbaru (mungkin baru saja dibayar)
 })
+
+const firstContact = computed(() => demo.sandbox?.contacts[0])
 
 const now = new Date()
 const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: 'numeric', hourCycle: 'h23' }).format(now))
@@ -71,6 +76,36 @@ const initials = computed(() => name.value.split(/[\s@.]+/).filter(Boolean).slic
       <p class="note"><AppIcon name="shield" :size="18" :stroke="2" />Transfer yang terkirim ulang karena koneksi putus tidak akan memotong saldo dua kali.</p>
     </section>
   </div>
+
+  <section v-if="demo.openBill" class="card bill-card" aria-label="Tagihan menunggu" data-test="demo-bill">
+    <span class="tx-icon"><AppIcon name="cart" :size="18" /></span>
+    <div class="grow-1">
+      <span class="tx-title">Tagihan dari {{ demo.openBill.merchant_name }}</span>
+      <span class="tx-sub">{{ demo.openBill.description }} · {{ formatMinor(demo.openBill.amount) }}</span>
+    </div>
+    <RouterLink :to="`/checkout/${demo.openBill.id}`" class="btn sm">Bayar</RouterLink>
+  </section>
+
+  <section v-if="demo.sandbox" class="card stack" aria-labelledby="try-title">
+    <h2 id="try-title">Coba dalam 1 menit</h2>
+    <ol class="try-list">
+      <li>
+        <RouterLink :to="{ path: '/transfer', query: firstContact ? { to: firstContact.email } : {} }">
+          <span class="try-step">1</span><span><strong>Kirim uang ke {{ firstContact?.name ?? 'teman' }}</strong><span class="tx-sub">Tekan tombol kirim dua kali pun saldo hanya terpotong sekali.</span></span><AppIcon name="chevron" :size="18" />
+        </RouterLink>
+      </li>
+      <li v-if="demo.openBill">
+        <RouterLink :to="`/checkout/${demo.openBill.id}`">
+          <span class="try-step">2</span><span><strong>Bayar tagihan {{ demo.openBill.merchant_name }}</strong><span class="tx-sub">Seperti checkout di toko online, langsung dari saldo.</span></span><AppIcon name="chevron" :size="18" />
+        </RouterLink>
+      </li>
+      <li>
+        <RouterLink to="/history">
+          <span class="try-step">{{ demo.openBill ? 3 : 2 }}</span><span><strong>Lihat riwayat lengkap</strong><span class="tx-sub">Setiap rupiah tercatat di buku besar, masuk dan keluar selalu seimbang.</span></span><AppIcon name="chevron" :size="18" />
+        </RouterLink>
+      </li>
+    </ol>
+  </section>
 
   <section class="card card-flush">
     <div class="card-head">

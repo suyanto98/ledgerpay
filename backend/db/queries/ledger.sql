@@ -52,7 +52,7 @@ VALUES (@id, @journal_id, @account_id, @direction, @amount, @currency);
 
 -- name: ListAccountEntries :many
 -- Riwayat wallet, terbaru dulu, cursor (created_at, id). Filter opsional memakai NULL = "semua".
-SELECT e.id AS entry_id, e.journal_id, e.direction, e.amount, e.currency, e.created_at, j.purpose
+SELECT e.id AS entry_id, e.journal_id, e.direction, e.amount, e.currency, e.created_at, j.purpose, j.source_type, j.source_id
 FROM journal_entries e
 JOIN journals j ON j.id = e.journal_id
 WHERE e.account_id = @account_id
@@ -67,7 +67,7 @@ ORDER BY e.created_at DESC, e.id DESC
 LIMIT @lim;
 
 -- name: GetJournal :one
-SELECT id, purpose, currency, created_at FROM journals WHERE id = @id;
+SELECT id, purpose, source_type, source_id, currency, created_at FROM journals WHERE id = @id;
 
 -- name: ListJournalEntriesWithAccounts :many
 SELECT e.account_id, e.direction, e.amount, e.created_at, a.user_id, a.system_code

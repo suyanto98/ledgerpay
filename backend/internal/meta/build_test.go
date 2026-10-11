@@ -56,11 +56,12 @@ func TestBuild_DemoEndpointsAbsentWithoutDemoMode(t *testing.T) {
 	}
 	// Variabel paket yang DIPAKAI kode demo (fungsi yang tak dipanggil dibuang linker, jadi tidak bisa dijadikan bukti).
 	const demoOnly = "ledgerpay/internal/platform/faults.exit"
+	// demoStory: data cerita sandbox pengunjung (POST /demo/sessions membuat user + saldo "dari udara").
 	release, demo := symbols(t, ""), symbols(t, "demo")
-	if strings.Contains(release, demoOnly) || strings.Contains(release, "demoPoints") {
+	if strings.Contains(release, demoOnly) || strings.Contains(release, "demoPoints") || strings.Contains(release, "demoStory") {
 		t.Fatal("release binary contains demo-only code")
 	}
-	if !strings.Contains(demo, demoOnly) || !strings.Contains(demo, "demoPoints") {
+	if !strings.Contains(demo, demoOnly) || !strings.Contains(demo, "demoPoints") || !strings.Contains(demo, "demoStory") {
 		t.Fatal("sanity: the demo binary should contain the demo code (otherwise this test proves nothing)")
 	}
 }

@@ -100,18 +100,25 @@ func (s *Service) WebhookTarget(ctx context.Context, q db.DBTX, merchantID uuid.
 
 // Create mendaftarkan merchant beserta wallet-nya dalam satu transaksi (hanya lewat CLI seed/ops).
 func (s *Service) Create(ctx context.Context, name string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := db.WithTx(ctx, s.pool, func(tx pgx.Tx) (err error) {
+		id, err = s.CreateInTx(ctx, tx, name)
+		return err
+	})
+	return id, db.MapError(err)
+}
+
+// CreateInTx: merchant + wallet di tx pemanggil (sandbox demo membuat merchant bersama riwayatnya).
+func (s *Service) CreateInTx(ctx context.Context, tx pgx.Tx, name string) (uuid.UUID, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > 100 {
 		return uuid.Nil, apperr.Validation(apperr.FieldError{Field: "name", Code: "INVALID_LENGTH"})
 	}
 	id := s.ids.New()
-	err := db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
-		if err := store.New(tx).CreateMerchant(ctx, store.CreateMerchantParams{ID: id, Name: name}); err != nil {
-			return err
-		}
-		return s.ledger.CreateMerchantWallet(ctx, tx, id)
-	})
-	return id, db.MapError(err)
+	if err := store.New(tx).CreateMerchant(ctx, store.CreateMerchantParams{ID: id, Name: name}); err != nil {
+		return uuid.Nil, db.MapError(err)
+	}
+	return id, s.ledger.CreateMerchantWallet(ctx, tx, id)
 }
 
 // IssuedKey adalah key yang baru dibuat. APIKey (secret) hanya ada di sini, sekali.

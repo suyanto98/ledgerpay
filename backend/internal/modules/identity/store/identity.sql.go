@@ -118,6 +118,32 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
+const disableUsers = `-- name: DisableUsers :many
+UPDATE users SET status = 'DISABLED'
+WHERE id = ANY($1::uuid[]) AND status <> 'DISABLED'
+RETURNING id
+`
+
+func (q *Queries) DisableUsers(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, disableUsers, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDisplayName = `-- name: GetDisplayName :one
 SELECT display_name FROM users WHERE id = $1
 `
@@ -296,6 +322,36 @@ func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) error 
 	return err
 }
 
+const listDisplayNames = `-- name: ListDisplayNames :many
+SELECT id, display_name FROM users WHERE id = ANY($1::uuid[])
+`
+
+type ListDisplayNamesRow struct {
+	ID          uuid.UUID
+	DisplayName string
+}
+
+// Nama pihak lawan untuk satu halaman riwayat (satu query, bukan satu per baris).
+func (q *Queries) ListDisplayNames(ctx context.Context, ids []uuid.UUID) ([]ListDisplayNamesRow, error) {
+	rows, err := q.db.Query(ctx, listDisplayNames, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDisplayNamesRow
+	for rows.Next() {
+		var i ListDisplayNamesRow
+		if err := rows.Scan(&i.ID, &i.DisplayName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markRefreshTokenUsed = `-- name: MarkRefreshTokenUsed :exec
 UPDATE refresh_tokens SET used_at = $1, replaced_by = $2 WHERE id = $3
 `
@@ -381,6 +437,24 @@ type RevokeFamilyParams struct {
 
 func (q *Queries) RevokeFamily(ctx context.Context, arg RevokeFamilyParams) (int64, error) {
 	result, err := q.db.Exec(ctx, revokeFamily, arg.Now, arg.Reason, arg.FamilyID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const revokeUsersTokens = `-- name: RevokeUsersTokens :execrows
+UPDATE refresh_tokens SET revoked_at = $1, revoke_reason = 'ADMIN'
+WHERE user_id = ANY($2::uuid[]) AND revoked_at IS NULL
+`
+
+type RevokeUsersTokensParams struct {
+	Now *time.Time
+	Ids []uuid.UUID
+}
+
+func (q *Queries) RevokeUsersTokens(ctx context.Context, arg RevokeUsersTokensParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeUsersTokens, arg.Now, arg.Ids)
 	if err != nil {
 		return 0, err
 	}

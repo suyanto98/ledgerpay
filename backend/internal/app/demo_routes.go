@@ -6,8 +6,6 @@ import (
 	"crypto/subtle"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-
 	"ledgerpay/internal/platform/apperr"
 	"ledgerpay/internal/platform/auth"
 	"ledgerpay/internal/platform/httpx"
@@ -16,13 +14,17 @@ import (
 // demoPoints: titik fault yang boleh dipasang (sama dengan ck_demo_faults_point).
 var demoPoints = map[string]bool{"payout.after_bank_call": true, "inbox.before_apply": true}
 
-// registerDemoRoutes (build tag `demo`): /api/v1/demo/faults hanya kalau DEMO_MODE=true dan token ada
-// (lapis "runtime"), dan setiap request wajib X-Demo-Token yang cocok (lapis "request"). Token salah →
-// 404, sama dengan rute yang tidak ada: endpoint demo tidak bisa ditemukan pengunjung demo publik.
-func registerDemoRoutes(authed chi.Router, d Deps) {
+// registerDemoRoutes (build tag `demo`): semua rute demo hanya kalau DEMO_MODE=true dan token ada
+// (lapis "runtime").
+//   - /demo/faults (presenter): setiap request wajib X-Demo-Token yang cocok (lapis "request"). Token
+//     salah → 404, sama dengan rute yang tidak ada: tidak bisa ditemukan pengunjung demo publik.
+//   - /demo/sessions, /demo/sandbox (pengunjung): publik, dibatasi per IP dan per hari (demo_sandbox.go).
+func registerDemoRoutes(w demoWiring, d Deps) {
 	if !d.DemoMode || d.DemoToken == "" {
 		return
 	}
+	registerSandboxRoutes(w, d)
+	authed := w.money
 	guard := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Demo-Token")), []byte(d.DemoToken)) != 1 {

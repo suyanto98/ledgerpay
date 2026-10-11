@@ -63,6 +63,10 @@ type Movement struct {
 	Amount    int64
 	Currency  string
 	CreatedAt time.Time
+	// Objek bisnis sumber journal (contoh transfer/<id>): pemanggil memakainya untuk menampilkan pihak
+	// lawan dari modul pemilik objek itu; ledger sendiri tidak mengenal transfer atau merchant.
+	SourceType string
+	SourceID   uuid.UUID
 }
 
 // History mengembalikan riwayat wallet (limit+1 baris diambil untuk mengetahui has_more).
@@ -89,18 +93,21 @@ func (s *Service) History(ctx context.Context, q store.DBTX, accountID uuid.UUID
 			break
 		}
 		items = append(items, Movement{EntryID: r.EntryID, JournalID: r.JournalID, Purpose: Purpose(r.Purpose),
-			Direction: Direction(r.Direction), Amount: r.Amount, Currency: r.Currency, CreatedAt: r.CreatedAt})
+			Direction: Direction(r.Direction), Amount: r.Amount, Currency: r.Currency, CreatedAt: r.CreatedAt,
+			SourceType: r.SourceType, SourceID: r.SourceID})
 	}
 	return items, next, nil
 }
 
 // JournalView adalah detail journal dari sudut pandang pemilik wallet.
 type JournalView struct {
-	ID        uuid.UUID
-	Purpose   Purpose
-	Currency  string
-	CreatedAt time.Time
-	Entries   []EntryView
+	ID         uuid.UUID
+	Purpose    Purpose
+	SourceType string
+	SourceID   uuid.UUID
+	Currency   string
+	CreatedAt  time.Time
+	Entries    []EntryView
 	// Mine adalah entry pada wallet pemanggil (arah + jumlah yang ia lihat sebagai transaksinya).
 	Mine EntryView
 }
@@ -124,7 +131,7 @@ func (s *Service) JournalFor(ctx context.Context, q store.DBTX, ownerAccountID, 
 	if err != nil {
 		return JournalView{}, db.MapError(err)
 	}
-	v := JournalView{ID: j.ID, Purpose: Purpose(j.Purpose), Currency: j.Currency, CreatedAt: j.CreatedAt}
+	v := JournalView{ID: j.ID, Purpose: Purpose(j.Purpose), SourceType: j.SourceType, SourceID: j.SourceID, Currency: j.Currency, CreatedAt: j.CreatedAt}
 	found := false
 	for _, r := range rows {
 		ev := EntryView{Direction: Direction(r.Direction), Amount: r.Amount}

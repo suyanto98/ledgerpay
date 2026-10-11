@@ -491,3 +491,43 @@ func TestWallet_TransactionDetailBOLA(t *testing.T) {
 		}
 	}
 }
+
+// Riwayat menampilkan pihak lawan + catatan dari modul pemilik objek (transfer: nama user, payment: merchant),
+// dan BOLA tetap berlaku: label hanya untuk transaksi milik viewer.
+func TestWallet_HistoryShowsCounterpartyAndNote(t *testing.T) {
+	e := newEnv(t)
+	_, _, _, rina := paidIntent(t, e, "30000") // rina membayar Kopi Budi
+	andi, andiID := loginAs(t, e, "andi@example.com", "Andi Wijaya")
+	seedTopup(t, e, andiID, 500_000)
+	body := transferBody("rina@example.com", "120000")
+	body["note"] = "Patungan makan siang"
+	if r, b := e.transfer(t, andi, newKey(), body); r.StatusCode != http.StatusCreated {
+		t.Fatalf("transfer: %d %v", r.StatusCode, b)
+	}
+
+	_, h := e.do(t, http.MethodGet, "/api/v1/wallet/transactions", rina, nil)
+	byType := map[string]map[string]any{}
+	for _, it := range h["data"].([]any) {
+		m := it.(map[string]any)
+		byType[m["type"].(string)] = m
+	}
+	if tr := byType["TRANSFER"]; tr["counterparty"] != "Andi Wijaya" || tr["note"] != "Patungan makan siang" || tr["direction"] != "IN" {
+		t.Fatalf("transfer label: %v", tr)
+	}
+	if pay := byType["PAYMENT"]; pay["counterparty"] != "Kopi Budi" {
+		t.Fatalf("payment label: %v", pay)
+	}
+	if top := byType["TOPUP"]; top["counterparty"] != nil || top["note"] != nil {
+		t.Fatalf("top-up has no counterparty, want nulls: %v", top)
+	}
+	// Detail transaksi memakai label yang sama.
+	_, d := e.do(t, http.MethodGet, "/api/v1/wallet/transactions/"+byType["TRANSFER"]["id"].(string), rina, nil)
+	if d["counterparty"] != "Andi Wijaya" {
+		t.Fatalf("detail label: %v", d)
+	}
+	// Dari sisi pengirim: pihak lawan = penerima.
+	_, ha := e.do(t, http.MethodGet, "/api/v1/wallet/transactions?type=TRANSFER", andi, nil)
+	if got := ha["data"].([]any)[0].(map[string]any)["counterparty"]; got != "Rina" {
+		t.Fatalf("sender sees counterparty %v, want Rina", got)
+	}
+}
