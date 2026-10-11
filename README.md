@@ -2,8 +2,8 @@
 
 > A mini payment platform where money stays correct even when requests are duplicated, concurrent, or interrupted by failures.
 
-**Status:** M4 — feature-complete for its scope (Sprints 0–10): money flows incl. refunds, background processing, observability, ops console (API + minimal UI), daily reconciliation, encrypted backups with a restore drill, a CD pipeline, a demo mode and a laptop performance baseline. Still owed by the author: the public deployment, the demo video and the performance numbers on the target VM ([DoD audit](docs/dod-audit.md), [backlog](docs/backlog.md)).
-**Live demo:** https://ledgerpay.suyantolabs.my.id · **Demo video (~5 min):** `[LINK: video]`
+**Status:** M4 — feature-complete for its scope (Sprints 0–10): money flows incl. refunds, background processing, observability, ops console (API + minimal UI), daily reconciliation, encrypted backups with a restore drill, a CD pipeline, a demo mode and a laptop performance baseline. Deployed on one 2 vCPU / 4 GB VM together with PayRun. Still owed by the author: the demo video and performance numbers on that VM ([DoD audit](docs/dod-audit.md), [backlog](docs/backlog.md)).
+**Live demo:** https://ledgerpay.suyantolabs.my.id (one click on *Coba demo* creates a private sandbox; no sign-up)
 
 Production-oriented, small in scope, strict about correctness. Built for learning and as a portfolio project.
 
@@ -136,7 +136,7 @@ make test-e2e           # Playwright (stack running)
 - Two provisioned Grafana dashboards (*Money & Integrity*, *Platform*) and alert rules (invariant violated, payout unknown > 1 h, dead letters, 5xx ratio, readiness).
 - Traces: HTTP → DB transactions/queries (sqlc query names, no SQL text or parameters) → outbound calls; jobs start a new root span **linked** to the request that enqueued them.
 
-`[SCREENSHOT: Grafana Money & Integrity during Demo C]` · `[SCREENSHOT: Jaeger trace POST /v1/payouts → job payout.submit]`
+Dashboards are provisioned from [`deploy/grafana/dashboards/`](deploy/grafana/dashboards/); `make up-obs` starts the stack locally with Grafana and Jaeger.
 
 ## Performance baseline
 

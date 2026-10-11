@@ -11,6 +11,12 @@ ARG VITE_REPO_URL="" VITE_CONTACT_URL="" VITE_VIDEO_URL=""
 ENV VITE_REPO_URL=$VITE_REPO_URL VITE_CONTACT_URL=$VITE_CONTACT_URL VITE_VIDEO_URL=$VITE_VIDEO_URL
 RUN yarn build
 
-FROM caddy:2.10-alpine
+# Caddy dikompilasi ulang dengan golang.org/x/net yang sudah ditambal (rilis Caddy terbaru masih membawa
+# versi dengan CVE HIGH di http2, ditemukan Trivy). Hapus stage ini begitu rilis resmi Caddy memuatnya.
+FROM caddy:2.11.7-builder-alpine AS caddy
+RUN xcaddy build v2.11.7 --replace golang.org/x/net=golang.org/x/net@v0.60.0
+
+FROM caddy:2.11.7-alpine
+COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
 COPY deploy/prod/Caddyfile /etc/caddy/Caddyfile
 COPY --from=web /web/dist /srv/ledgerpay
