@@ -44,4 +44,4 @@ q() { printf '%q' "$1"; }
 run "cd $(q "$ROOT/releases/$SHA") && LP_ROOT=$(q "$ROOT") LP_IMAGE_PREFIX=$(q "${LP_IMAGE_PREFIX:-}") \
   LP_DEPLOY_ACTOR=$(q "${LP_DEPLOY_ACTOR:-manual}") LP_HTTPS_PUBLIC_PORT=$(q "${LP_HTTPS_PUBLIC_PORT:-443}") \
   LP_HTTP_PUBLIC_PORT=$(q "${LP_HTTP_PUBLIC_PORT:-80}") LP_MOCK_ADMIN_PORT=$(q "${LP_MOCK_ADMIN_PORT:-9091}") \
-  LP_SMOKE_INSECURE=$(q "${LP_SMOKE_INSECURE:-}") bash deploy/prod/remote-deploy.sh $(q "$SHA") $SKIP_MIGRATE"
+  LP_SMOKE_INSECURE=$(q "${LP_SMOKE_INSECURE:-}") LP_TRACING=$(q "${LP_TRACING:-}") bash deploy/prod/remote-deploy.sh $(q "$SHA") $SKIP_MIGRATE"

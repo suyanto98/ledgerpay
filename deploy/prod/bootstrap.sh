@@ -34,7 +34,7 @@ ufw --force enable
 # di-bind ke 127.0.0.1, jadi tetap tidak terjangkau dari luar.
 dpkg-reconfigure -f noninteractive unattended-upgrades
 
-# Swap 2 GB (build image di VM 8 GB).
+# Swap 2 GB: build image di VM (4 GB untuk dua project) butuh ruang cadangan.
 [ -f /swapfile ] || { fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab; }
 
 # Edge bersama (PayRun di VM yang sama): network docker `edge`, folder site Caddy, lock deploy lintas project.

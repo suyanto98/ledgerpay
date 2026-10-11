@@ -28,8 +28,11 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+    # VM 2 vCPU / 4 GB untuk DUA project: buffer kecil, cukup untuk data demo.
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "effective_cache_size=512MB",
+              "-c", "work_mem=4MB", "-c", "maintenance_work_mem=64MB"]
     restart: unless-stopped
-    deploy: { resources: { limits: { memory: 2g } } }
+    deploy: { resources: { limits: { memory: 512m } } }
 
   migrate:
     build: { context: ../.., dockerfile: deploy/Dockerfile, target: ledgerpay, args: { VERSION: "${LP_VERSION:?}", BUILD_TAGS: demo } }
@@ -47,7 +50,7 @@ services:
     environment: { APP_VERSION: "${LP_VERSION:?}" }
     depends_on: { postgres: { condition: service_healthy } }
     <<: *hardening
-    deploy: { resources: { limits: { memory: 512m } } }
+    deploy: { resources: { limits: { memory: 384m } } }
 
   worker:
     image: ${LP_IMAGE_PREFIX:-}ledgerpay-app:${LP_VERSION:?}
@@ -57,7 +60,7 @@ services:
     depends_on: { postgres: { condition: service_healthy } }
     stop_grace_period: 30s
     <<: *hardening
-    deploy: { resources: { limits: { memory: 512m } } }
+    deploy: { resources: { limits: { memory: 384m } } }
 
   mock-provider:
     build: { context: ../.., dockerfile: deploy/Dockerfile, target: mock-provider }
@@ -115,10 +118,10 @@ services:
       - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ../prometheus/rules:/etc/prometheus/rules:ro
       - promdata:/prometheus
-    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=7d"]
     ports: ["127.0.0.1:9095:9090"]   # SSH tunnel
     restart: unless-stopped
-    deploy: { resources: { limits: { memory: 512m } } }
+    deploy: { resources: { limits: { memory: 256m } } }
 
   grafana:
     image: grafana/grafana:12.1.1
@@ -130,8 +133,11 @@ services:
     restart: unless-stopped
     deploy: { resources: { limits: { memory: 256m } } }
 
+  # Tracing opsional (LP_TRACING=1 saat init-env + deploy): Jaeger menyimpan trace di memori, terlalu
+  # mahal untuk VM 4 GB yang dipakai dua project kalau hidup terus.
   jaeger:
     image: jaegertracing/jaeger:2.9.0
+    profiles: [tracing]
     ports: ["127.0.0.1:16686:16686"]   # SSH tunnel; UI Jaeger tidak punya autentikasi
     restart: unless-stopped
     deploy: { resources: { limits: { memory: 512m } } }

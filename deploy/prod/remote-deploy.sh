@@ -61,7 +61,12 @@ log "worker (SIGTERM: stop claiming, finish in-flight ≤ 25s)"
 $C up -d --no-deps --wait worker || rollback
 log "api (graceful shutdown; Caddy holds requests during recreate)"
 $C up -d --no-deps --wait api || rollback
-$C up -d --no-deps --wait mock-provider edge pushgateway prometheus grafana jaeger || rollback
+$C up -d --no-deps --wait mock-provider edge pushgateway prometheus grafana || rollback
+if [ -n "${LP_TRACING:-}" ]; then
+  $C --profile tracing up -d --no-deps --wait jaeger || rollback
+else
+  $C --profile tracing rm -sf jaeger >/dev/null 2>&1 || true   # tracing dimatikan: bebaskan memorinya
+fi
 
 log "health gate + smoke via Caddy (TLS)"
 CURL=(curl -fsS --max-time 10 --resolve "${DOMAIN}:${PORT}:127.0.0.1")

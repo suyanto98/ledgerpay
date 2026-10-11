@@ -16,6 +16,8 @@ key32() { local k; k=$(head -c 32 /dev/urandom | base64 | tr -d '\n'); [ "$(prin
 PG_SUPER=$(rand 48 40); PG_OWNER=$(rand 48 40); PG_APP=$(rand 48 40); PG_BACKUP=$(rand 48 40)
 JWT=$(key32); PII=$(key32); DEMO_TOKEN=$(rand 48 40)
 MOCK_API=$(rand 48 40); WHSEC=$(rand 48 40); GRAFANA=$(rand 48 32)
+# Tracing opsional (LP_TRACING=1): tanpa endpoint, tracing no-op dan Jaeger tidak dijalankan deploy.
+OTLP=""; [ -n "${LP_TRACING:-}" ] && OTLP=http://jaeger:4318/v1/traces
 APP_DSN="postgres://ledgerpay_app:${PG_APP}@postgres:5432/ledgerpay?sslmode=disable"
 
 w() { umask 077; cat > "$OUT/$1"; }
@@ -50,7 +52,7 @@ RATE_LIMIT_MONEY_WRITE_PER_MIN=600
 # Toolbar demo (O15): presenter menempelkan token ini di tab; TIDAK PERNAH masuk bundle SPA.
 DEMO_MODE=true
 DEMO_TOKEN=${DEMO_TOKEN}
-OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
+OTEL_EXPORTER_OTLP_ENDPOINT=${OTLP}
 E
 w worker.env <<E
 APP_ENV=demo
@@ -61,7 +63,7 @@ PROVIDER_API_SECRET=${MOCK_API}
 PUBLIC_BASE_URL=https://${DOMAIN}
 PII_KEYRING={"v1":"${PII}"}
 PII_ACTIVE_KEY_VERSION=v1
-OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
+OTEL_EXPORTER_OTLP_ENDPOINT=${OTLP}
 E
 w mock.env <<E
 MOCK_API_SECRET=${MOCK_API}
