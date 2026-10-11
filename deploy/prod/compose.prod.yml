@@ -11,6 +11,11 @@ x-hardening: &hardening
   restart: unless-stopped
   logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
 
+networks:
+  default: {}
+  edge:
+    external: true   # dibuat bootstrap (docker network create edge); dipakai bersama stack PayRun
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -69,7 +74,11 @@ services:
     ports:
       - "${LP_HTTP_PUBLIC_PORT:-80}:80"
       - "${LP_HTTPS_PUBLIC_PORT:-443}:443"
-    volumes: [caddy_data:/data, caddy_config:/config]
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ${LP_EDGE_SITES:-/srv/edge/sites}:/etc/caddy/sites:ro   # site PayRun (edge bersama)
+    networks: [default, edge]   # `edge`: upstream PayRun (payrun-api, payrun-web, payrun-storage)
     read_only: true
     tmpfs: [/tmp]
     security_opt: ["no-new-privileges:true"]

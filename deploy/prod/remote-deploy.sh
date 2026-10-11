@@ -13,9 +13,11 @@ SHA=${1:?sha}
 SKIP_MIGRATE=${2:-}
 ROOT=${LP_ROOT:-/srv/ledgerpay}
 export LP_ENV_DIR=$ROOT/env LP_VERSION=$SHA LP_IMAGE_PREFIX=${LP_IMAGE_PREFIX:-}
-# Satu deploy pada satu waktu di VM ini (CD yang antre + operator manual tidak saling tabrak).
-exec 9>"$ROOT/deploy.lock"
-flock -n 9 || { echo "another deploy is running (lock $ROOT/deploy.lock)"; exit 1; }
+# Satu deploy pada satu waktu di VM ini, LINTAS project (lock bersama dengan deploy PayRun): CD yang antre,
+# operator manual, dan deploy project lain tidak saling tabrak (build paralel di VM 8 GB = OOM).
+LOCK=${LP_DEPLOY_LOCK:-/srv/deploy.lock}
+exec 9>"$LOCK"
+flock -n 9 || { echo "another deploy is running (lock $LOCK)"; exit 1; }
 started=$(date +%s)
 DOMAIN=$(grep '^LP_DOMAIN=' "$LP_ENV_DIR/edge.env" | cut -d= -f2)
 PORT=${LP_HTTPS_PUBLIC_PORT:-443}

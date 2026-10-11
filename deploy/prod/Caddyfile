@@ -1,7 +1,9 @@
 # Caddy (image edge): TLS otomatis, SPA statis, reverse proxy /api, halaman checkout mock, Grafana.
 # docs/design/24-docker-compose.md §6. Variabel {$...} diisi dari env container edge.
 {
-	admin off
+	# Admin API hanya di loopback CONTAINER (tidak dipublish): dipakai `caddy reload` saat project lain
+	# di VM yang sama (PayRun) memasang site-nya — reload graceful, tanpa restart edge.
+	admin localhost:2019
 	email {$LP_ACME_EMAIL}
 	{$LP_CADDY_GLOBAL}
 	servers {
@@ -78,3 +80,7 @@ obs.{$LP_DOMAIN} {
 	import json_log
 	reverse_proxy grafana:3000
 }
+
+# Site project lain di VM bersama (PayRun: payrun.caddy), dipasang deploy project itu ke /srv/edge/sites.
+# Tanpa file = tidak ada site tambahan (glob kosong valid).
+import /etc/caddy/sites/*.caddy

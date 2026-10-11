@@ -78,6 +78,9 @@ w edge.env <<E
 LP_DOMAIN=${DOMAIN}
 LP_ACME_EMAIL=${EMAIL}
 LP_CADDY_GLOBAL=${LP_CADDY_GLOBAL:-}
+# Edge bersama: domain PayRun (site /srv/edge/sites/payrun.caddy). Kosong = PayRun belum dideploy di VM ini.
+PR_DOMAIN=${PR_DOMAIN:-}
+PR_FILES_DOMAIN=${PR_FILES_DOMAIN:-}
 E
 # Backup dienkripsi untuk DUA recipient (§5.2): operator (key disimpan OFFLINE) dan restore drill
 # (key menjadi secret CI). Private key tidak pernah ada di VM: VM hanya bisa mengenkripsi.

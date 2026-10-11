@@ -37,6 +37,10 @@ dpkg-reconfigure -f noninteractive unattended-upgrades
 # Swap 2 GB (build image di VM 8 GB).
 [ -f /swapfile ] || { fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab; }
 
+# Edge bersama (PayRun di VM yang sama): network docker `edge`, folder site Caddy, lock deploy lintas project.
+docker network inspect edge >/dev/null 2>&1 || docker network create edge
+install -d -m 755 -o deploy -g deploy /srv/edge /srv/edge/sites
+touch /srv/deploy.lock && chown deploy:deploy /srv/deploy.lock
 install -d -m 755 -o deploy -g deploy /srv/ledgerpay /srv/ledgerpay/releases
 install -d -m 700 -o deploy -g deploy /srv/ledgerpay/env
 install -d -m 755 -o deploy -g deploy /srv/ledgerpay/logs
