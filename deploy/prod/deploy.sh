@@ -31,7 +31,8 @@ else
     scp -q "$ENV_DIR"/*.env "$USER_AT:$ROOT/env/" && ssh -o BatchMode=yes "$USER_AT" "chmod 600 $ROOT/env/*.env"
   fi
 fi
-REGISTRY=${LP_IMAGE_PREFIX%%/*}
+PREFIX=${LP_IMAGE_PREFIX:-}
+REGISTRY=${PREFIX%%/*}
 if [ -n "${LP_REGISTRY_TOKEN:-}" ] && [ -n "$REGISTRY" ]; then
   # Token CI berumur pendek (habis saat job selesai); tetap di-logout supaya tidak tertinggal di VM.
   printf %s "$LP_REGISTRY_TOKEN" | run "docker login $REGISTRY -u ${LP_REGISTRY_USER:-ci} --password-stdin >/dev/null"
