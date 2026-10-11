@@ -54,6 +54,7 @@ async function submit() {
       body: { recipient_email: form.value.recipient, amount, currency: 'IDR', note: form.value.note || undefined },
     })
     loadBalance()
+    demo.mark('transfer') // tur demo
   } catch (e) {
     error.value = e instanceof ApiError ? (messages[e.code] ?? e.message) : 'Koneksi gagal, coba lagi (aman: tidak akan terkirim dua kali)'
   } finally {

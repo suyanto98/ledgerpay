@@ -48,6 +48,10 @@ pribadi (Budi, saldo Rp2.692.000, tiga kontak, tagihan Kopi Senja) tanpa daftar.
    halaman Uji ketahanan → "Periksa buku besar" (saldo tersimpan = dihitung ulang dari semua entry, semua journal
    seimbang; LI-01/LI-03 untuk wallet pengunjung saja). Pengunjung tanpa sesi yang membuka `/` melihat landing `/welcome`.
 
+Tur di Beranda ("Coba dalam 2 menit") mencentang 6 langkah saat benar-benar dilakukan (transfer, bayar tagihan,
+uji klik ganda, uji 100 transfer, buka catatan transaksi, periksa buku besar), dengan "kenapa penting" dalam bahasa
+awam; selesai semua → rangkuman 3 poin + "Hubungi pembuatnya" (`VITE_CONTACT_URL`). Naskah video: `docs/demo-video-script.md`.
+
 ## Kalau ada yang salah saat live
 | Gejala | Tindakan |
 |---|---|

@@ -13,6 +13,7 @@ const router = useRouter()
 const busy = ref(false)
 const error = ref('')
 const repoUrl = import.meta.env.VITE_REPO_URL as string | undefined
+const videoUrl = import.meta.env.VITE_VIDEO_URL as string | undefined // video 90 detik (docs/demo-video-script.md)
 
 onMounted(() => demo.detect())
 
@@ -57,6 +58,7 @@ const steps = ['Masuk sebagai Budi, saldo dan riwayat contoh sudah siap', 'Kirim
           <RouterLink v-else to="/register" class="btn">Daftar</RouterLink>
           <RouterLink to="/login" class="btn ghost">Masuk</RouterLink>
         </div>
+        <a v-if="videoUrl" :href="videoUrl" class="w-video" target="_blank" rel="noopener"><AppIcon name="play" :size="16" :stroke="2" />Tidak sempat mencoba? Tonton video 90 detik</a>
         <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       </div>
       <ol class="w-steps" aria-label="Yang bisa dicoba dalam 2 menit">
@@ -72,6 +74,15 @@ const steps = ['Masuk sebagai Budi, saldo dan riwayat contoh sudah siap', 'Kirim
           <h3>{{ p.q }}</h3>
           <p>{{ p.a }}</p>
         </article>
+      </div>
+    </section>
+
+    <section class="w-problems" aria-labelledby="w-recruiter-title">
+      <h2 id="w-recruiter-title">Untuk recruiter: apa yang ditunjukkan proyek ini tentang pembuatnya</h2>
+      <div class="w-grid">
+        <article class="card w-card"><h3>Memikirkan yang bisa salah sebelum terjadi</h3><p>Klik ganda, koneksi putus, ratusan transaksi bersamaan, bank yang tidak menjawab: semuanya dirancang dan diuji, bukan ditambal setelah ada keluhan.</p></article>
+        <article class="card w-card"><h3>Membuktikan, bukan sekadar mengklaim</h3><p>Setiap janji di halaman ini bisa kamu coba sendiri di demo, dan dijalankan ulang otomatis oleh ratusan test setiap kali kodenya berubah.</p></article>
+        <article class="card w-card"><h3>Membangun dari ujung ke ujung</h3><p>Dari database, server, tampilan web, sampai pemantauan dan cara memulihkan saat ada gangguan, dikerjakan dan didokumentasikan sendiri.</p></article>
       </div>
     </section>
 
@@ -102,6 +113,7 @@ const steps = ['Masuk sebagai Budi, saldo dan riwayat contoh sudah siap', 'Kirim
 .w-hero p { color: var(--on-navy-muted); font-size: 16px; line-height: 1.6; max-width: 560px; }
 .w-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, .12); }
 .w-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+.w-video { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; color: #fff; font-size: 14px; font-weight: 700; }
 .w-cta .btn.ghost { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .35); }
 .w-steps { list-style: none; margin: 0; padding: 20px; border-radius: 20px; background: rgba(255, 255, 255, .08); display: flex; flex-direction: column; gap: 14px; font-size: 15px; }
 .w-steps li { display: flex; gap: 12px; align-items: flex-start; line-height: 1.45; }

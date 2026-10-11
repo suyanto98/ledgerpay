@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { api } from '../api'
 import AppIcon from '../components/AppIcon.vue'
+import DemoTour from '../components/DemoTour.vue'
 import TxTable, { type Tx } from '../components/TxTable.vue'
 import { formatMinor } from '../money'
 import { useAuth } from '../stores/auth'
@@ -32,7 +33,6 @@ onMounted(async () => {
   if (demo.sandbox) await demo.load() // status tagihan terbaru (mungkin baru saja dibayar)
 })
 
-const firstContact = computed(() => demo.sandbox?.contacts[0])
 const monthName = computed(() => {
   if (!summary.value) return ''
   const [y, m] = summary.value.period.split('-').map(Number)
@@ -121,31 +121,7 @@ const initials = computed(() => name.value.split(/[\s@.]+/).filter(Boolean).slic
     <RouterLink :to="`/checkout/${demo.openBill.id}`" class="btn sm">Bayar</RouterLink>
   </section>
 
-  <section v-if="demo.sandbox" class="card stack" aria-labelledby="try-title">
-    <h2 id="try-title">Coba dalam 2 menit</h2>
-    <ol class="try-list">
-      <li>
-        <RouterLink :to="{ path: '/transfer', query: firstContact ? { to: firstContact.email } : {} }">
-          <span class="try-step">1</span><span><strong>Kirim uang ke {{ firstContact?.name ?? 'teman' }}</strong><span class="tx-sub">Tekan tombol kirim dua kali pun saldo hanya terpotong sekali.</span></span><AppIcon name="chevron" :size="18" />
-        </RouterLink>
-      </li>
-      <li v-if="demo.openBill">
-        <RouterLink :to="`/checkout/${demo.openBill.id}`">
-          <span class="try-step">2</span><span><strong>Bayar tagihan {{ demo.openBill.merchant_name }}</strong><span class="tx-sub">Seperti checkout di toko online, langsung dari saldo.</span></span><AppIcon name="chevron" :size="18" />
-        </RouterLink>
-      </li>
-      <li>
-        <RouterLink to="/lab" data-test="try-lab">
-          <span class="try-step">{{ demo.openBill ? 3 : 2 }}</span><span><strong>Uji ketahanan</strong><span class="tx-sub">Klik ganda dan 100 transfer di detik yang sama: lihat sendiri saldo tetap benar.</span></span><AppIcon name="chevron" :size="18" />
-        </RouterLink>
-      </li>
-      <li>
-        <RouterLink to="/history">
-          <span class="try-step">{{ demo.openBill ? 4 : 3 }}</span><span><strong>Lihat riwayat lengkap</strong><span class="tx-sub">Setiap rupiah tercatat di buku besar, masuk dan keluar selalu seimbang.</span></span><AppIcon name="chevron" :size="18" />
-        </RouterLink>
-      </li>
-    </ol>
-  </section>
+  <DemoTour />
 
   <section class="card card-flush">
     <div class="card-head">

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { api, ApiError } from '../api'
 import AppIcon from '../components/AppIcon.vue'
 import { formatMinor } from '../money'
+import { useDemo } from '../stores/demo'
 
 // Detail transaksi + "di balik layar": journal double-entry dari GET /wallet/transactions/{id}. Akun pihak lain
 // hanya berlabel generik (server tidak pernah mengirim ID-nya, BOLA).
@@ -20,6 +21,7 @@ const error = ref('')
 onMounted(async () => {
   try {
     tx.value = await api<Detail>(`/wallet/transactions/${route.params.id}`)
+    useDemo().mark('journal') // tur demo
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound.value = true
     else error.value = 'Gagal memuat transaksi'
@@ -71,7 +73,7 @@ const when = computed(() => (tx.value ? new Date(tx.value.created_at).toLocaleSt
 
     <section class="card narrow stack" aria-labelledby="journal-title" data-test="journal">
       <div>
-        <h2 id="journal-title">Di balik layar: buku besar</h2>
+        <h2 id="journal-title">Di balik layar: catatan pembukuan</h2>
         <p class="muted small-lead">Setiap transaksi dicatat di dua sisi. Jumlah yang keluar dari satu akun (debit) selalu sama dengan yang masuk ke akun lain (kredit). Kalau tidak seimbang, database menolak menyimpannya.</p>
       </div>
       <div class="table-scroll">
@@ -90,7 +92,7 @@ const when = computed(() => (tx.value ? new Date(tx.value.created_at).toLocaleSt
       <p class="verdict" :class="{ bad: !balanced }" data-test="journal-verdict">
         <AppIcon :name="balanced ? 'check' : 'x'" :size="18" :stroke="2.4" />{{ balanced ? 'Seimbang: debit = kredit.' : 'Tidak seimbang.' }}
       </p>
-      <p class="note"><AppIcon name="info" :size="18" :stroke="2" />Saldo wallet adalah uang kamu yang dititipkan, jadi bagi LedgerPay ia "utang": kredit menambah saldo, debit mengurangi.</p>
+      <p class="note"><AppIcon name="info" :size="18" :stroke="2" />Bagi LedgerPay, saldomu adalah uang titipan yang wajib dikembalikan. Karena itu uang yang masuk ke dompetmu dicatat di sisi kredit, dan uang yang keluar di sisi debit.</p>
     </section>
   </template>
 </template>

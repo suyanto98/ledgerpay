@@ -49,11 +49,16 @@ test('landing → one-click demo → labelled history → journal → pay pendin
   await expect(page.getByTestId('demo-bill')).toHaveCount(0)
 
   // Langkah "Kirim uang ke Siti": penerima terisi dari kontak demo.
-  await page.getByRole('link', { name: /Kirim uang ke Siti Rahma/ }).click()
+  await page.getByTestId('tour-transfer').getByRole('link').click()
   await expect(page.getByLabel('Email penerima')).toHaveValue(/^siti@.+\.demo\.ledgerpay\.test$/)
   await page.getByLabel('Nominal (Rp)').fill('10.000')
   await page.getByRole('button', { name: /^Kirim Rp10\.000/ }).click()
   await expect(page.getByTestId('transfer-done')).toContainText('Siti Rahma')
+
+  // Tur: langkah yang benar-benar dilakukan (bayar, catatan transaksi, transfer) tercentang di Beranda.
+  await page.goto('/')
+  for (const k of ['transfer', 'pay', 'journal']) await expect(page.getByTestId(`tour-${k}`)).toHaveClass(/done/)
+  await expect(page.getByTestId('tour-stress')).not.toHaveClass(/done/)
 })
 
 // Uji ketahanan: klik ganda = satu potongan; 100 transfer bersamaan = tepat 10 berhasil, saldo akhir Rp0.
@@ -61,7 +66,7 @@ test('lab: double send charges once, 100 parallel transfers → exactly 10 succe
   await page.goto('/login')
   await page.getByTestId('start-demo').click()
   await expect(page.getByTestId('demo-banner')).toBeVisible()
-  await page.getByTestId('try-lab').click()
+  await page.getByTestId('tour-double').getByRole('link').click()
   await expect(page).toHaveURL('/lab')
 
   await page.getByTestId('lab-double').click()
@@ -78,6 +83,12 @@ test('lab: double send charges once, 100 parallel transfers → exactly 10 succe
   // Periksa buku besar wallet sendiri setelah uji: saldo tersimpan = dihitung ulang dari semua catatan.
   await page.getByTestId('lab-ledger').click()
   await expect(page.getByTestId('lab-ledger-result')).toContainText('Cocok sampai rupiah terakhir.')
+
+  // Rangkuman bisa dibuka kapan pun dari tur; tiga langkah uji tercentang.
+  await page.goto('/')
+  for (const k of ['double', 'stress', 'ledger']) await expect(page.getByTestId(`tour-${k}`)).toHaveClass(/done/)
+  await page.getByTestId('show-summary').click()
+  await expect(page.getByTestId('demo-summary')).toContainText('Uang tidak pernah terpotong dua kali')
 })
 
 // QR kasir: tagihan dibuka di desktop, dibayar akun lain (HP); halaman desktop berubah sendiri.

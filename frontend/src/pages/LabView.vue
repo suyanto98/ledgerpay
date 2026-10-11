@@ -42,6 +42,7 @@ async function doubleSend() {
     }
     const shots = await Promise.all([send(), send()])
     dbl.value = { before, after: await balance(), shots }
+    demo.mark('double') // tur demo
   } catch (e) {
     dblError.value = e instanceof ApiError && e.code === 'RATE_LIMITED' ? 'Terlalu banyak transaksi. Tunggu sebentar, lalu coba lagi.' : 'Uji gagal dijalankan. Coba lagi.'
   } finally {
@@ -76,6 +77,7 @@ async function runStress() {
   try {
     const res = await api<Stress>('/demo/stress/transfers', { method: 'POST' })
     stress.value = res
+    if (res.consistent) demo.mark('stress') // tur demo
     // Putar ulang hasil sesuai URUTAN SELESAI di server (bukan urutan dikirim), ±1,5 detik.
     const step = 15
     const timer = setInterval(() => {
@@ -99,6 +101,7 @@ async function checkLedger() {
   igError.value = ''
   try {
     integrity.value = await api<Integrity>('/demo/wallet/integrity')
+    if (integrity.value.ok) demo.mark('ledger') // tur demo
   } catch {
     igError.value = 'Pemeriksaan gagal dijalankan. Coba lagi.'
   } finally {

@@ -5,6 +5,7 @@ import { api, ApiError, newIdempotencyKey } from '../api'
 import AppIcon from '../components/AppIcon.vue'
 import { formatMinor } from '../money'
 import QRCode from 'qrcode'
+import { useDemo } from '../stores/demo'
 
 // Halaman checkout merchant (LF-14): link checkout_url dari merchant → user login → bayar dari wallet.
 // Nominal TIDAK pernah dikirim dari browser: server mengambilnya dari intent (body confirm = {}).
@@ -74,6 +75,7 @@ async function pay() {
   busy.value = true
   try {
     intent.value = await api<Intent>(`/payment-intents/${route.params.id}/confirm`, { method: 'POST', idempotencyKey: key, body: {} })
+    useDemo().mark('pay') // tur demo
   } catch (e) {
     error.value = e instanceof ApiError ? (messages[e.code] ?? e.message) : 'Koneksi gagal, coba lagi (aman: tidak akan terbayar dua kali)'
     if (e instanceof ApiError && e.code === 'INVALID_STATE_TRANSITION') await load()
