@@ -41,6 +41,9 @@ pribadi (Budi, saldo Rp2.692.000, tiga kontak, tagihan Kopi Senja) tanpa daftar.
 5. **Uji ketahanan** (`/lab`, juga dari Beranda): "Kirim dua kali sekaligus" → dua respons 201, yang kedua
    `Idempotent-Replayed`, saldo terpotong sekali; "100 transfer bersamaan" dari dompet uji Rp100.000 → grid 10×10,
    tepat 10 hijau, saldo akhir Rp0 (versi tombol dari Demo B; `TestDemoSandbox_StressTransfersExactlyTenSucceed`).
+6. **QR kasir** (halaman checkout, desktop): pindai dengan HP yang login akun lain lalu bayar; layar desktop berubah
+   sendiri menjadi "Dibayar dari perangkat lain" (polling 3 dtk; 404 setelah sebelumnya bisa dibayar = dibayar akun lain,
+   aturan BOLA intent). Butuh URL publik (VM) atau `LP_ALLOWED_ORIGINS` + IP LAN; diuji `e2e/demo.spec.ts`.
 
 ## Kalau ada yang salah saat live
 | Gejala | Tindakan |

@@ -69,6 +69,11 @@ func TestDemoSandbox_OneClickSessionWithLabelledHistory(t *testing.T) {
 	if b := balanceOf(t, ee, token); b != "269200000" {
 		t.Fatalf("balance %s, want 269200000", b)
 	}
+	// Ringkasan bulan ini: masuk 2.500.000 + 150.000 + 250.000, keluar 75.000 + 45.000 + 50.000 + 38.000.
+	if _, sum := ee.do(t, http.MethodGet, "/api/v1/wallet/summary", token, nil); sum["in_amount"] != "290000000" ||
+		sum["out_amount"] != "20800000" || sum["transactions"] != float64(7) {
+		t.Fatalf("wallet summary: %v", sum)
+	}
 	_, h := ee.do(t, http.MethodGet, "/api/v1/wallet/transactions", token, nil)
 	items := h["data"].([]any)
 	if len(items) != 7 { // saldo awal + 6 cerita
@@ -230,5 +235,26 @@ func TestDemoSandbox_StressTransfersExactlyTenSucceed(t *testing.T) {
 	rina, _ := login(t, ee, "rina@example.com")
 	if r, _ := ee.do(t, http.MethodPost, "/api/v1/demo/stress/transfers", rina, nil); r.StatusCode != http.StatusNotFound {
 		t.Fatalf("non-sandbox user: want 404, got %d", r.StatusCode)
+	}
+}
+
+// Regresi: GET /demo (dipanggil setiap halaman login dibuka) tidak boleh memakan kuota login per IP.
+// Versi pertama memakai tier auth-ip: suite E2E (satu IP) mulai mendapat 429 saat login.
+func TestDemoSandbox_DiscoveryDoesNotConsumeLoginQuota(t *testing.T) {
+	e := newEnv(t)
+	tiers := ratelimit.DefaultTiers() // auth-ip asli: 30/menit per IP
+	srv := demoServer(t, e, func(d *app.Deps) { d.Tiers = &tiers })
+	ee := e
+	ee.srv = srv
+	registerAs(t, ee, "nat@example.com", "Nat")
+	ip := map[string]string{"X-Forwarded-For": "198.51.100.77"}
+	for range 35 {
+		if r, _ := ee.doH(t, http.MethodGet, "/api/v1/demo", "", ip, nil); r.StatusCode != http.StatusOK {
+			t.Fatalf("GET /demo: %d", r.StatusCode)
+		}
+	}
+	r, _ := ee.doH(t, http.MethodPost, "/api/v1/auth/login", "", ip, map[string]string{"email": "nat@example.com", "password": "correct horse battery"})
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("login after 35 discovery calls from the same IP: want 200, got %d", r.StatusCode)
 	}
 }

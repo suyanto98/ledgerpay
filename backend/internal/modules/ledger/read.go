@@ -165,3 +165,18 @@ func (s *Service) JournalBySource(ctx context.Context, q store.DBTX, sourceType 
 	}
 	return id, true, nil
 }
+
+// Flow adalah uang masuk (kredit) dan keluar (debit) sebuah wallet dalam satu rentang.
+type Flow struct {
+	In, Out int64
+	Entries int32
+}
+
+// FlowSince menjumlah entry wallet sejak from (ringkasan bulan berjalan di Beranda).
+func (s *Service) FlowSince(ctx context.Context, q store.DBTX, accountID uuid.UUID, from time.Time) (Flow, error) {
+	r, err := store.New(q).AccountFlowSince(ctx, store.AccountFlowSinceParams{AccountID: accountID, Currency: SupportedCurrency, FromAt: from})
+	if err != nil {
+		return Flow{}, db.MapError(err)
+	}
+	return Flow{In: r.Credit, Out: r.Debit, Entries: r.Entries}, nil
+}

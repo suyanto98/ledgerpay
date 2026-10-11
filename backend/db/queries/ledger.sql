@@ -106,3 +106,12 @@ SELECT coalesce(sum(CASE direction WHEN 'D' THEN amount ELSE -amount END), 0)::b
 -- Satu objek bisnis = satu journal per purpose (uq_journals_source). Dipakai recon: run ulang
 -- merujuk journal PROVIDER_SETTLEMENT yang sudah ada alih-alih memposting lagi.
 SELECT id FROM journals WHERE source_type = @source_type AND source_id = @source_id AND purpose = @purpose;
+
+-- name: AccountFlowSince :one
+-- Ringkasan wallet sejak from_at (contoh awal bulan WIB): total kredit (masuk) dan debit (keluar) + jumlah
+-- entry. Range scan di index (account_id, created_at), sama dengan riwayat.
+SELECT COALESCE(sum(amount) FILTER (WHERE direction = 'C'), 0)::bigint AS credit,
+       COALESCE(sum(amount) FILTER (WHERE direction = 'D'), 0)::bigint AS debit,
+       count(*)::int AS entries
+FROM journal_entries
+WHERE account_id = @account_id AND currency = @currency AND created_at >= @from_at;

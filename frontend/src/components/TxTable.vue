@@ -4,7 +4,7 @@ import AppIcon from './AppIcon.vue'
 
 export type Tx = { id: string; type: string; direction: 'IN' | 'OUT'; amount: string; created_at: string; counterparty?: string | null; note?: string | null }
 
-defineProps<{ txs: Tx[]; emptyText?: string }>()
+defineProps<{ txs: Tx[]; emptyText?: string; loading?: boolean }>()
 
 const labels: Record<string, string> = { TOPUP: 'Top-up', TRANSFER: 'Transfer', PAYMENT: 'Pembayaran', REFUND: 'Refund', PAYOUT: 'Tarik dana', ADJUSTMENT: 'Penyesuaian' }
 const icons = { TOPUP: 'plus', TRANSFER: 'transfer', PAYMENT: 'cart', REFUND: 'undo', PAYOUT: 'bank', ADJUSTMENT: 'info' } as const
@@ -39,7 +39,14 @@ const shortRef = (id: string) => id.slice(-8).toUpperCase()
         </tr>
       </thead>
       <tbody>
-        <tr v-if="txs.length === 0"><td colspan="4" class="empty">{{ emptyText ?? 'Belum ada transaksi.' }}</td></tr>
+        <!-- Saat memuat: baris kerangka, bukan "Belum ada transaksi" (kesan aplikasi kosong sebelum data tiba). -->
+        <template v-if="loading">
+          <tr v-for="n in 4" :key="'sk' + n" aria-hidden="true">
+            <td><div class="tx-cell"><span class="tx-icon skeleton" /><span class="skeleton line w-60" /></div></td>
+            <td><span class="skeleton line w-40" /></td><td><span class="skeleton line w-30" /></td><td class="right"><span class="skeleton line w-40" /></td>
+          </tr>
+        </template>
+        <tr v-else-if="txs.length === 0"><td colspan="4" class="empty">{{ emptyText ?? 'Belum ada transaksi.' }}</td></tr>
         <tr v-for="t in txs" :key="t.id">
           <td>
             <div class="tx-cell">

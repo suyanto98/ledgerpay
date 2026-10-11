@@ -48,6 +48,7 @@ func TestContract_MoneyIsString(t *testing.T) {
 	_, responses["refund_exceeds_422"] = e.refund(t, k, intentID, newKey(), "999999")
 	_, responses["payout"] = e.createPayout(t, rina, "1000000", "9900001234")
 	get("wallet", "/api/v1/wallet", rina)
+	get("wallet_summary", "/api/v1/wallet/summary", rina)
 	get("history", "/api/v1/wallet/transactions", rina)
 	get("intent_payer", "/api/v1/payment-intents/"+intentID, rina)
 	_, responses["intent_merchant"] = e.doH(t, http.MethodGet, "/api/v1/merchant/payment-intents/"+intentID, k, nil, nil)

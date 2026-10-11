@@ -14,14 +14,30 @@ const demo = useDemo()
 const wallet = ref<Wallet | null>(null)
 const txs = ref<Tx[]>([])
 const hidden = ref(false)
+const loading = ref(true)
+type Summary = { period: string; in_amount: string; out_amount: string; transactions: number }
+const summary = ref<Summary | null>(null)
 
 onMounted(async () => {
-  wallet.value = await api<Wallet>('/wallet')
-  txs.value = (await api<{ data: Tx[] }>('/wallet/transactions?limit=8')).data
+  // Tiga permintaan paralel; Beranda tampil lengkap sekaligus, kerangka (skeleton) selama menunggu.
+  const [w, t, s] = await Promise.all([
+    api<Wallet>('/wallet'),
+    api<{ data: Tx[] }>('/wallet/transactions?limit=8'),
+    api<Summary>('/wallet/summary').catch(() => null),
+  ])
+  wallet.value = w
+  txs.value = t.data
+  summary.value = s
+  loading.value = false
   if (demo.sandbox) await demo.load() // status tagihan terbaru (mungkin baru saja dibayar)
 })
 
 const firstContact = computed(() => demo.sandbox?.contacts[0])
+const monthName = computed(() => {
+  if (!summary.value) return ''
+  const [y, m] = summary.value.period.split('-').map(Number)
+  return new Intl.DateTimeFormat('id-ID', { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)))
+})
 
 const now = new Date()
 const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: 'numeric', hourCycle: 'h23' }).format(now))
@@ -46,7 +62,8 @@ const initials = computed(() => name.value.split(/[\s@.]+/).filter(Boolean).slic
         <div>
           <div class="balance-label">Saldo aktif</div>
           <div v-if="hidden" class="balance">Rp •••••</div>
-          <div v-else class="balance" data-test="balance">{{ wallet ? formatMinor(wallet.balance) : '…' }}</div>
+          <div v-else-if="wallet" class="balance" data-test="balance">{{ formatMinor(wallet.balance) }}</div>
+          <div v-else class="balance"><span class="skeleton on-navy" aria-label="Memuat saldo" /></div>
           <div class="balance-meta">Wallet LedgerPay · {{ wallet?.currency ?? 'IDR' }}</div>
         </div>
         <button type="button" class="icon-btn-navy" :aria-label="hidden ? 'Tampilkan saldo' : 'Sembunyikan saldo'" @click="hidden = !hidden">
@@ -76,6 +93,24 @@ const initials = computed(() => name.value.split(/[\s@.]+/).filter(Boolean).slic
       <p class="note"><AppIcon name="shield" :size="18" :stroke="2" />Transfer yang terkirim ulang karena koneksi putus tidak akan memotong saldo dua kali.</p>
     </section>
   </div>
+
+  <section v-if="loading || summary" class="kpi-row" aria-label="Ringkasan bulan ini"><!-- ringkasan gagal dimuat: sembunyikan, jangan kerangka abadi -->
+    <div class="kpi">
+      <span class="kpi-label"><span class="kpi-dot in" aria-hidden="true" />Uang masuk{{ monthName ? ' ' + monthName : '' }}</span>
+      <span v-if="summary" class="kpi-value" data-test="kpi-in">{{ formatMinor(summary.in_amount) }}</span>
+      <span v-else class="skeleton line w-60" />
+    </div>
+    <div class="kpi">
+      <span class="kpi-label"><span class="kpi-dot out" aria-hidden="true" />Uang keluar{{ monthName ? ' ' + monthName : '' }}</span>
+      <span v-if="summary" class="kpi-value" data-test="kpi-out">{{ formatMinor(summary.out_amount) }}</span>
+      <span v-else class="skeleton line w-60" />
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Transaksi bulan ini</span>
+      <span v-if="summary" class="kpi-value">{{ summary.transactions }}</span>
+      <span v-else class="skeleton line w-30" />
+    </div>
+  </section>
 
   <section v-if="demo.openBill" class="card bill-card" aria-label="Tagihan menunggu" data-test="demo-bill">
     <span class="tx-icon"><AppIcon name="cart" :size="18" /></span>
@@ -117,6 +152,6 @@ const initials = computed(() => name.value.split(/[\s@.]+/).filter(Boolean).slic
       <h2>Transaksi terakhir</h2>
       <RouterLink to="/history" class="link-btn">Lihat semua</RouterLink>
     </div>
-    <TxTable :txs="txs" />
+    <TxTable :txs="txs" :loading="loading" />
   </section>
 </template>

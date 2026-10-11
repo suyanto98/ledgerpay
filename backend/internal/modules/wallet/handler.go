@@ -69,6 +69,7 @@ func (h *Handler) labelsFor(ctx context.Context, viewer uuid.UUID, items []ledge
 // wallet di path → tidak ada permukaan BOLA untuk GET /wallet.
 func (h *Handler) Routes(authed chi.Router) {
 	authed.Get("/wallet", h.getWallet)
+	authed.Get("/wallet/summary", h.summary)
 	authed.Get("/wallet/transactions", h.listTransactions)
 	authed.Get("/wallet/transactions/{journalID}", h.getTransaction)
 }
@@ -90,6 +91,27 @@ func (h *Handler) getWallet(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusOK, walletResponse{AccountID: wl.AccountID, Balance: ledger.FormatAmount(wl.Balance),
 		Currency: wl.Currency, Status: wl.Status, AsOf: h.clock.Now()})
+}
+
+// summary: uang masuk/keluar bulan berjalan (zona WIB, sama dengan filter tanggal riwayat).
+func (h *Handler) summary(w http.ResponseWriter, r *http.Request) {
+	p, _ := auth.PrincipalFrom(r.Context())
+	wl, err := h.ledger.WalletOf(r.Context(), h.pool, p.UserID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	now := h.clock.Now().In(jakarta)
+	from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, jakarta)
+	f, err := h.ledger.FlowSince(r.Context(), h.pool, wl.AccountID, from)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"period": from.Format("2006-01"), "in_amount": ledger.FormatAmount(f.In), "out_amount": ledger.FormatAmount(f.Out),
+		"transactions": f.Entries, "currency": wl.Currency, "as_of": h.clock.Now(),
+	})
 }
 
 type transaction struct {

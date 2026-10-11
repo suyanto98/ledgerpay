@@ -164,6 +164,28 @@ paths:
               schema: { $ref: '#/components/schemas/Wallet' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
 
+  /wallet/summary:
+    get:
+      tags: [wallet]
+      operationId: getWalletSummary
+      summary: Money in and out of the caller's wallet this month (Asia/Jakarta)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [period, in_amount, out_amount, transactions, currency, as_of]
+                properties:
+                  period: { type: string, pattern: '^[0-9]{4}-[0-9]{2}$', description: Calendar month in Asia/Jakarta }
+                  in_amount: { $ref: '#/components/schemas/Money' }
+                  out_amount: { $ref: '#/components/schemas/Money' }
+                  transactions: { type: integer, minimum: 0, description: Ledger entries on this wallet since the start of the month }
+                  currency: { $ref: '#/components/schemas/Currency' }
+                  as_of: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /wallet/transactions:
     get:
       tags: [wallet]

@@ -386,3 +386,43 @@ h1, h2, h3, p { margin: 0; }
   .demo-banner { font-size: 12px; }
   .bill-card { padding: 16px; }
 }
+
+/* =====================================================================
+   Ringkasan, kerangka (skeleton), dan animasi sukses
+   ===================================================================== */
+.kpi-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.kpi { background: var(--card); border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.kpi-label { font-size: 13px; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.kpi-value { font-size: 22px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -.3px; overflow-wrap: anywhere; }
+.kpi-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
+.kpi-dot.in { background: var(--ok-icon); }
+.kpi-dot.out { background: var(--blue); }
+
+.skeleton { display: inline-block; border-radius: 8px; background: linear-gradient(90deg, var(--divider) 0%, #e6eaf1 40%, var(--divider) 80%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+.skeleton.line { height: 12px; }
+.skeleton.w-30 { width: 30%; min-width: 40px; } .skeleton.w-40 { width: 40%; min-width: 56px; } .skeleton.w-60 { width: 60%; min-width: 80px; }
+.skeleton.on-navy { width: 220px; height: 40px; background: linear-gradient(90deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.22) 40%, rgba(255,255,255,.10) 80%); background-size: 200% 100%; }
+.tx-icon.skeleton { animation-duration: 1.2s; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* Layar sukses saja (ikon hijau tanpa kelas info/warn/bad): lingkaran "pop" lalu centang tergambar.
+   Status menunggu/gagal tidak dianimasikan: perayaan untuk sesuatu yang belum berhasil itu menyesatkan. */
+.status-icon:not(.info):not(.warn):not(.bad) { animation: pop .45s cubic-bezier(.2, 1.4, .4, 1) both; }
+.status-icon:not(.info):not(.warn):not(.bad) svg path { stroke-dasharray: 100; stroke-dashoffset: 100; /* > panjang path ikon mana pun (viewBox 24) */ animation: draw .35s .25s ease-out forwards; }
+.status-hero:has(.status-icon:not(.info):not(.warn):not(.bad)) .big { animation: rise .4s .15s ease-out both; }
+@keyframes pop { from { transform: scale(.4); opacity: 0; box-shadow: 0 0 0 0 rgba(22, 160, 106, .3); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes rise { from { transform: translateY(8px); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .status-icon, .status-icon svg path, .status-hero .big { animation: none; stroke-dashoffset: 0; }
+}
+@media (max-width: 768px) {
+  .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .kpi:last-child { grid-column: span 2; }
+  .kpi-value { font-size: 18px; }
+}
+
+.qr-box { display: flex; gap: 16px; align-items: center; padding: 14px; border-radius: 16px; border: 1px dashed var(--border-strong); }
+.qr-box img { border-radius: 10px; flex-shrink: 0; }
+.qr-box p { font-size: 13px; line-height: 1.5; margin-top: 4px; }

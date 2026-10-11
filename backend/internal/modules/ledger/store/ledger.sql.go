@@ -12,6 +12,35 @@ import (
 	"github.com/google/uuid"
 )
 
+const accountFlowSince = `-- name: AccountFlowSince :one
+SELECT COALESCE(sum(amount) FILTER (WHERE direction = 'C'), 0)::bigint AS credit,
+       COALESCE(sum(amount) FILTER (WHERE direction = 'D'), 0)::bigint AS debit,
+       count(*)::int AS entries
+FROM journal_entries
+WHERE account_id = $1 AND currency = $2 AND created_at >= $3
+`
+
+type AccountFlowSinceParams struct {
+	AccountID uuid.UUID
+	Currency  string
+	FromAt    time.Time
+}
+
+type AccountFlowSinceRow struct {
+	Credit  int64
+	Debit   int64
+	Entries int32
+}
+
+// Ringkasan wallet sejak from_at (contoh awal bulan WIB): total kredit (masuk) dan debit (keluar) + jumlah
+// entry. Range scan di index (account_id, created_at), sama dengan riwayat.
+func (q *Queries) AccountFlowSince(ctx context.Context, arg AccountFlowSinceParams) (AccountFlowSinceRow, error) {
+	row := q.db.QueryRow(ctx, accountFlowSince, arg.AccountID, arg.Currency, arg.FromAt)
+	var i AccountFlowSinceRow
+	err := row.Scan(&i.Credit, &i.Debit, &i.Entries)
+	return i, err
+}
+
 const addToBalance = `-- name: AddToBalance :exec
 UPDATE accounts SET balance = balance + $1::bigint WHERE id = $2
 `
