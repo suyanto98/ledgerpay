@@ -39,7 +39,7 @@ ditandai sebagian dengan alasan. Yang tersisa terutama membutuhkan environment p
 | A1 | BOLA setiap resource | ✅ | `TestWallet_TransactionDetailBOLA`, `TestBOLA_TransferTopupPayout`, `TestPaymentIntent_BOLA_MerchantToMerchant`, `TestRefund_BOLA_MerchantToMerchant`; ops → 403 (`TestOps_RoleRequiredAndNoSelfServiceKeys`) |
 | A4 | Ops hanya role OPS + audit | ✅ | `TestOps_RoleRequiredAndNoSelfServiceKeys`, `TestOps_ResolutionRequiresEvidence`, audit di semua aksi tulis ops |
 | S1 | Kontrol MVP LedgerPay | ✅ | Threat model + test di katalog §4.9 / §5.4; temuan khusus tercatat di backlog |
-| S2 | Scan HIGH/CRITICAL bersih | ✅ lokal · ⏳ CI | `govulncheck`: 0 kerentanan terpanggil setelah naik ke Go 1.26.6 dan `moby/go-archive` v0.3.0 (sebelumnya 28 terpanggil). Trivy di `main.yml`. Job CI belum pernah berjalan |
+| S2 | Scan HIGH/CRITICAL bersih | ✅ lokal · ⏳ CI | `govulncheck`: 0 kerentanan terpanggil setelah naik ke Go 1.26.9 dan `moby/go-archive` v0.3.0 (sebelumnya 28 terpanggil). Trivy di `main.yml`. Job CI belum pernah berjalan |
 | S3 | gitleaks seluruh history | ✅ lokal · ⏳ CI | Pertama kali dijalankan: 6.006 temuan = token JWT dev kedaluwarsa di summary k6 Sprint 9 + 2 contoh Idempotency-Key. Alat diperbaiki, file dibersihkan, pengecualian sempit di `.gitleaks.toml` → "no leaks found" |
 | S4 | Security header | ✅ | `TestHeaders_PresentOnEveryResponse`, CSP/HSTS di Caddy |
 | S5 | Endpoint demo tidak ada di release | ✅ | `TestBuild_DemoEndpointsAbsentWithoutDemoMode`, `TestDemo_RoutesAbsentInReleaseBuildEvenWithDemoMode` |
@@ -81,6 +81,6 @@ ditandai sebagian dengan alasan. Yang tersisa terutama membutuhkan environment p
 | DM4 | Token demo aman | ✅ | `DEMO_TOKEN` dibuat `init-env.sh`, tidak di README/SPA, wajib ≥ 24 karakter |
 | H1 | Lisensi | ⚠️ | `LICENSE` MIT ada; nama pemegang hak masih placeholder (menunggu pemilik) |
 | H2 | Tanpa TODO/FIXME di jalur kritis | ✅ | `grep` di ledger, idempotency, payout, payment, recon: kosong |
-| H3 | Dependency di-pin + Dependabot | ✅ | `go.sum`, action di-pin SHA, image dengan versi tetap (`golang:1.26.6-alpine`, dll.), `.github/dependabot.yml` |
+| H3 | Dependency di-pin + Dependabot | ✅ | `go.sum`, action di-pin SHA, image dengan versi tetap (`golang:1.26.9-alpine`, dll.), `.github/dependabot.yml` |
 | H4 | Tanpa kode dari pekerjaan kantor | ✅ | Review diri |
 | H5 | Riwayat git terbaca | ✅ | Satu commit `feat(...)` per sprint di `main` |

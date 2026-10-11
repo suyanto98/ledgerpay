@@ -2,11 +2,11 @@
 version: 2
 updates:
   - package-ecosystem: gomod
-    directory: /
+    directory: /backend
     schedule: { interval: weekly }
     groups: { go: { patterns: ["*"] } }
   - package-ecosystem: npm
-    directory: /web
+    directory: /frontend
     schedule: { interval: weekly }
     groups: { web: { patterns: ["*"] } }
   - package-ecosystem: github-actions

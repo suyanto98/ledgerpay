@@ -4,7 +4,7 @@
 # Target `mock-provider` (dev/test/demo saja) adalah image TERPISAH: binary mock tidak pernah ikut
 # di image ledgerpay yang dideploy.
 
-FROM golang:1.26.6-alpine AS build
+FROM golang:1.26.9-alpine AS build
 WORKDIR /src
 # Context = akar repo; hanya Go module (backend/) yang masuk ke stage build.
 COPY backend/ .

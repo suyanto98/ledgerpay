@@ -187,7 +187,7 @@
 - [x] Test baru: DB menolak saldo negatif, mode lock vs cek FK, request id → journal, BOLA transfer/top-up/payout, uang-selalu-string (runtime + OpenAPI), kill switch
 - [x] Cek invariant otomatis di akhir setiap test integrasi `backend/internal/app`
 - [x] Kill switch env (`LP_PAYOUT_SUBMIT_ENABLED`, `LP_WEBHOOK_DELIVERY_ENABLED`, `LP_TOPUP_ENABLED`)
-- [x] Keamanan: govulncheck (Go 1.26.6, `moby/go-archive` v0.3.0 → 0 kerentanan terpanggil), gitleaks seluruh history (k6 `setup_data` dibuang), job CI `security`, Dependabot, image Go di-pin
+- [x] Keamanan: govulncheck (Go 1.26.9, `moby/go-archive` v0.3.0 → 0 kerentanan terpanggil), gitleaks seluruh history (k6 `setup_data` dibuang), job CI `security`, Dependabot, image Go di-pin
 - [x] `make demo-verify` dengan asersi; `docs/demo-script.md`, `docs/dod-audit.md`, `make api-docs`, `make cover`, README final
 
 ## Catatan dari Sprint 10 (sisa setelah M4 kode)
