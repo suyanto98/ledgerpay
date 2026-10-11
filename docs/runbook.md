@@ -159,3 +159,7 @@ yang akan dipakai sebelum menyentuh database produksi.
   journal tidak dihapus (append-only). Batas: 3/menit + 30/jam per IP, `DEMO_SANDBOX_DAILY_MAX` (default
   2000) sandbox per 24 jam → 503. Pantau: `SELECT count(*) FROM demo_sandboxes WHERE created_at > now() - interval '1 day'`.
   Kalau disk VM menipis: turunkan `DEMO_SANDBOX_DAILY_MAX`, atau reset data demo (volume baru) di luar jam ramai.
+- Uji ketahanan pengunjung: `POST /api/v1/demo/stress/transfers` (3/menit per user) membuat "Dompet Uji" baru
+  (Rp100.000 dari `DEMO_FUNDING`, ikut kedaluwarsa bersama sandbox) dan menjalankan 100 transfer, paralel
+  maksimal 8 transaksi supaya pool koneksi API tetap tersedia untuk pengunjung lain. Log: `demo.stress_done`
+  (`consistent=false` = bug ledger, perlakukan seperti `LedgerInvariantViolated`).

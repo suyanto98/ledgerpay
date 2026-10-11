@@ -87,7 +87,7 @@ const initials = computed(() => name.value.split(/[\s@.]+/).filter(Boolean).slic
   </section>
 
   <section v-if="demo.sandbox" class="card stack" aria-labelledby="try-title">
-    <h2 id="try-title">Coba dalam 1 menit</h2>
+    <h2 id="try-title">Coba dalam 2 menit</h2>
     <ol class="try-list">
       <li>
         <RouterLink :to="{ path: '/transfer', query: firstContact ? { to: firstContact.email } : {} }">
@@ -100,8 +100,13 @@ const initials = computed(() => name.value.split(/[\s@.]+/).filter(Boolean).slic
         </RouterLink>
       </li>
       <li>
+        <RouterLink to="/lab" data-test="try-lab">
+          <span class="try-step">{{ demo.openBill ? 3 : 2 }}</span><span><strong>Uji ketahanan</strong><span class="tx-sub">Klik ganda dan 100 transfer di detik yang sama: lihat sendiri saldo tetap benar.</span></span><AppIcon name="chevron" :size="18" />
+        </RouterLink>
+      </li>
+      <li>
         <RouterLink to="/history">
-          <span class="try-step">{{ demo.openBill ? 3 : 2 }}</span><span><strong>Lihat riwayat lengkap</strong><span class="tx-sub">Setiap rupiah tercatat di buku besar, masuk dan keluar selalu seimbang.</span></span><AppIcon name="chevron" :size="18" />
+          <span class="try-step">{{ demo.openBill ? 4 : 3 }}</span><span><strong>Lihat riwayat lengkap</strong><span class="tx-sub">Setiap rupiah tercatat di buku besar, masuk dan keluar selalu seimbang.</span></span><AppIcon name="chevron" :size="18" />
         </RouterLink>
       </li>
     </ol>

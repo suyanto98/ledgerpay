@@ -31,3 +31,23 @@ test('one-click demo → labelled history → pay pending bill → transfer to a
   await page.getByRole('button', { name: /^Kirim Rp10\.000/ }).click()
   await expect(page.getByTestId('transfer-done')).toContainText('Siti Rahma')
 })
+
+// Uji ketahanan: klik ganda = satu potongan; 100 transfer bersamaan = tepat 10 berhasil, saldo akhir Rp0.
+test('lab: double send charges once, 100 parallel transfers → exactly 10 succeed', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByTestId('start-demo').click()
+  await expect(page.getByTestId('demo-banner')).toBeVisible()
+  await page.getByTestId('try-lab').click()
+  await expect(page).toHaveURL('/lab')
+
+  await page.getByTestId('lab-double').click()
+  const dbl = page.getByTestId('lab-double-result')
+  await expect(dbl).toContainText('Dua kali ditekan, satu kali terpotong.')
+  await expect(dbl).toContainText('Diulang dari hasil pertama')
+
+  await page.getByTestId('lab-stress').click()
+  const res = page.getByTestId('lab-stress-result')
+  await expect(res).toContainText('10 transfer', { timeout: 20_000 })
+  await expect(res).toContainText('90 transfer')
+  await expect(page.getByText('Tepat 10 lolos, saldo berakhir Rp0, tidak pernah minus.')).toBeVisible()
+})

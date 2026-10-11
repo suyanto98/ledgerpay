@@ -116,6 +116,12 @@ func registerSandboxRoutes(w demoWiring, d Deps) {
 	w.public.With(httpx.CSRFGuard(d.AllowedOrigins), w.limiter.Middleware(w.tiers.DemoSession, ratelimit.ByIP)).
 		Post("/demo/sessions", s.createSession)
 	w.read.Get("/demo/sandbox", s.getSandbox)
+	// Uji ketahanan (demo_stress.go): berat (100 transaksi), jadi tier demo-session per USER juga.
+	byUser := func(r *http.Request) string {
+		p, _ := auth.PrincipalFrom(r.Context())
+		return "stress|" + p.UserID.String()
+	}
+	w.read.With(w.limiter.Middleware(w.tiers.DemoSession, byUser)).Post("/demo/stress/transfers", s.stressTransfers)
 	// Penemuan fitur untuk SPA: tombol "Coba demo" hanya tampil kalau rute ini ada (build release → 404).
 	w.public.With(w.limiter.Middleware(w.tiers.AuthIP, ratelimit.ByIP)).Get("/demo", func(rw http.ResponseWriter, _ *http.Request) {
 		httpx.WriteJSON(rw, http.StatusOK, map[string]any{"sandbox": true, "ttl_seconds": int64(s.ttl / time.Second)})

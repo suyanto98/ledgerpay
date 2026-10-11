@@ -196,3 +196,39 @@ func TestDemoSandbox_RateLimitAndDailyQuota(t *testing.T) {
 		t.Fatalf("daily quota reached: want 503, got %d", s)
 	}
 }
+
+// Uji ketahanan (versi tombol Demo B): 100 transfer Rp10.000 bersamaan dari saldo Rp100.000 → tepat 10
+// berhasil, 90 INSUFFICIENT_BALANCE, saldo akhir 0. Invariant ledger dicek di akhir test (newEnv).
+func TestDemoSandbox_StressTransfersExactlyTenSucceed(t *testing.T) {
+	e := newEnv(t)
+	srv := demoServer(t, e, nil)
+	ee := e
+	ee.srv = srv
+	_, token, _ := startDemo(t, e, srv, "203.0.113.30")
+	r, b := ee.do(t, http.MethodPost, "/api/v1/demo/stress/transfers", token, nil)
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("stress: %d %v", r.StatusCode, b)
+	}
+	if b["succeeded"] != float64(10) || b["rejected"] != float64(90) || b["end_balance"] != "0" || b["consistent"] != true {
+		t.Fatalf("stress result: succeeded=%v rejected=%v end=%v consistent=%v", b["succeeded"], b["rejected"], b["end_balance"], b["consistent"])
+	}
+	results := b["results"].([]any)
+	if len(results) != 100 {
+		t.Fatalf("results: %d", len(results))
+	}
+	for _, it := range results {
+		m := it.(map[string]any)
+		if m["ok"] == false && m["code"] != "INSUFFICIENT_BALANCE" {
+			t.Fatalf("rejected for the wrong reason: %v", m)
+		}
+	}
+	// Siti menerima tepat Rp100.000 (10 × Rp10.000) di atas saldo awalnya; Budi tidak tersentuh.
+	if bal := balanceOf(t, ee, token); bal != "269200000" {
+		t.Fatalf("visitor balance changed: %s", bal)
+	}
+	// Bukan pengunjung sandbox → 404.
+	rina, _ := login(t, ee, "rina@example.com")
+	if r, _ := ee.do(t, http.MethodPost, "/api/v1/demo/stress/transfers", rina, nil); r.StatusCode != http.StatusNotFound {
+		t.Fatalf("non-sandbox user: want 404, got %d", r.StatusCode)
+	}
+}

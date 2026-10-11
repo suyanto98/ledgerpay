@@ -38,6 +38,9 @@ pribadi (Budi, saldo Rp2.692.000, tiga kontak, tagihan Kopi Senja) tanpa daftar.
 2. **Bayar tagihan Kopi Senja** dari kartu di Beranda: checkout seperti toko online, saldo langsung berkurang.
 3. **Kirim uang ke Siti** (kontak sudah terisi), tekan tombol kirim dua kali: saldo hanya terpotong sekali.
 4. "Setiap pengunjung punya dunianya sendiri; datanya terhapus sendiri dalam 24 jam" → banner **Mode demo**.
+5. **Uji ketahanan** (`/lab`, juga dari Beranda): "Kirim dua kali sekaligus" → dua respons 201, yang kedua
+   `Idempotent-Replayed`, saldo terpotong sekali; "100 transfer bersamaan" dari dompet uji Rp100.000 → grid 10×10,
+   tepat 10 hijau, saldo akhir Rp0 (versi tombol dari Demo B; `TestDemoSandbox_StressTransfersExactlyTenSucceed`).
 
 ## Kalau ada yang salah saat live
 | Gejala | Tindakan |

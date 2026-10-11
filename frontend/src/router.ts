@@ -12,6 +12,7 @@ import CheckoutView from './pages/CheckoutView.vue'
 import OpsView from './pages/OpsView.vue'
 import HistoryView from './pages/HistoryView.vue'
 import AccountView from './pages/AccountView.vue'
+import LabView from './pages/LabView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -38,6 +39,7 @@ export const router = createRouter({
     { path: '/payout', component: PayoutView, meta: { title: 'Tarik dana' } },
     { path: '/payouts/:id', component: PayoutStatusView, meta: { title: 'Status tarik dana' } },
     { path: '/checkout/:id', component: CheckoutView, meta: { title: 'Pembayaran' } }, // checkout_url dari merchant (login dulu, lalu kembali ke sini)
+    { path: '/lab', component: LabView, meta: { title: 'Uji ketahanan' } }, // mode demo (tombol di Beranda + sidebar)
     { path: '/ops', component: OpsView, meta: { ops: true, title: 'Ops console' } }, // server tetap memeriksa role OPS (403)
   ],
 })

@@ -84,6 +84,10 @@ async function restartDemo() {
             <AppIcon :name="m.icon" />{{ m.label }}
           </RouterLink>
         </nav>
+        <div v-if="demo.sandbox" class="nav-group">
+          <span class="nav-title">MODE DEMO</span>
+          <RouterLink to="/lab" class="nav-link" :class="{ active: route.path === '/lab' }"><AppIcon name="spark" />Uji ketahanan</RouterLink>
+        </div>
         <div v-if="auth.isOps" class="nav-group">
           <span class="nav-title">OPERASIONAL</span>
           <RouterLink to="/ops" class="nav-link" :class="{ active: route.path.startsWith('/ops') }"><AppIcon name="shield" />Ops console</RouterLink>
