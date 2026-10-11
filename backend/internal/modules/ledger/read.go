@@ -116,7 +116,7 @@ type JournalView struct {
 type EntryView struct {
 	Direction Direction
 	Amount    int64
-	Label     string // "Wallet Anda" | "Wallet pengguna lain" | "Sistem"
+	Label     string // "Wallet Anda" | "Wallet pengguna lain" | "Wallet merchant" | "Sistem"
 }
 
 // JournalFor mengembalikan journal HANYA jika journal itu punya entry di wallet ownerAccountID.
@@ -143,6 +143,8 @@ func (s *Service) JournalFor(ctx context.Context, q store.DBTX, ownerAccountID, 
 			}
 		case r.SystemCode != nil:
 			ev.Label = "Sistem"
+		case r.UserID == nil: // wallet milik merchant (bukan user, bukan sistem)
+			ev.Label = "Wallet merchant"
 		default:
 			ev.Label = "Wallet pengguna lain"
 		}

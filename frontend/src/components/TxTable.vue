@@ -47,11 +47,11 @@ const shortRef = (id: string) => id.slice(-8).toUpperCase()
           </tr>
         </template>
         <tr v-else-if="txs.length === 0"><td colspan="4" class="empty">{{ emptyText ?? 'Belum ada transaksi.' }}</td></tr>
-        <tr v-for="t in txs" :key="t.id">
+        <tr v-for="t in txs" :key="t.id" class="tx-row">
           <td>
             <div class="tx-cell">
               <span class="tx-icon" :class="{ in: t.direction === 'IN' }"><AppIcon :name="iconOf(t)" :size="18" /></span>
-              <span><span class="tx-title">{{ titleOf(t) }}</span><span class="tx-sub">{{ subOf(t) }}<span class="only-mobile"> · {{ dateFmt.format(new Date(t.created_at)) }}, {{ timeFmt.format(new Date(t.created_at)) }}</span></span></span>
+              <span><RouterLink :to="`/history/${t.id}`" class="tx-title tx-link" data-test="tx-link">{{ titleOf(t) }}</RouterLink><span class="tx-sub">{{ subOf(t) }}<span class="only-mobile"> · {{ dateFmt.format(new Date(t.created_at)) }}, {{ timeFmt.format(new Date(t.created_at)) }}</span></span></span>
             </div>
           </td>
           <td>

@@ -13,10 +13,14 @@ import OpsView from './pages/OpsView.vue'
 import HistoryView from './pages/HistoryView.vue'
 import AccountView from './pages/AccountView.vue'
 import LabView from './pages/LabView.vue'
+import TransactionView from './pages/TransactionView.vue'
+import WelcomeView from './pages/WelcomeView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
     guest?: boolean
+    /** Boleh dibuka login atau tidak, tanpa redirect (landing). */
+    public?: boolean
     ops?: boolean
     /** Judul di app bar mobile. */
     title?: string
@@ -28,11 +32,13 @@ declare module 'vue-router' {
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/welcome', component: WelcomeView, meta: { public: true } },
     { path: '/login', component: LoginView, meta: { guest: true } },
     { path: '/register', component: RegisterView, meta: { guest: true } },
     { path: '/', component: WalletView, meta: { tab: true, title: 'Beranda' } },
     { path: '/transfer', component: TransferView, meta: { title: 'Transfer' } },
     { path: '/history', component: HistoryView, meta: { tab: true, title: 'Riwayat' } },
+    { path: '/history/:id', component: TransactionView, meta: { title: 'Detail transaksi' } },
     { path: '/account', component: AccountView, meta: { tab: true, title: 'Akun' } },
     { path: '/topup', component: TopupView, meta: { title: 'Top-up saldo' } },
     { path: '/topups/:id', component: TopupStatusView, meta: { title: 'Status top-up' } }, // return_url dari halaman checkout provider
@@ -50,7 +56,9 @@ router.beforeEach(async (to) => {
     await auth.refresh() // sesi dipulihkan dari cookie; access token tidak pernah disimpan
     auth.ready = true
   }
-  if (!to.meta.guest && !auth.loggedIn) return { path: '/login', query: { next: to.fullPath } }
+  if (to.meta.public) return
+  // Pengunjung baru di "/" melihat landing; halaman lain tetap ke login dan kembali sesudahnya (?next=).
+  if (!to.meta.guest && !auth.loggedIn) return to.path === '/' ? '/welcome' : { path: '/login', query: { next: to.fullPath } }
   if (to.meta.guest && auth.loggedIn) return '/'
   if (to.meta.ops && !auth.isOps) return '/'
 })

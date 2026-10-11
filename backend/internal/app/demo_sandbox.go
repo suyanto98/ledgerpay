@@ -122,6 +122,7 @@ func registerSandboxRoutes(w demoWiring, d Deps) {
 		return "stress|" + p.UserID.String()
 	}
 	w.read.With(w.limiter.Middleware(w.tiers.DemoSession, byUser)).Post("/demo/stress/transfers", s.stressTransfers)
+	w.read.Get("/demo/wallet/integrity", s.walletIntegrity) // demo_integrity.go
 	// Penemuan fitur untuk SPA: tombol "Coba demo" hanya tampil kalau rute ini ada (build release → 404).
 	// Tier read (per IP), BUKAN auth-ip: halaman login memanggil ini setiap dibuka; memakai kuota login
 	// membuat pengguna di belakang satu NAT (dan suite E2E) kehabisan jatah login.

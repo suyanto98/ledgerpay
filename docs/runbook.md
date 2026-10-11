@@ -163,3 +163,5 @@ yang akan dipakai sebelum menyentuh database produksi.
   (Rp100.000 dari `DEMO_FUNDING`, ikut kedaluwarsa bersama sandbox) dan menjalankan 100 transfer, paralel
   maksimal 8 transaksi supaya pool koneksi API tetap tersedia untuk pengunjung lain. Log: `demo.stress_done`
   (`consistent=false` = bug ledger, perlakukan seperti `LedgerInvariantViolated`).
+- `GET /api/v1/demo/wallet/integrity` (pengunjung sandbox): LI-01 + LI-03 untuk wallet pemanggil dalam satu snapshot
+  REPEATABLE READ. `ok=false` di demo = perlakukan seperti `LedgerInvariantViolated`.

@@ -44,6 +44,9 @@ pribadi (Budi, saldo Rp2.692.000, tiga kontak, tagihan Kopi Senja) tanpa daftar.
 6. **QR kasir** (halaman checkout, desktop): pindai dengan HP yang login akun lain lalu bayar; layar desktop berubah
    sendiri menjadi "Dibayar dari perangkat lain" (polling 3 dtk; 404 setelah sebelumnya bisa dibayar = dibayar akun lain,
    aturan BOLA intent). Butuh URL publik (VM) atau `LP_ALLOWED_ORIGINS` + IP LAN; diuji `e2e/demo.spec.ts`.
+7. **Di balik layar:** klik transaksi mana pun di Riwayat → jurnal debit/kredit + "Seimbang: debit = kredit";
+   halaman Uji ketahanan → "Periksa buku besar" (saldo tersimpan = dihitung ulang dari semua entry, semua journal
+   seimbang; LI-01/LI-03 untuk wallet pengunjung saja). Pengunjung tanpa sesi yang membuka `/` melihat landing `/welcome`.
 
 ## Kalau ada yang salah saat live
 | Gejala | Tindakan |

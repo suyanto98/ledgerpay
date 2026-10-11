@@ -89,6 +89,23 @@ async function runStress() {
   }
 }
 
+// ---------------------------------------------------------------- 3. periksa buku besar
+type Integrity = { stored_balance: string; computed_balance: string; entries: number; journals: number; unbalanced_journals: number; ok: boolean }
+const integrity = ref<Integrity | null>(null)
+const igBusy = ref(false)
+const igError = ref('')
+async function checkLedger() {
+  igBusy.value = true
+  igError.value = ''
+  try {
+    integrity.value = await api<Integrity>('/demo/wallet/integrity')
+  } catch {
+    igError.value = 'Pemeriksaan gagal dijalankan. Coba lagi.'
+  } finally {
+    igBusy.value = false
+  }
+}
+
 onMounted(() => {
   if (!demo.sandbox) demo.load()
 })
@@ -161,6 +178,32 @@ onMounted(() => {
         {{ stress.consistent ? `Tepat ${stress.succeeded} lolos, saldo berakhir ${formatMinor(stress.end_balance)}, tidak pernah minus.` : 'Hasil tidak konsisten.' }}
       </p>
       <p v-if="stress && done" class="note"><AppIcon name="info" :size="18" :stroke="2" />Uang yang berhasil terkirim masuk ke {{ stress.recipient }}. Setiap transfer berebut "kunci" dompet yang sama; saldo dicek setelah kunci didapat, jadi dua transfer tidak bisa memakai saldo yang sama.</p>
+    </div>
+  </section>
+
+  <section class="card stack lab-card" aria-labelledby="ig-title">
+    <div class="lab-head">
+      <span class="lab-icon"><AppIcon name="shield" :size="20" :stroke="2" /></span>
+      <div>
+        <h2 id="ig-title">Periksa buku besar wallet kamu</h2>
+        <p class="muted">Saldo yang kamu lihat disimpan terpisah dari catatan transaksinya. Pemeriksaan ini menghitung ulang saldo dari semua catatan, lalu membandingkannya. Lakukan setelah uji di atas.</p>
+      </div>
+    </div>
+    <button type="button" class="btn ghost" data-test="lab-ledger" :disabled="igBusy" @click="checkLedger">
+      <AppIcon name="refresh" :size="18" :stroke="2" />{{ igBusy ? 'Memeriksa…' : 'Periksa sekarang' }}
+    </button>
+    <p v-if="igError" class="alert error" role="alert">{{ igError }}</p>
+    <div v-if="integrity" class="lab-result" data-test="lab-ledger-result">
+      <dl class="dl">
+        <div><dt>Saldo tersimpan</dt><dd>{{ formatMinor(integrity.stored_balance) }}</dd></div>
+        <div><dt>Dihitung ulang dari {{ integrity.entries }} catatan</dt><dd>{{ formatMinor(integrity.computed_balance) }}</dd></div>
+        <div><dt>Jurnal seimbang (debit = kredit)</dt><dd>{{ integrity.journals - integrity.unbalanced_journals }} dari {{ integrity.journals }}</dd></div>
+      </dl>
+      <p class="verdict" :class="{ bad: !integrity.ok }">
+        <AppIcon :name="integrity.ok ? 'check' : 'x'" :size="18" :stroke="2.4" />
+        {{ integrity.ok ? 'Cocok sampai rupiah terakhir.' : 'Tidak cocok: ini bug, laporkan.' }}
+      </p>
+      <p class="note"><AppIcon name="info" :size="18" :stroke="2" />Klik transaksi mana pun di <RouterLink to="/history">Riwayat</RouterLink> untuk melihat jurnal debit-kreditnya.</p>
     </div>
   </section>
 </template>

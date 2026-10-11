@@ -231,8 +231,16 @@ func TestDemoSandbox_StressTransfersExactlyTenSucceed(t *testing.T) {
 	if bal := balanceOf(t, ee, token); bal != "269200000" {
 		t.Fatalf("visitor balance changed: %s", bal)
 	}
+	// Periksa buku besar setelah 100 transfer: saldo tersimpan = Σ entry, semua journal seimbang.
+	_, ig := ee.do(t, http.MethodGet, "/api/v1/demo/wallet/integrity", token, nil)
+	if ig["ok"] != true || ig["stored_balance"] != ig["computed_balance"] || ig["unbalanced_journals"] != float64(0) || ig["journals"] != float64(7) {
+		t.Fatalf("wallet integrity: %v", ig)
+	}
 	// Bukan pengunjung sandbox → 404.
 	rina, _ := login(t, ee, "rina@example.com")
+	if r, _ := ee.do(t, http.MethodGet, "/api/v1/demo/wallet/integrity", rina, nil); r.StatusCode != http.StatusNotFound {
+		t.Fatalf("non-sandbox integrity: want 404, got %d", r.StatusCode)
+	}
 	if r, _ := ee.do(t, http.MethodPost, "/api/v1/demo/stress/transfers", rina, nil); r.StatusCode != http.StatusNotFound {
 		t.Fatalf("non-sandbox user: want 404, got %d", r.StatusCode)
 	}

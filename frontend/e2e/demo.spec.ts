@@ -8,9 +8,12 @@ function cli(...args: string[]): string {
 
 // "Coba demo tanpa daftar" (image demo, DEMO_MODE=true di compose dev): satu klik → Budi dengan saldo,
 // riwayat berlabel, kontak, dan tagihan menunggu. Alur pengunjung awam: bayar tagihan, kirim ke kontak.
-test('one-click demo → labelled history → pay pending bill → transfer to a contact', async ({ page }) => {
-  await page.goto('/login')
-  await page.getByTestId('start-demo').click()
+// Mulai dari landing publik ("/" tanpa sesi → /welcome). Jalur tombol demo di halaman login diuji test lab.
+// (Sesi demo dibatasi 3/menit per IP: tiap test di file ini membuat satu sesi, jangan tambah test baru yang membuat sesi.)
+test('landing → one-click demo → labelled history → journal → pay pending bill → transfer to a contact', async ({ page }) => {
+  await page.goto('/')
+  await expect(page).toHaveURL('/welcome')
+  await page.getByTestId('welcome-demo').click()
   await expect(page).toHaveURL('/')
   await expect(page.getByTestId('demo-banner')).toBeVisible()
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Budi')
@@ -21,6 +24,18 @@ test('one-click demo → labelled history → pay pending bill → transfer to a
   // Riwayat menyebut orang dan merchant, bukan hanya "Transfer".
   await expect(page.getByText('Dari Siti Rahma')).toBeVisible()
   await expect(page.getByText('Transfer · Patungan makan siang')).toBeVisible()
+
+  // Di balik layar: jurnal debit-kredit transaksi itu, seimbang.
+  await page.getByTestId('tx-link').filter({ hasText: 'Dari Siti Rahma' }).click()
+  await expect(page).toHaveURL(/\/history\/[0-9a-f-]+$/)
+  await expect(page.getByTestId('tx-amount')).toHaveText('+ Rp150.000')
+  await expect(page.getByTestId('journal')).toContainText('Wallet Anda')
+  await expect(page.getByTestId('journal')).toContainText('Wallet pengguna lain')
+  await expect(page.getByTestId('journal-verdict')).toHaveText('Seimbang: debit = kredit.')
+  // Kolom Kredit benar-benar terlihat (versi pertama ter-clip di area scroll; toContainText tetap lolos).
+  const fits = await page.getByTestId('journal').locator('.table-scroll').evaluate((el) => el.scrollWidth <= el.clientWidth)
+  expect(fits).toBe(true)
+  await page.goto('/')
 
   // Tagihan Kopi Senja → checkout → bayar dari saldo.
   const bill = page.getByTestId('demo-bill')
@@ -59,6 +74,10 @@ test('lab: double send charges once, 100 parallel transfers → exactly 10 succe
   await expect(res).toContainText('10 transfer', { timeout: 20_000 })
   await expect(res).toContainText('90 transfer')
   await expect(page.getByText('Tepat 10 lolos, saldo berakhir Rp0, tidak pernah minus.')).toBeVisible()
+
+  // Periksa buku besar wallet sendiri setelah uji: saldo tersimpan = dihitung ulang dari semua catatan.
+  await page.getByTestId('lab-ledger').click()
+  await expect(page.getByTestId('lab-ledger-result')).toContainText('Cocok sampai rupiah terakhir.')
 })
 
 // QR kasir: tagihan dibuka di desktop, dibayar akun lain (HP); halaman desktop berubah sendiri.
@@ -84,3 +103,4 @@ test('checkout QR: paid from another device → page updates by itself', async (
   expect(paid.status()).toBe(200)
   await expect(page.getByTestId('paid-elsewhere')).toBeVisible({ timeout: 10_000 })
 })
+

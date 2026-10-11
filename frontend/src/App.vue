@@ -12,7 +12,7 @@ const router = useRouter()
 
 // Halaman tamu (masuk/daftar) punya layout sendiri; halaman lain memakai sidebar (desktop)
 // atau app bar + bottom tab bar (mobile, ≤768px; diatur CSS).
-const guest = computed(() => route.meta.guest === true || !auth.loggedIn)
+const guest = computed(() => route.meta.guest === true || route.meta.public === true || !auth.loggedIn)
 
 const menu = [
   { to: '/', label: 'Beranda', icon: 'home', match: (p: string) => p === '/' },

@@ -525,6 +525,15 @@ func TestWallet_HistoryShowsCounterpartyAndNote(t *testing.T) {
 	if d["counterparty"] != "Andi Wijaya" {
 		t.Fatalf("detail label: %v", d)
 	}
+	// Jurnal pembayaran: wallet merchant diberi label merchant, bukan "pengguna lain".
+	_, pd := e.do(t, http.MethodGet, "/api/v1/wallet/transactions/"+byType["PAYMENT"]["id"].(string), rina, nil)
+	labels := map[string]bool{}
+	for _, en := range pd["journal"].(map[string]any)["entries"].([]any) {
+		labels[en.(map[string]any)["account_label"].(string)] = true
+	}
+	if !labels["Wallet Anda"] || !labels["Wallet merchant"] {
+		t.Fatalf("payment journal labels: %v", labels)
+	}
 	// Dari sisi pengirim: pihak lawan = penerima.
 	_, ha := e.do(t, http.MethodGet, "/api/v1/wallet/transactions?type=TRANSFER", andi, nil)
 	if got := ha["data"].([]any)[0].(map[string]any)["counterparty"]; got != "Rina" {
