@@ -71,7 +71,8 @@ services:
     deploy: { resources: { limits: { memory: 128m } } }
 
   edge:
-    build: { context: ../.., dockerfile: deploy/prod/edge.Dockerfile }
+    # Tautan landing (repo, kontak, video) dari $LP_ENV_DIR/build.env, dibaca remote-deploy.sh.
+    build: { context: ../.., dockerfile: deploy/prod/edge.Dockerfile, args: { VITE_REPO_URL: "${VITE_REPO_URL:-}", VITE_CONTACT_URL: "${VITE_CONTACT_URL:-}", VITE_VIDEO_URL: "${VITE_VIDEO_URL:-}" } }
     image: ${LP_IMAGE_PREFIX:-}ledgerpay-edge:${LP_VERSION:?}
     env_file: ${LP_ENV_DIR:?}/edge.env
     ports:

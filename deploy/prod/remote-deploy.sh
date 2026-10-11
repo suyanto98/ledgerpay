@@ -13,6 +13,8 @@ SHA=${1:?sha}
 SKIP_MIGRATE=${2:-}
 ROOT=${LP_ROOT:-/srv/ledgerpay}
 export LP_ENV_DIR=$ROOT/env LP_VERSION=$SHA LP_IMAGE_PREFIX=${LP_IMAGE_PREFIX:-}
+# Build arg SPA (VITE_REPO_URL, VITE_CONTACT_URL, VITE_VIDEO_URL): opsional, bukan secret.
+if [ -f "$LP_ENV_DIR/build.env" ]; then set -a; . "$LP_ENV_DIR/build.env"; set +a; fi
 # Satu deploy pada satu waktu di VM ini, LINTAS project (lock bersama dengan deploy PayRun): CD yang antre,
 # operator manual, dan deploy project lain tidak saling tabrak (build paralel di VM 8 GB = OOM).
 LOCK=${LP_DEPLOY_LOCK:-/srv/deploy.lock}

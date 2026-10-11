@@ -3,7 +3,7 @@
 > A mini payment platform where money stays correct even when requests are duplicated, concurrent, or interrupted by failures.
 
 **Status:** M4 — feature-complete for its scope (Sprints 0–10): money flows incl. refunds, background processing, observability, ops console (API + minimal UI), daily reconciliation, encrypted backups with a restore drill, a CD pipeline, a demo mode and a laptop performance baseline. Still owed by the author: the public deployment, the demo video and the performance numbers on the target VM ([DoD audit](docs/dod-audit.md), [backlog](docs/backlog.md)).
-**Live demo:** `[LINK: https://<domain> after the first deploy]` · **Demo video (~5 min):** `[LINK: video]`
+**Live demo:** https://ledgerpay.suyantolabs.my.id · **Demo video (~5 min):** `[LINK: video]`
 
 Production-oriented, small in scope, strict about correctness. Built for learning and as a portfolio project.
 
