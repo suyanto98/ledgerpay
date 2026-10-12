@@ -2,8 +2,11 @@
 
 > A mini payment platform where money stays correct even when requests are duplicated, concurrent, or interrupted by failures.
 
-**Status:** M4 — feature-complete for its scope (Sprints 0–10): money flows incl. refunds, background processing, observability, ops console (API + minimal UI), daily reconciliation, encrypted backups with a restore drill, a CD pipeline, a demo mode and a laptop performance baseline. Deployed on one 2 vCPU / 4 GB VM together with PayRun. Still owed by the author: the demo video and performance numbers on that VM ([DoD audit](docs/dod-audit.md), [backlog](docs/backlog.md)).
+**Status:** M4 — feature-complete for its scope (Sprints 0–10): money flows incl. refunds, background processing, observability, ops console (API + minimal UI), daily reconciliation, encrypted backups with a restore drill, a CD pipeline, a demo mode and a laptop performance baseline. Deployed on one 2 vCPU / 4 GB VM together with PayRun. Still owed: performance numbers on that VM ([DoD audit](docs/dod-audit.md), [backlog](docs/backlog.md)).
+
 **Live demo:** https://ledgerpay.suyantolabs.my.id (one click on *Coba demo* creates a private sandbox; no sign-up)
+
+**Demo video:** https://suyantolabs.my.id/video/ledgerpay.mp4 (80 s, Indonesian narration)
 
 Production-oriented, small in scope, strict about correctness. Built for learning and as a portfolio project.
 

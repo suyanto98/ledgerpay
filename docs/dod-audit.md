@@ -76,10 +76,10 @@ ditandai sebagian dengan alasan. Yang tersisa terutama membutuhkan environment p
 | DC5 | Demo script | ✅ | `docs/demo-script.md` |
 | DC6 | Limitations jujur | ✅ | README |
 | DM1 | `demo-verify` 7 malam | ⏳ | `make demo-verify` (dengan asersi) hijau lokal; nightly belum berjalan |
-| DM2 | Video | ⏳ | Pemilik project |
-| DM3 | URL publik | ⏳ | Deploy ditunda sampai aplikasi siap (keputusan 2026-10-04) |
+| DM2 | Video | ✅ | https://suyantolabs.my.id/video/ledgerpay.mp4 (80 detik, dengan narasi) |
+| DM3 | URL publik | ✅ | https://ledgerpay.suyantolabs.my.id |
 | DM4 | Token demo aman | ✅ | `DEMO_TOKEN` dibuat `init-env.sh`, tidak di README/SPA, wajib ≥ 24 karakter |
-| H1 | Lisensi | ⚠️ | `LICENSE` MIT ada; nama pemegang hak masih placeholder (menunggu pemilik) |
+| H1 | Lisensi | ✅ | `LICENSE` MIT |
 | H2 | Tanpa TODO/FIXME di jalur kritis | ✅ | `grep` di ledger, idempotency, payout, payment, recon: kosong |
 | H3 | Dependency di-pin + Dependabot | ✅ | `go.sum`, action di-pin SHA, image dengan versi tetap (`golang:1.26.9-alpine`, dll.), `.github/dependabot.yml` |
 | H4 | Tanpa kode dari pekerjaan kantor | ✅ | Review diri |

@@ -58,7 +58,7 @@ const steps = ['Masuk sebagai Budi, saldo dan riwayat contoh sudah siap', 'Kirim
           <RouterLink v-else to="/register" class="btn">Daftar</RouterLink>
           <RouterLink to="/login" class="btn ghost">Masuk</RouterLink>
         </div>
-        <a v-if="videoUrl" :href="videoUrl" class="w-video" target="_blank" rel="noopener"><AppIcon name="play" :size="16" :stroke="2" />Tidak sempat mencoba? Tonton video 90 detik</a>
+        <a v-if="videoUrl" :href="videoUrl" class="w-video" target="_blank" rel="noopener"><AppIcon name="play" :size="16" :stroke="2" />Tidak sempat mencoba? Tonton video 80 detik</a>
         <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       </div>
       <ol class="w-steps" aria-label="Yang bisa dicoba dalam 2 menit">

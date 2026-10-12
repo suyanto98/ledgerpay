@@ -126,8 +126,8 @@
 - [x] README draft (bahasa Inggris) dengan placeholder `[LINK]`, `[SCREENSHOT]`, `[MEASURE]`
 
 ## Catatan dari Sprint 7 (dibawa ke sprint berikutnya)
-- [ ] **Deploy sungguhan ke VM + domain**: **ditunda sampai aplikasi siap dipakai** (keputusan 2026-10-04). Skrip tetap dijaga berfungsi lewat `deploy.sh local` setiap sprint. Nanti dijalankan user: `cloud-init.yaml` / `bootstrap.sh`, `init-env.sh`, `deploy.sh <host> <sha>`; isi link live di README
-- [ ] **Video demo ~5 menit** (direkam user) + screenshot Grafana/Jaeger untuk README
+- [x] **Deploy sungguhan ke VM + domain**: https://ledgerpay.suyantolabs.my.id (2026-10-11)
+- [x] **Video demo** (80 detik, https://suyantolabs.my.id/video/ledgerpay.mp4); belum: screenshot Grafana/Jaeger untuk README
 - [ ] Sisa katalog metrik: histogram durasi transaksi DB per nama, `app_http_request_size`, metrik scheduler per job terjadwal
 - [ ] Loki/agregasi log belum ada (log JSON hanya di `docker logs`)
 - [ ] Alertmanager belum dipasang: rule alert dievaluasi Prometheus tetapi tidak ada notifikasi (email/Telegram)
@@ -191,7 +191,7 @@
 - [x] `make demo-verify` dengan asersi; `docs/demo-script.md`, `docs/dod-audit.md`, `make api-docs`, `make cover`, README final
 
 ## Catatan dari Sprint 10 (sisa setelah M4 kode)
-- [ ] **Deploy publik + video + URL** (pemilik project, saat aplikasi dianggap siap); lalu DoD C3 (INV = 0 selama 7 hari), DM1 (7 malam `demo-verify`), D3 (drill di env sungguhan), T3/S2/S3/OP3 di GitHub Actions
+- [x] **Deploy publik + video + URL** (2026-10-12). Sisa: DoD C3 (INV = 0 selama 7 hari), DM1 (7 malam `demo-verify`), D3 (drill di env sungguhan), T3/S2/S3/OP3 di GitHub Actions
 - [ ] **Sebelum push pertama**: email git pribadi, nama di LICENSE, path module Go. Kalau riwayat ditulis ulang (ganti email), perbarui hash commit di `.gitleaks.toml` (atau buang `setup_data` dari riwayat sekalian)
 - [ ] Angka performa di VM target dengan k6 terpisah; ulangi E-1
 - [ ] `make seed` untuk satu dataset demo bersama (DoD D4 sebagian)
